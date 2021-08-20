@@ -199,7 +199,13 @@ CD ..</Command>
     <ClCompile Include="..\source\engine\media\utils\PtrBuffer.cpp" />
     <ClCompile Include="..\source\engine\media\utils\RingBuffer.cpp" />
     <ClCompile Include="..\source\engine\network\AndroidWifiP2P.cpp" />
+    <ClCompile Include="..\source\engine\network\ConnectionManager.cpp" />
     <ClCompile Include="..\source\engine\network\HTTP.cpp" />
+    <ClCompile Include="..\source\engine\network\NetgameManager.cpp" />
+    <ClCompile Include="..\source\engine\network\Socket.cpp" />
+    <ClCompile Include="..\source\engine\network\SocketManager.cpp" />
+    <ClCompile Include="..\source\engine\network\TCPSocket.cpp" />
+    <ClCompile Include="..\source\engine\network\UDPSocket.cpp" />
     <ClCompile Include="..\source\engine\network\WebSocketClient.cpp" />
     <ClCompile Include="..\source\engine\rendering\d3d\D3DRenderer.cpp" />
     <ClCompile Include="..\source\engine\rendering\gl\GLRenderer.cpp" />

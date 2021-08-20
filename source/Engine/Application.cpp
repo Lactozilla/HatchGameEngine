@@ -37,6 +37,7 @@ public:
 #include <Engine/Diagnostics/Memory.h>
 #include <Engine/Diagnostics/MemoryPools.h>
 #include <Engine/Filesystem/Directory.h>
+#include <Engine/Network/NetgameManager.h>
 #include <Engine/ResourceTypes/ResourceManager.h>
 #include <Engine/TextFormats/XML/XMLParser.h>
 #include <Engine/Utilities/StringUtils.h>
@@ -171,6 +172,7 @@ PUBLIC STATIC void Application::Init(int argc, char* args[]) {
         ResourceManager::Init(NULL);
     AudioManager::Init();
     InputManager::Init();
+    NetgameManager::StartUDPServer();
     Clock::Init();
 
     Application::LoadGameConfig();
@@ -653,6 +655,10 @@ PUBLIC STATIC void Application::RunFrame(void* p) {
     MetricAfterSceneTime = Clock::GetTicks();
     Scene::AfterScene();
     MetricAfterSceneTime = Clock::GetTicks() - MetricAfterSceneTime;
+
+    // Network update
+    if (NetgameManager::Started)
+        NetgameManager::Update();
 
     if (DoNothing) goto DO_NOTHING;
 
