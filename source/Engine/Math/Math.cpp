@@ -77,4 +77,5 @@ PUBLIC STATIC float Math::RandomMax(float max) {
 PUBLIC STATIC float Math::RandomRange(float min, float max) {
     return (Math::Random() * (max - min)) + min;
 }
-//
+
+// TODO: Needs some PRNG...

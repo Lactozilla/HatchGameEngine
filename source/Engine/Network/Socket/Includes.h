@@ -1,6 +1,41 @@
 #ifndef SOCKETINCLUDES_H
 #define SOCKETINCLUDES_H
 
+struct SocketAddress {
+    int protocol;
+    Uint16 port;
+    union {
+        Uint32 ipv4;
+        union {
+            Uint8 addr8[16];
+            Uint16 addr16[8];
+            Uint32 addr32[4];
+        } ipv6;
+    } host;
+};
+
+#define MAX_SOCKETS 1024
+#define SOCKET_DEFAULT_PORT 4845
+#define SOCKET_BUFFER_LENGTH 1452
+
+#define SOCKET_CHECK_PROTOCOL(ret) \
+    if (!Socket::IsProtocolValid(protocol)) { \
+        NETWORK_DEBUG_ERROR("Unknown protocol %d", protocol); \
+        return ret; \
+    }
+
+#define SOCKET_DEBUG
+
+#ifdef SOCKET_DEBUG
+    #define SOCKET_DEBUG_INFO NETWORK_DEBUG_INFO
+    #define SOCKET_DEBUG_VERBOSE NETWORK_DEBUG_VERBOSE
+    #define SOCKET_DEBUG_ERROR NETWORK_DEBUG_ERROR
+#else
+    #define SOCKET_DEBUG_INFO
+    #define SOCKET_DEBUG_VERBOSE
+    #define SOCKET_DEBUG_ERROR
+#endif
+
 #ifdef _WIN32
     #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
         #define _CRT_SECURE_NO_WARNINGS // _CRT_SECURE_NO_WARNINGS for sscanf errors in MSVC2013 Express
@@ -42,6 +77,7 @@
     #define SOCKET_EAGAIN_EINPROGRESS WSAEINPROGRESS
     #define SOCKET_ECONNREFUSED WSAECONNREFUSED
     #define SOCKET_EWOULDBLOCK WSAEWOULDBLOCK
+    #define SOCKET_SHUT_RDWR SD_BOTH
     #define USING_WINSOCK
 #else
     #include <fcntl.h>
@@ -68,43 +104,11 @@
     #define SOCKET_EAGAIN_EINPROGRESS EAGAIN
     #define SOCKET_ECONNREFUSED ECONNREFUSED
     #define SOCKET_EWOULDBLOCK EWOULDBLOCK
+    #define SOCKET_SHUT_RDWR SHUT_RDWR
 #endif
 
 #define SOCKET_CLOSED INT_MIN
 
 #include <vector>
-
-enum {
-    SOCKET_TCP,
-    SOCKET_UDP
-};
-
-enum {
-    IPPROTOCOL_ANY,
-    IPPROTOCOL_IPV4,
-    IPPROTOCOL_IPV6
-};
-
-struct SocketAddress {
-    int protocol;
-    Uint16 port;
-    union {
-        Uint32 ipv4;
-        union {
-            Uint8 addr8[16];
-            Uint16 addr16[8];
-            Uint32 addr32[4];
-        } ipv6;
-    } host;
-};
-
-#define SOCKET_DEFAULT_PORT 4845
-#define SOCKET_BUFFER_LENGTH 1450
-
-#define SOCKET_CHECK_PROTOCOL(ret) \
-    if (!Socket::IsProtocolValid(protocol)) { \
-        NETWORK_DEBUG_ERROR("Unknown protocol %d", protocol); \
-        return ret; \
-    }
 
 #endif /* SOCKETINCLUDES_H */

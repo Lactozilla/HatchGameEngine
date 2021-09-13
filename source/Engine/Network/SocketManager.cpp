@@ -1,42 +1,56 @@
 #if INTERFACE
 #include <Engine/Includes/Standard.h>
-#include <Engine/Network/Socket.h>
-#include <Engine/Network/SocketIncludes.h>
+#include <Engine/Network/Socket/Socket.h>
+#include <Engine/Network/Socket/Includes.h>
 
 class SocketManager {
 public:
-    vector<Socket*> sockets;
+    Socket* sockets[MAX_SOCKETS];
+    int numSockets;
 };
 #endif
 
-#include <Engine/Network/Socket.h>
+#include <Engine/Network/Socket/Socket.h>
+#include <Engine/Network/Socket/TCPSocket.h>
+#include <Engine/Network/Socket/UDPSocket.h>
 #include <Engine/Network/SocketManager.h>
-#include <Engine/Network/TCPSocket.h>
-#include <Engine/Network/UDPSocket.h>
 #include <Engine/Network/Network.h>
 
 PUBLIC STATIC SocketManager* SocketManager::New() {
-    return new SocketManager;
+    SocketManager* sockMan = new SocketManager;
+
+    sockMan->numSockets = 0;
+
+    for (int i = 0; i < MAX_SOCKETS; i++)
+        sockMan->sockets[i] = NULL;
+
+    return sockMan;
 }
 
-PUBLIC int SocketManager::NumSockets() {
-    return sockets.size();
-}
+#define CHECK_SOCKET_LIMIT \
+    if (numSockets == MAX_SOCKETS) \
+        return -1;
 
 PRIVATE int SocketManager::InsertSocket(Socket* sock) {
-    for (int i = 0; i < NumSockets(); i++) {
+    CHECK_SOCKET_LIMIT
+
+    int i = 0;
+
+    for (; i < MAX_SOCKETS; i++) {
         if (sockets[i] == NULL) {
-            sockets[i] = sock;
-            return i;
+            break;
         }
     }
 
-    sockets.push_back(sock);
-    return sockets.size() - 1;
+    numSockets++;
+    sockets[i] = sock;
+    return i;
 }
 
 PUBLIC int SocketManager::OpenTCPClient(const char* address, Uint16 port) {
-    TCPSocket* socket = TCPSocket::OpenClient(address, port, IPPROTOCOL_ANY);
+    CHECK_SOCKET_LIMIT
+
+    TCPSocket* socket = TCPSocket::OpenClient(address, port, NETADDR_ANY);
     if (socket) {
         return InsertSocket(socket);
     }
@@ -45,7 +59,9 @@ PUBLIC int SocketManager::OpenTCPClient(const char* address, Uint16 port) {
 }
 
 PUBLIC int SocketManager::OpenTCPServer(Uint16 port) {
-    TCPSocket* socket = TCPSocket::OpenServer(port, IPPROTOCOL_ANY);
+    CHECK_SOCKET_LIMIT
+
+    TCPSocket* socket = TCPSocket::OpenServer(port, NETADDR_ANY);
     if (socket) {
         return InsertSocket(socket);
     }
@@ -54,7 +70,9 @@ PUBLIC int SocketManager::OpenTCPServer(Uint16 port) {
 }
 
 PUBLIC int SocketManager::OpenUDPClient(const char* address, Uint16 port) {
-    UDPSocket* socket = UDPSocket::OpenClient(address, port, IPPROTOCOL_ANY);
+    CHECK_SOCKET_LIMIT
+
+    UDPSocket* socket = UDPSocket::OpenClient(address, port, NETADDR_ANY);
     if (socket) {
         return InsertSocket(socket);
     }
@@ -63,7 +81,9 @@ PUBLIC int SocketManager::OpenUDPClient(const char* address, Uint16 port) {
 }
 
 PUBLIC int SocketManager::OpenUDPServer(Uint16 port) {
-    UDPSocket* socket = UDPSocket::OpenServer(port, IPPROTOCOL_ANY);
+    CHECK_SOCKET_LIMIT
+
+    UDPSocket* socket = UDPSocket::OpenServer(port, NETADDR_ANY);
     if (socket) {
         return InsertSocket(socket);
     }
@@ -71,34 +91,73 @@ PUBLIC int SocketManager::OpenUDPServer(Uint16 port) {
     return -1;
 }
 
-PUBLIC void SocketManager::OpenUDPSockets(Uint16 port, int* start, int* end) {
+#undef CHECK_SOCKET_LIMIT
+
+PUBLIC int SocketManager::AttemptToOpenTCPClient(const char* address, Uint16 port) {
+    TCPSocket* socket = NULL;
+
+    if (numSockets == MAX_SOCKETS)
+        return -1;
+
+    NETWORK_DEBUG_VERBOSE("Opening IPv4 socket");
+    socket = TCPSocket::OpenClient(address, port, NETADDR_IPV4);
+
+    if (socket) {
+        return InsertSocket(socket);
+    }
+    else {
+        NETWORK_DEBUG_VERBOSE("Could not open IPv4 socket");
+    }
+
+    NETWORK_DEBUG_VERBOSE("Opening IPv6 socket");
+    socket = TCPSocket::OpenClient(address, port, NETADDR_IPV6);
+
+    if (socket) {
+        return InsertSocket(socket);
+    }
+    else {
+        NETWORK_DEBUG_VERBOSE("Could not open IPv6 socket");
+    }
+
+    return -1;
+}
+
+PUBLIC void SocketManager::OpenMultipleUDPSockets(Uint16 port, int* start, int* end) {
     UDPSocket* socket = NULL;
 
     (*start) = -1;
     (*end) = -1;
 
-    NETWORK_DEBUG_INFO("Opening IPv4 socket");
-    socket = UDPSocket::Open(port, IPPROTOCOL_IPV4);
+    if (numSockets == MAX_SOCKETS)
+        return;
+
+    NETWORK_DEBUG_VERBOSE("Opening IPv4 socket");
+    socket = UDPSocket::Open(port, NETADDR_IPV4);
 
     if (socket) {
         (*start) = InsertSocket(socket);
         (*end) = (*start) + 1;
-    } else {
-        NETWORK_DEBUG_INFO("Could not open IPv4 socket");
+    }
+    else {
+        NETWORK_DEBUG_VERBOSE("Could not open IPv4 socket");
     }
 
-    NETWORK_DEBUG_INFO("Opening IPv6 socket");
-    socket = UDPSocket::Open(port, IPPROTOCOL_IPV6);
+    if (numSockets == MAX_SOCKETS)
+        return;
+
+    NETWORK_DEBUG_VERBOSE("Opening IPv6 socket");
+    socket = UDPSocket::Open(port, NETADDR_IPV6);
 
     if (socket) {
         (*end) = InsertSocket(socket) + 1;
-    } else {
-        NETWORK_DEBUG_INFO("Could not open IPv6 socket");
+    }
+    else {
+        NETWORK_DEBUG_VERBOSE("Could not open IPv6 socket");
     }
 }
 
 #define CHECK_SOCKET(ret) \
-    if (sock < 0 || sock >= NumSockets()) \
+    if (sock < 0 || sock >= numSockets) \
         return ret
 
 #define GET_SOCKET(ret) \
@@ -107,7 +166,7 @@ PUBLIC void SocketManager::OpenUDPSockets(Uint16 port, int* start, int* end) {
         return ret
 
 #define CLIENT_ONLY(ret) \
-    if (socket->protocol == SOCKET_TCP && socket->server) \
+    if (socket->protocol == PROTOCOL_TCP && socket->server) \
         return ret
 
 PUBLIC Socket* SocketManager::GetSocket(int sock) {
@@ -115,12 +174,26 @@ PUBLIC Socket* SocketManager::GetSocket(int sock) {
     return sockets[sock];
 }
 
+#define REMOVE_SOCKET \
+    sockets[sock] = NULL; \
+    if (numSockets) \
+        numSockets--;
+
+PUBLIC void SocketManager::RemoveSocket(int sock) {
+    GET_SOCKET();
+
+    socket->Dispose();
+    REMOVE_SOCKET
+}
+
 PUBLIC void SocketManager::CloseSocket(int sock) {
     GET_SOCKET();
 
     socket->Close();
-    sockets[sock] = NULL;
+    REMOVE_SOCKET
 }
+
+#undef REMOVE_SOCKET
 
 PUBLIC int SocketManager::GetProtocol(int sock) {
     GET_SOCKET(-1);
@@ -129,7 +202,7 @@ PUBLIC int SocketManager::GetProtocol(int sock) {
 
 PUBLIC int SocketManager::GetIPProtocol(int sock) {
     GET_SOCKET(-1);
-    return socket->protocol;
+    return socket->ipProtocol;
 }
 
 PUBLIC SocketAddress* SocketManager::GetAddress(int sock) {
@@ -145,12 +218,12 @@ PUBLIC int SocketManager::GetError(int sock) {
 PUBLIC int SocketManager::Accept(int sock) {
     GET_SOCKET(-1);
 
-    if (socket->protocol != SOCKET_TCP)
+    if (socket->protocol != PROTOCOL_TCP)
         return -1;
 
     Socket* newSock = socket->Accept();
     if (newSock) {
-        return InsertSocket(socket);
+        return InsertSocket(newSock);
     }
 
     return -1;
@@ -159,10 +232,35 @@ PUBLIC int SocketManager::Accept(int sock) {
 PUBLIC bool SocketManager::Connect(int sock, const char* address, Uint16 port) {
     GET_SOCKET(false);
 
-    if (socket->protocol != SOCKET_UDP)
+    if (socket->protocol != PROTOCOL_UDP)
         return false;
 
     return socket->Connect(address, port);
+}
+
+PUBLIC bool SocketManager::Reconnect(int sock) {
+    GET_SOCKET(false);
+    return socket->Reconnect();
+}
+
+PUBLIC bool SocketManager::SetConnectionMessage(int sock, Uint8* message, size_t messageLength) {
+    GET_SOCKET(false);
+
+    if (socket->protocol != PROTOCOL_UDP)
+        return false;
+
+    socket->SetConnectionMessage(message, messageLength);
+    return true;
+}
+
+PUBLIC int SocketManager::GetConnectionStatus(int sock) {
+    GET_SOCKET(-1);
+    return socket->connecting;
+}
+
+PUBLIC bool SocketManager::SetConnected(int sock) {
+    GET_SOCKET(false);
+    return socket->SetConnected();
 }
 
 #define SOCKET_CHECK_OR_RETURN_NULL \
@@ -182,57 +280,61 @@ PUBLIC bool SocketManager::Connect(int sock, const char* address, Uint16 port) {
     CLIENT_ONLY(-1);
 
 #define SOCKET_SEND(d, l) \
-    if (socket->protocol == SOCKET_UDP) \
+    if (socket->protocol == PROTOCOL_UDP) \
         return -1; \
     return socket->Send(d, l)
 
 #define SOCKET_SEND_ADDR(d, l) \
-    if (socket->protocol == SOCKET_UDP) { \
+    if (socket->protocol == PROTOCOL_UDP) { \
         sockaddr_storage addrStorage;  \
         if (!socket->AddressToSockAddr(sockAddress, sockAddress->protocol, &addrStorage)) \
             return -1; \
         return socket->Send(d, l, &addrStorage); \
-    } else if (socket->protocol == SOCKET_TCP) \
+    } \
+    else if (socket->protocol == PROTOCOL_TCP) \
         return socket->Send(d, l); \
     else \
         return -1;
 
 #define SOCKET_RECEIVE(d, l) \
-    if (socket->protocol == SOCKET_UDP) { \
+    if (socket->protocol == PROTOCOL_UDP) { \
         sockaddr_storage addrStorage; \
         return socket->Receive(d, l, &addrStorage); \
     } \
     return socket->Receive(d, l);
 
 #define SOCKET_RECEIVE_ADDR(d, l) \
-    if (socket->protocol == SOCKET_UDP) { \
+    if (socket->protocol == PROTOCOL_UDP) { \
         sockaddr_storage addrStorage; \
         int received = socket->Receive(d, l, &addrStorage); \
-        if (received > -1) { \
-            socket->SockAddrToAddress(sockAddress, addrStorage.ss_family, &addrStorage); \
+        if (received >= 0) { \
+            Socket::SockAddrToAddress(sockAddress, addrStorage.ss_family, &addrStorage); \
         } \
         return received; \
     } \
     return socket->Receive(d, l);
 
 #define SOCKET_RECEIVE_RETURN(d, l, success, fail) \
-    if (socket->protocol == SOCKET_UDP) { \
+    if (socket->protocol == PROTOCOL_UDP) { \
         sockaddr_storage addrStorage; \
         if (socket->Receive(d, l, &addrStorage) < 0) \
             return fail; \
-    } else if (socket->Receive(d, l) < 0) \
+    } \
+    else if (socket->Receive(d, l) < 0) \
         return fail; \
     return success;
 
 #define SOCKET_RECEIVE_ADDR_RETURN(d, l, success, fail) \
-    if (socket->protocol == SOCKET_UDP) { \
+    if (socket->protocol == PROTOCOL_UDP) { \
         sockaddr_storage addrStorage; \
         int received = socket->Receive(d, l, &addrStorage); \
-        if (received > -1) { \
-            socket->SockAddrToAddress(sockAddress, addrStorage.ss_family, &addrStorage); \
-        } else \
+        if (received >= 0) { \
+            Socket::SockAddrToAddress(sockAddress, addrStorage.ss_family, &addrStorage); \
+        } \
+        else \
             return fail; \
-    } else if (socket->Receive(d, l) < 0) \
+    } \
+    else if (socket->Receive(d, l) < 0) \
         return fail; \
     return success; \
 
@@ -326,7 +428,10 @@ PUBLIC char* SocketManager::ReceiveString(int sock, int maxLength, SocketAddress
 #undef SOCKET_RECEIVE_ADDR_RETURN
 
 PUBLIC void SocketManager::Dispose() {
-    for (int i = 0; i < NumSockets(); i++)
-        sockets[i]->Close();
+    for (int i = 0; i < numSockets; i++) {
+        if (sockets[i])
+            sockets[i]->Close();
+    }
+
     delete this;
 }

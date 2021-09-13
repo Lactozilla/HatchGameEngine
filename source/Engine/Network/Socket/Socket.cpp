@@ -1,6 +1,6 @@
 #if INTERFACE
 #include <Engine/Includes/Standard.h>
-#include <Engine/Network/SocketIncludes.h>
+#include <Engine/Network/Socket/Includes.h>
 
 class Socket {
 public:
@@ -8,6 +8,7 @@ public:
     int ipProtocol, family;
 
     SocketAddress address;
+    int connecting;
     bool server;
 
     socket_t sock;
@@ -15,15 +16,15 @@ public:
 };
 #endif
 
-#include <Engine/Network/Socket.h>
-#include <Engine/Network/SocketIncludes.h>
+#include <Engine/Network/Socket/Socket.h>
+#include <Engine/Network/Socket/Includes.h>
 #include <Engine/Network/Network.h>
 
 PUBLIC STATIC bool Socket::IsProtocolValid(int protocol) {
     switch (protocol) {
-        case IPPROTOCOL_ANY:
-        case IPPROTOCOL_IPV4:
-        case IPPROTOCOL_IPV6:
+        case NETADDR_ANY:
+        case NETADDR_IPV4:
+        case NETADDR_IPV6:
             return true;
     }
 
@@ -32,9 +33,9 @@ PUBLIC STATIC bool Socket::IsProtocolValid(int protocol) {
 
 PUBLIC STATIC int Socket::GetFamilyFromProtocol(int protocol) {
     switch (protocol) {
-        case IPPROTOCOL_IPV4:
+        case NETADDR_IPV4:
             return AF_INET;
-        case IPPROTOCOL_IPV6:
+        case NETADDR_IPV6:
             return AF_INET6;
         default:
             return -1;
@@ -43,9 +44,9 @@ PUBLIC STATIC int Socket::GetFamilyFromProtocol(int protocol) {
 
 PUBLIC STATIC int Socket::GetDomainFromProtocol(int protocol) {
     switch (protocol) {
-        case IPPROTOCOL_IPV4:
+        case NETADDR_IPV4:
             return PF_INET;
-        case IPPROTOCOL_IPV6:
+        case NETADDR_IPV6:
             return PF_INET6;
         default:
             return -1;
@@ -55,9 +56,9 @@ PUBLIC STATIC int Socket::GetDomainFromProtocol(int protocol) {
 PUBLIC STATIC int Socket::GetProtocolFromFamily(int family) {
     switch (family) {
         case AF_INET:
-            return IPPROTOCOL_IPV4;
+            return NETADDR_IPV4;
         case AF_INET6:
-            return IPPROTOCOL_IPV6;
+            return NETADDR_IPV6;
         default:
             return -1;
     }
@@ -65,9 +66,9 @@ PUBLIC STATIC int Socket::GetProtocolFromFamily(int family) {
 
 PUBLIC STATIC char* Socket::GetProtocolName(int protocol) {
     switch (protocol) {
-        case IPPROTOCOL_IPV4:
+        case NETADDR_IPV4:
             return "IPv4";
-        case IPPROTOCOL_IPV6:
+        case NETADDR_IPV6:
             return "IPv6";
         default:
             return "?";
@@ -76,7 +77,7 @@ PUBLIC STATIC char* Socket::GetProtocolName(int protocol) {
 
 PUBLIC STATIC char* Socket::GetAnyAddress(int protocol) {
     switch (protocol) {
-        case IPPROTOCOL_IPV6:
+        case NETADDR_IPV6:
             return "::";
         default:
             return "0.0.0.0";
@@ -85,14 +86,14 @@ PUBLIC STATIC char* Socket::GetAnyAddress(int protocol) {
 
 PUBLIC bool Socket::AddressToSockAddr(SocketAddress* sockAddress, int protocol, sockaddr_storage* sa) {
     switch (protocol) {
-        case IPPROTOCOL_IPV4: {
+        case NETADDR_IPV4: {
             sockaddr_in* sockaddr = (sockaddr_in*)sa;
             sockaddr->sin_addr.s_addr = (Uint32)(htonl(sockAddress->host.ipv4));
             sockaddr->sin_port = (Uint16)(htons(sockAddress->port));
             sockaddr->sin_family = AF_INET;
             return true;
         }
-        case IPPROTOCOL_IPV6: {
+        case NETADDR_IPV6: {
             sockaddr_in6* sockaddr = (sockaddr_in6*)sa;
             memcpy(sockaddr->sin6_addr.s6_addr, sockAddress->host.ipv6.addr8, sizeof(sockAddress->host.ipv6.addr8));
             sockaddr->sin6_port = (Uint16)(htons(sockAddress->port));
@@ -104,20 +105,20 @@ PUBLIC bool Socket::AddressToSockAddr(SocketAddress* sockAddress, int protocol, 
     }
 }
 
-PUBLIC int Socket::SockAddrToAddress(SocketAddress* sockAddress, int family, sockaddr_storage* sa) {
+PUBLIC STATIC int Socket::SockAddrToAddress(SocketAddress* sockAddress, int family, sockaddr_storage* sa) {
     switch (family) {
         case AF_INET: {
             sockaddr_in* sockaddr = (sockaddr_in*)sa;
             sockAddress->host.ipv4 = (Uint32)ntohl(sockaddr->sin_addr.s_addr);
             sockAddress->port = (Uint16)ntohs(sockaddr->sin_port);
-            sockAddress->protocol = IPPROTOCOL_IPV4;
+            sockAddress->protocol = NETADDR_IPV4;
             break;
         }
         case AF_INET6: {
             sockaddr_in6* sockaddr = (sockaddr_in6*)sa;
             memcpy(sockAddress->host.ipv6.addr8, sockaddr->sin6_addr.s6_addr, sizeof(sockaddr->sin6_addr.s6_addr));
             sockAddress->port = (Uint16)ntohs(sockaddr->sin6_port);
-            sockAddress->protocol = IPPROTOCOL_IPV6;
+            sockAddress->protocol = NETADDR_IPV6;
             break;
         }
         default:
@@ -135,14 +136,14 @@ PUBLIC void Socket::MakeSockAddr(int family, sockaddr_storage* sa) {
 PUBLIC bool Socket::MakeHints(addrinfo* hints, int type, int protocol) {
     memset(hints, 0x00, sizeof(addrinfo));
 
-    hints->ai_flags = AI_PASSIVE;
+    hints->ai_flags = 0;
 
     switch (type) {
-        case SOCKET_TCP:
+        case PROTOCOL_TCP:
             hints->ai_protocol = IPPROTO_TCP;
             hints->ai_socktype = SOCK_STREAM;
             break;
-        case SOCKET_UDP:
+        case PROTOCOL_UDP:
             hints->ai_protocol = IPPROTO_UDP;
             hints->ai_socktype = SOCK_DGRAM;
             break;
@@ -176,7 +177,7 @@ PRIVATE STATIC sockaddr_storage* Socket::AllocSockAddr(sockaddr_storage* sa) {
     sockaddr_storage* addrStorage = (sockaddr_storage*)malloc(len);
 
     if (addrStorage == NULL) {
-        NETWORK_DEBUG_ERROR("Couldn't allocate a sockaddr_storage for Socket::ResolveAddrInfo");
+        SOCKET_DEBUG_ERROR("Could not allocate a sockaddr_storage for Socket::ResolveAddrInfo");
         return NULL;
     }
 
@@ -188,7 +189,7 @@ PUBLIC sockaddr_storage* Socket::ResolveAddrInfo(const char* hostIn, Uint16 port
     sockaddr_storage* addrStorage = nullptr;
     addrinfo* addrInfo = NULL;
 
-    NETWORK_DEBUG_INFO("Resolving %s, port %d", hostIn, portIn);
+    SOCKET_DEBUG_VERBOSE("Resolving %s, port %d", hostIn, portIn);
 
     if (!getaddrinfo(hostIn, Socket::PortToString(portIn), hints, &addrInfo) && addrInfo) {
         addrinfo* curAddrInfo = addrInfo;
@@ -209,8 +210,9 @@ PUBLIC sockaddr_storage* Socket::ResolveAddrInfo(const char* hostIn, Uint16 port
         }
 
         freeaddrinfo(addrInfo);
-    } else {
-        NETWORK_DEBUG_ERROR("getaddrinfo failed");
+    }
+    else {
+        SOCKET_DEBUG_ERROR("getaddrinfo failed");
     }
 
     return addrStorage;
@@ -240,9 +242,13 @@ PUBLIC STATIC bool Socket::CompareAddresses(SocketAddress* addrA, SocketAddress*
     if (addrA->protocol != addrB->protocol)
         return false;
 
-    if (addrA->protocol == IPPROTOCOL_IPV4) {
+    if (addrA->port != addrB->port)
+        return false;
+
+    if (addrA->protocol == NETADDR_IPV4) {
         return (addrA->host.ipv4 == addrB->host.ipv4);
-    } else if (addrA->protocol == IPPROTOCOL_IPV6) {
+    }
+    else if (addrA->protocol == NETADDR_IPV6) {
         if (!memcmp(&addrA->host.ipv6.addr8, &addrB->host.ipv6.addr8, sizeof(addrA->host.ipv6.addr8)))
             return true;
     }
@@ -255,7 +261,8 @@ PUBLIC STATIC bool Socket::CompareSockAddr(sockaddr_storage* addrA, sockaddr_sto
         sockaddr_in* addrA_in = (sockaddr_in*)(addrA);
         sockaddr_in* addrB_in = (sockaddr_in*)(addrB);
         return (addrA_in->sin_addr.s_addr == addrB_in->sin_addr.s_addr);
-    } else if (addrA->ss_family == AF_INET6) {
+    }
+    else if (addrA->ss_family == AF_INET6) {
         sockaddr_in6* addrA_in6 = (sockaddr_in6*)(addrA);
         sockaddr_in6* addrB_in6 = (sockaddr_in6*)(addrB);
         if (!memcmp(&addrA_in6->sin6_addr, &addrB_in6->sin6_addr, sizeof(addrA_in6->sin6_addr)))
@@ -267,7 +274,7 @@ PUBLIC STATIC bool Socket::CompareSockAddr(sockaddr_storage* addrA, sockaddr_sto
 
 #define IP_ADDR_LENGTH 21
 #define FULL_ADDR_LENGTH IP_ADDR_LENGTH+6
-#define UNKNOWN_ADDRESS ""
+#define UNKNOWN_ADDRESS "????????????"
 
 PRIVATE STATIC char* Socket::FormatAddress(int family, void* addr, int port) {
     static char ipAddress[IP_ADDR_LENGTH];
@@ -304,11 +311,11 @@ PUBLIC STATIC char* Socket::AddressToString(int protocol, SocketAddress* sockAdd
     in6_addr addrIPv6;
 
     switch (protocol) {
-        case IPPROTOCOL_IPV4:
+        case NETADDR_IPV4:
             addrIPv4.s_addr = htonl(sockAddr->host.ipv4);
             addr = (void*)(&addrIPv4);
             break;
-        case IPPROTOCOL_IPV6:
+        case NETADDR_IPV6:
             memcpy(&addrIPv6.s6_addr, sockAddr->host.ipv6.addr8, sizeof(sockAddr->host.ipv6.addr8));
             addr = (void*)(&addrIPv6);
             break;
@@ -341,12 +348,14 @@ PUBLIC STATIC char* Socket::SockAddrToString(int family, sockaddr_storage* addrS
 
 #undef UNKNOWN_ADDRESS
 
-PUBLIC void Socket::SetNoDelay() {
-    if (protocol != SOCKET_TCP)
-        return;
+PUBLIC bool Socket::SetNoDelay() {
+    if (protocol != PROTOCOL_TCP)
+        return false;
 
     const int noDelay = 1;
-    setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const char*)(&noDelay), sizeof(noDelay));
+    if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const char*)(&noDelay), sizeof(noDelay)))
+        return false;
+    return true;
 }
 
 static bool SetBlockingState(socket_t sock, bool block) {
@@ -373,11 +382,36 @@ PUBLIC bool Socket::SetNonBlocking() {
     return SetBlockingState(sock, false);
 }
 
-PUBLIC void Socket::Close() {
-    if (sock != INVALID_SOCKET) {
-        closesocket(sock);
+PUBLIC bool Socket::SetIPv6Only() {
+    if (family != AF_INET6)
+        return false;
+
+    const int enable = 1;
+    if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)(&enable), sizeof(enable))) {
+        error = socketerrno;
+        return false;
     }
-    delete this;
+
+    return true;
+}
+
+PUBLIC STATIC char* Socket::GetErrorString(int err) {
+#ifdef USING_WINSOCK
+    static char errString[256];
+
+    errString[0] = '\0';
+
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL, (DWORD)err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        errString, sizeof(errString), NULL);
+
+    if (!errString[0])
+        snprintf(errString, sizeof(errString), "error #%d", err);
+
+    return errString;
+#else
+    return strerror(err);
+#endif
 }
 
 // New
@@ -409,11 +443,27 @@ PUBLIC STATIC Socket* Socket::OpenClient(const char* address, Uint16 port, int p
     return nullptr;
 }
 
-// Connect
+// Connect and reconnect
 PUBLIC VIRTUAL bool Socket::Connect(const char* address, Uint16 port) {
     (void)address;
     (void)port;
     return false;
+}
+
+PUBLIC VIRTUAL bool Socket::Reconnect() {
+    return false;
+}
+
+// Set socket connection message
+PUBLIC VIRTUAL void Socket::SetConnectionMessage(Uint8* message, size_t messageLength) {
+    (void)message;
+    (void)messageLength;
+}
+
+// Signal socket as connected
+PUBLIC VIRTUAL bool Socket::SetConnected() {
+    connecting = CONNSTATUS_CONNECTED;
+    return true;
 }
 
 // Bind
@@ -461,4 +511,17 @@ PUBLIC VIRTUAL int Socket::Receive(Uint8* data, size_t length, sockaddr_storage*
     (void)length;
     (void)addrStorage;
     return -1;
+}
+
+// Close socket
+PUBLIC VIRTUAL void Socket::Close() {
+    if (sock != INVALID_SOCKET) {
+        closesocket(sock);
+    }
+    Dispose();
+}
+
+// Dispose socket
+PUBLIC VIRTUAL void Socket::Dispose() {
+    delete this;
 }

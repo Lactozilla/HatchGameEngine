@@ -29,6 +29,8 @@ public:
 #include <Engine/IO/ResourceStream.h>
 #include <Engine/Math/Ease.h>
 #include <Engine/Math/Math.h>
+#include <Engine/Network/Netgame/Netgame.h>
+#include <Engine/Network/Netgame/NetgameServer.h>
 #include <Engine/Network/HTTP.h>
 #include <Engine/Network/WebSocketClient.h>
 #include <Engine/Rendering/Software/SoftwareRenderer.h>
@@ -4044,6 +4046,340 @@ VMValue Music_IsPlaying(int argCount, VMValue* args, Uint32 threadID) {
 }
 // #endregion
 
+// #region Netgame
+/***
+ * Netgame.Started
+ * \desc Checks if a netgame started.
+ * \return Returns a Boolean value.
+ * \ns Netgame
+ */
+VMValue Netgame_Started(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return INTEGER_VAL((int)Netgame::Started);
+}
+
+#define CHECK_NETGAME_CONNECTION \
+    if (Netgame::IsAttemptingConnection()) { \
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Already attempting to connect into a server."); \
+        return NULL_VAL; \
+    } \
+    else if (Netgame::IsConnected()) { \
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Netgame already started."); \
+        return NULL_VAL; \
+    }
+
+/***
+ * Netgame.StartServer
+ * \desc Starts a netgame server at the specified port.
+ * \optParam port (Integer): The port to start the server at.
+ * \return Returns <code>true</code> if the server started successfully, <code>false</code> if otherwise.
+ * \ns Netgame
+ */
+VMValue Netgame_StartServer(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_NETGAME_CONNECTION
+
+    CHECK_AT_LEAST_ARGCOUNT(0);
+    bool ret;
+
+    if (argCount == 1) {
+        ret = Netgame::StartServer(GET_ARG(0, GetInteger));
+    }
+    else {
+        ret = Netgame::StartServer();
+    }
+
+    return INTEGER_VAL((int)ret);
+}
+
+/***
+ * Netgame.Connect
+ * \desc Connects into a server.
+ * \param address (String): The address of the server to connect to.
+ * \optParam port (Integer): The port of server to connect to.
+ * \return Returns <code>true</code> if a connection can be made, <code>false</code> if otherwise.
+ * \ns Netgame
+ */
+VMValue Netgame_Connect(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_NETGAME_CONNECTION
+
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    char* address = GET_ARG(0, GetString);
+    bool ret;
+
+    if (argCount == 2) {
+        ret = Netgame::Connect(address, GET_ARG(1, GetInteger));
+    }
+    else {
+        ret = Netgame::Connect(address);
+    }
+
+    return INTEGER_VAL((int)ret);
+}
+
+#undef CHECK_NETGAME_CONNECTION
+
+/***
+ * Netgame.IsConnected
+ * \desc Checks if the game is connected into a server.
+ * \return Returns a Boolean value.
+ * \ns Netgame
+ */
+VMValue Netgame_IsConnected(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    if (!Netgame::Started) {
+        return INTEGER_VAL(0);
+    }
+    return INTEGER_VAL((int)Netgame::IsConnected());
+}
+
+/***
+ * Netgame.IsAttemptingConnection
+ * \desc Checks if the game is attempting to connect into a server.
+ * \return Returns a Boolean value.
+ * \ns Netgame
+ */
+VMValue Netgame_IsAttemptingConnection(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    if (!Netgame::Started) {
+        return INTEGER_VAL(0);
+    }
+    return INTEGER_VAL((int)Netgame::IsAttemptingConnection());
+}
+
+/***
+ * Netgame.DidConnectionFail
+ * \desc Checks if the last connection attempt failed.
+ * \return Returns a Boolean value.
+ * \ns Netgame
+ */
+VMValue Netgame_DidConnectionFail(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    if (!Netgame::Started) {
+        return INTEGER_VAL(0);
+    }
+    return INTEGER_VAL((int)Netgame::DidConnectionFail());
+}
+
+/***
+ * Netgame.IsServerRunning
+ * \desc Checks if a server is running.
+ * \return Returns a Boolean value.
+ * \ns Netgame
+ */
+VMValue Netgame_IsServerRunning(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    if (!Netgame::Started) {
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Netgame has not yet started.");
+        return NULL_VAL;
+    }
+    return INTEGER_VAL((int)Netgame::Server);
+}
+
+#define CHECK_NETGAME_RUNNING \
+    if (!Netgame::Started) { \
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Netgame has not yet started."); \
+        return NULL_VAL; \
+    }
+
+#define CHECK_SERVER_RUNNING \
+    if (!Netgame::Server) { \
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "There is no Server running."); \
+        return NULL_VAL; \
+    }
+
+#define CHECK_NETGAME_PLAYER_ID \
+    if (playerID < 0 || playerID >= MAX_NETGAME_PLAYERS) { \
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Player ID out of range 0 through %d", MAX_NETGAME_PLAYERS - 1); \
+        return NULL_VAL; \
+    }
+
+/***
+ * Netgame.IsPlayerInGame
+ * \desc Checks if the specified player ID is in-game.
+ * \param id (Integer): The player ID.
+ * \return Returns a Boolean value.
+ * \ns Netgame
+ */
+VMValue Netgame_IsPlayerInGame(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    CHECK_NETGAME_RUNNING
+
+    int playerID = GET_ARG(0, GetInteger);
+    CHECK_NETGAME_PLAYER_ID
+
+    return INTEGER_VAL((int)Netgame::IsPlayerInGame(playerID));
+}
+
+/***
+ * Netgame.GetOwnPlayerID
+ * \desc Returns the player ID corresponding to the game's client.
+ * \return Returns an Integer value.
+ * \ns Netgame
+ */
+VMValue Netgame_GetOwnPlayerID(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    if (!Netgame::Started) {
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Netgame has not yet started.");
+        return NULL_VAL;
+    }
+    return INTEGER_VAL(Netgame::PlayerID);
+}
+
+/***
+ * Netgame.GetPlayerCount
+ * \desc Returns the current player count.
+ * \return Returns an Integer value.
+ * \ns Netgame
+ */
+VMValue Netgame_GetPlayerCount(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    CHECK_NETGAME_RUNNING
+    return INTEGER_VAL(Netgame::PlayerCount);
+}
+
+/***
+ * Netgame.GetPlayerName
+ * \desc Returns the specified player ID's name.
+ * \param id (Integer): The player ID.
+ * \return Returns a String value.
+ * \ns Netgame
+ */
+VMValue Netgame_GetPlayerName(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    CHECK_NETGAME_RUNNING
+
+    int playerID = GET_ARG(0, GetInteger);
+    CHECK_NETGAME_PLAYER_ID
+
+    if (!Netgame::IsPlayerInGame(playerID)) {
+        return NULL_VAL;
+    }
+
+    char* name = Netgame::GetPlayerName(playerID);
+    if (BytecodeObjectManager::Lock()) {
+        ObjString* string = CopyString(name, strlen(name));
+        BytecodeObjectManager::Unlock();
+        return OBJECT_VAL(string);
+    }
+    return NULL_VAL;
+}
+
+/***
+ * Netgame.SetName
+ * \desc Changes the player name to use when connecting into a server, and when starting a server. Can also be used for renaming. Use with an empty string to generate a default name.
+ * \param name (String): The player name.
+ * \return
+ * \ns Netgame
+ */
+VMValue Netgame_SetName(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+
+    char* name = GET_ARG(0, GetString);
+    if (strlen(name) >= MAX_CLIENT_NAME) {
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Player name is too long (max %d)", MAX_CLIENT_NAME - 1);
+        return NULL_VAL;
+    }
+
+    Netgame::ChangeName(name);
+
+    return NULL_VAL;
+}
+
+/***
+ * Netgame.GetName
+ * \desc Gets your name.
+ * \return Returns a String value.
+ * \ns Netgame
+ */
+VMValue Netgame_GetName(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return OBJECT_VAL(CopyString(Netgame::ClientName, strlen(Netgame::ClientName)));
+}
+
+/***
+ * Netgame.SetMaxPlayers
+ * \desc Changes the maximum amount of the players allowed in a server.
+ * \param maxPlayers (Integer): The player maximum count.
+ * \return
+ * \ns Netgame
+ */
+VMValue Netgame_SetMaxPlayers(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+
+    CHECK_NETGAME_RUNNING
+    CHECK_SERVER_RUNNING
+
+    int playerCount = GET_ARG(0, GetInteger);
+    if (playerCount < 1 || playerCount > MAX_NETGAME_PLAYERS) {
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Max Player count out of range 1 through %d", MAX_NETGAME_PLAYERS);
+        return NULL_VAL;
+    }
+
+    NetgameServer::MaxPlayerCount = playerCount;
+
+    return NULL_VAL;
+}
+
+/***
+ * Netgame.GetMaxPlayers
+ * \desc Returns the maximum allowed player count.
+ * \return Returns an Integer value.
+ * \ns Netgame
+ */
+VMValue Netgame_GetMaxPlayers(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    CHECK_NETGAME_RUNNING
+    CHECK_SERVER_RUNNING
+    return INTEGER_VAL(NetgameServer::MaxPlayerCount);
+}
+
+/***
+ * Netgame.SetJoinsAllowed
+ * \desc Enables or disables player joins.
+ * \param enableJoins (Boolean): Whether or not to allow joins as a server.
+ * \return
+ * \ns Netgame
+ */
+VMValue Netgame_SetJoinsAllowed(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int enableJoins = GET_ARG(0, GetInteger);
+    NetgameServer::JoinsAllowed = !!enableJoins;
+    return NULL_VAL;
+}
+
+/***
+ * Netgame.AreJoinsAllowed
+ * \desc Checks if the server is allowing players.
+ * \return Returns <code>true</code> if the server is allowing new players to join, or <code>false</code> if not.
+ * \ns Netgame
+ */
+VMValue Netgame_AreJoinsAllowed(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    CHECK_NETGAME_RUNNING
+    CHECK_SERVER_RUNNING
+    return INTEGER_VAL((int)NetgameServer::JoinsAllowed);
+}
+
+#undef CHECK_NETGAME_RUNNING
+#undef CHECK_SERVER_RUNNING
+#undef CHECK_NETGAME_PLAYER_ID
+
+/***
+ * Netgame.Stop
+ * \desc Stops a netgame.
+ * \return
+ * \ns Netgame
+ */
+VMValue Netgame_Stop(int argCount, VMValue* args, Uint32 threadID) {
+    if (!Netgame::Started) {
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Netgame already stopped");
+        return NULL_VAL;
+    }
+    Netgame::Stop();
+    return NULL_VAL;
+}
+// #endregion
+
 // #region Number
 /***
  * Number.ToString
@@ -7731,17 +8067,12 @@ PUBLIC STATIC void StandardLibrary::Link() {
     String_CaseMapBind(L'ü', L'Ü');
     String_CaseMapBind(L'á', L'Ç');
     String_CaseMapBind(L'é', L'É');
-    String_CaseMapBind(L'ç', L'Ç');
-    String_CaseMapBind(L'ç', L'Ç');
-    String_CaseMapBind(L'ç', L'Ç');
-    String_CaseMapBind(L'ç', L'Ç');
-    String_CaseMapBind(L'ç', L'Ç');
 
     #define INIT_CLASS(className) \
         klass = NewClass(Murmur::EncryptString(#className)); \
         klass->Name = CopyString(#className, strlen(#className)); \
         val = OBJECT_VAL(klass); \
-        BytecodeObjectManager::Globals->Put(klass->Hash, OBJECT_VAL(klass));
+        BytecodeObjectManager::Globals->Put(klass->Hash, val);
     #define DEF_NATIVE(className, funcName) \
         BytecodeObjectManager::DefineNative(klass, #funcName, className##_##funcName);
 
@@ -8027,6 +8358,28 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Music, IsPlaying);
     // #endregion
 
+    // #region Netgame
+    INIT_CLASS(Netgame);
+    DEF_NATIVE(Netgame, Started);
+    DEF_NATIVE(Netgame, StartServer);
+    DEF_NATIVE(Netgame, Connect);
+    DEF_NATIVE(Netgame, IsConnected);
+    DEF_NATIVE(Netgame, IsAttemptingConnection);
+    DEF_NATIVE(Netgame, DidConnectionFail);
+    DEF_NATIVE(Netgame, IsServerRunning);
+    DEF_NATIVE(Netgame, IsPlayerInGame);
+    DEF_NATIVE(Netgame, GetOwnPlayerID);
+    DEF_NATIVE(Netgame, GetPlayerCount);
+    DEF_NATIVE(Netgame, GetPlayerName);
+    DEF_NATIVE(Netgame, SetName);
+    DEF_NATIVE(Netgame, GetName);
+    DEF_NATIVE(Netgame, SetMaxPlayers);
+    DEF_NATIVE(Netgame, GetMaxPlayers);
+    DEF_NATIVE(Netgame, SetJoinsAllowed);
+    DEF_NATIVE(Netgame, AreJoinsAllowed);
+    DEF_NATIVE(Netgame, Stop);
+    // #endregion
+
     // #region Number
     INIT_CLASS(Number);
     DEF_NATIVE(Number, ToString);
@@ -8298,6 +8651,11 @@ PUBLIC STATIC void StandardLibrary::Link() {
 
     BytecodeObjectManager::GlobalLinkInteger(NULL, "Scene_Frame", &Scene::Frame);
     BytecodeObjectManager::GlobalConstDecimal(NULL, "Scene_MaxViews", MAX_SCENE_VIEWS);
+
+    BytecodeObjectManager::GlobalConstDecimal(NULL, "Netgame_MaxPlayers", MAX_NETGAME_PLAYERS);
+    BytecodeObjectManager::GlobalConstDecimal(NULL, "Netgame_MaxCommands", MAX_CLIENT_COMMANDS);
+    BytecodeObjectManager::GlobalConstDecimal(NULL, "Netgame_MaxEventSize", MAX_NETWORK_EVENT_LENGTH);
+    BytecodeObjectManager::GlobalConstDecimal(NULL, "Netgame_MaxPlayerName", MAX_CLIENT_NAME - 1);
 
     BytecodeObjectManager::GlobalConstDecimal(NULL, "Math_PI", M_PI);
     BytecodeObjectManager::GlobalConstDecimal(NULL, "Math_PI_DOUBLE", M_PI * 2.0);

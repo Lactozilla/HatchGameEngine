@@ -11,21 +11,44 @@
 class SocketManager;
 
 #include <Engine/Includes/Standard.h>
-#include <Engine/Network/SocketIncludes.h>
+#include <Engine/Network/Connection.h>
+#include <Engine/Network/Network.h>
+#include <Engine/Network/Message.h>
 #include <Engine/Network/SocketManager.h>
-#include <Engine/Network/NetworkClient.h>
+#include <Engine/Network/Socket/Includes.h>
 
 class ConnectionManager {
+private:
+    void InitLoopback();
+    void InitConnection(NetworkConnection* conn);
+    int CreateConnection();
+    void RemoveConnection(int connectionNum);
+    bool CompareLoopback(SocketAddress* sockAddress);
+    bool DropMessage();
+    bool ReceiveOwnMessages();
+    int ReceiveUDP();
+    bool Accept();
+    int ReceiveTCP();
+    bool ReceiveFromTCPConnection();
+    void SendToSelf();
+
 public:
     SocketManager* sockManager;
-    vector<NetworkClient*> clients;
+    NetworkConnection* connections[MAX_NETWORK_CONNECTIONS];
+    int numConnections;
+    vector<SocketAddress> loopbackAddresses;
+    NetworkConnection* ownConnection;
+    vector<MessageStorage> selfService;
     vector<int> sockets;
-    bool init, started;
+    Uint16 sockPort;
+    bool init, started, connected;
     bool server, tcpMode;
-    int networkClient;
-    bool newClient;
-    Uint8 buffer[SOCKET_BUFFER_LENGTH];
-    int dataLength;
+    int connectionID;
+    int serverID;
+    bool newConnection;
+    MessageStorage inBuffer;
+    MessageStorage outBuffer;
+    float packetDropPercentage;
 
     static ConnectionManager* New();
     bool SetUDP();
@@ -37,17 +60,23 @@ public:
     bool StartUDPServer(Uint16 port);
     bool StartTCPServer(Uint16 port);
     bool StartServer(Uint16 port);
+    int GetSocketStatus(int* activeSockets, bool reconnect);
+    void RemoveSocketsExcept(int connSocket);
     bool Connect(const char* address, Uint16 port);
-    int NumClients();
-    int CreateClient();
-    void RemoveClient(int clientNum);
-    int ReceiveUDP();
-    int ReceiveTCP();
-    int Receive();
-    bool Send(int clientNum);
+    bool Reconnect();
+    bool SetConnectionMessage(Uint8* message, size_t messageLength);
+    void CloseConnection(int connectionNum);
+    void SetPacketDropPercentage(float percentage);
+    bool Send(int connectionNum);
+    bool Send(int connectionNum, size_t length);
     bool Send();
-    char* GetAddress(int clientNum);
+    void WriteOutgoingData(Uint8* data, size_t length);
+    Uint8* ReadOutgoingData(size_t* length);
+    Uint8* ReadIncomingData(size_t* length);
+    int Receive();
+    char* GetAddress(int connectionNum);
     char* GetAddress();
+    void Update();
     void Dispose();
 };
 

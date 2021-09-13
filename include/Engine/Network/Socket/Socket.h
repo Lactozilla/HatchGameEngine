@@ -1,5 +1,5 @@
-#ifndef ENGINE_NETWORK_SOCKET_H
-#define ENGINE_NETWORK_SOCKET_H
+#ifndef ENGINE_NETWORK_SOCKET_SOCKET_H
+#define ENGINE_NETWORK_SOCKET_SOCKET_H
 
 #define PUBLIC
 #define PRIVATE
@@ -10,7 +10,7 @@
 
 
 #include <Engine/Includes/Standard.h>
-#include <Engine/Network/SocketIncludes.h>
+#include <Engine/Network/Socket/Includes.h>
 
 class Socket {
 private:
@@ -21,6 +21,7 @@ public:
     int protocol;
     int ipProtocol, family;
     SocketAddress address;
+    int connecting;
     bool server;
     socket_t sock;
     int error;
@@ -32,7 +33,7 @@ public:
     static char* GetProtocolName(int protocol);
     static char* GetAnyAddress(int protocol);
     bool AddressToSockAddr(SocketAddress* sockAddress, int protocol, sockaddr_storage* sa);
-    int SockAddrToAddress(SocketAddress* sockAddress, int family, sockaddr_storage* sa);
+    static int SockAddrToAddress(SocketAddress* sockAddress, int family, sockaddr_storage* sa);
     void MakeSockAddr(int family, sockaddr_storage* sa);
     bool MakeHints(addrinfo* hints, int type, int protocol);
     bool GetAddressFromSockAddr(int family, sockaddr_storage* sa);
@@ -44,15 +45,19 @@ public:
     static bool CompareSockAddr(sockaddr_storage* addrA, sockaddr_storage* addrB);
     static char* AddressToString(int protocol, SocketAddress* sockAddr);
     static char* SockAddrToString(int family, sockaddr_storage* addrStorage);
-    void SetNoDelay();
+    bool SetNoDelay();
     bool SetBlocking();
     bool SetNonBlocking();
-    void Close();
+    bool SetIPv6Only();
+    static char* GetErrorString(int err);
     static Socket* New(Uint16 port, int protocol);
     static Socket* Open(Uint16 port, int protocol);
     static Socket* OpenServer(Uint16 port, int protocol);
     static Socket* OpenClient(const char* address, Uint16 port, int protocol);
     virtual bool Connect(const char* address, Uint16 port);
+    virtual bool Reconnect();
+    virtual void SetConnectionMessage(Uint8* message, size_t messageLength);
+    virtual bool SetConnected();
     virtual bool Bind(sockaddr_storage* addrStorage);
     virtual bool Bind(Uint16 port, int family);
     virtual bool Listen();
@@ -61,6 +66,8 @@ public:
     virtual int Send(Uint8* data, size_t length, sockaddr_storage* addrStorage);
     virtual int Receive(Uint8* data, size_t length);
     virtual int Receive(Uint8* data, size_t length, sockaddr_storage* addrStorage);
+    virtual void Close();
+    virtual void Dispose();
 };
 
-#endif /* ENGINE_NETWORK_SOCKET_H */
+#endif /* ENGINE_NETWORK_SOCKET_SOCKET_H */

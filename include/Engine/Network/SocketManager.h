@@ -8,26 +8,29 @@
 #define VIRTUAL
 #define EXPOSED
 
+class Socket;
 
 #include <Engine/Includes/Standard.h>
-#include <Engine/Network/Socket.h>
-#include <Engine/Network/SocketIncludes.h>
+#include <Engine/Network/Socket/Socket.h>
+#include <Engine/Network/Socket/Includes.h>
 
 class SocketManager {
 private:
     int InsertSocket(Socket* sock);
 
 public:
-    vector<Socket*> sockets;
+    Socket* sockets[MAX_SOCKETS];
+    int numSockets;
 
     static SocketManager* New();
-    int NumSockets();
     int OpenTCPClient(const char* address, Uint16 port);
     int OpenTCPServer(Uint16 port);
     int OpenUDPClient(const char* address, Uint16 port);
     int OpenUDPServer(Uint16 port);
-    void OpenUDPSockets(Uint16 port, int* start, int* end);
+    int AttemptToOpenTCPClient(const char* address, Uint16 port);
+    void OpenMultipleUDPSockets(Uint16 port, int* start, int* end);
     Socket* GetSocket(int sock);
+    void RemoveSocket(int sock);
     void CloseSocket(int sock);
     int GetProtocol(int sock);
     int GetIPProtocol(int sock);
@@ -35,6 +38,10 @@ public:
     int GetError(int sock);
     int Accept(int sock);
     bool Connect(int sock, const char* address, Uint16 port);
+    bool Reconnect(int sock);
+    bool SetConnectionMessage(int sock, Uint8* message, size_t messageLength);
+    int GetConnectionStatus(int sock);
+    bool SetConnected(int sock);
     int Send(int sock, Uint8* data, size_t length);
     int Send(int sock, Uint8* data, size_t length, SocketAddress* sockAddress);
     int Receive(int sock, Uint8* data, size_t length);

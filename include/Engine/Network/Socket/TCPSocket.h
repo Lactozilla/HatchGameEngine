@@ -1,5 +1,5 @@
-#ifndef ENGINE_NETWORK_TCPSOCKET_H
-#define ENGINE_NETWORK_TCPSOCKET_H
+#ifndef ENGINE_NETWORK_SOCKET_TCPSOCKET_H
+#define ENGINE_NETWORK_SOCKET_TCPSOCKET_H
 
 #define PUBLIC
 #define PRIVATE
@@ -10,14 +10,17 @@
 
 
 #include <Engine/Includes/Standard.h>
-#include <Engine/Network/Socket.h>
-#include <Engine/Network/SocketIncludes.h>
+#include <Engine/Network/Socket/Socket.h>
+#include <Engine/Network/Socket/Includes.h>
 
 class TCPSocket : public Socket {
 public:
+    sockaddr_storage addrStorage;
+
     static TCPSocket* New(Uint16 port, int protocol);
     static TCPSocket* Open(Uint16 port, int protocol);
     static TCPSocket* OpenClient(const char* address, Uint16 port, int protocol);
+    bool Reconnect();
     static TCPSocket* OpenServer(Uint16 port, int protocol);
     bool Bind(Uint16 port, int family);
     bool Listen();
@@ -26,6 +29,7 @@ public:
     int Send(Uint8* data, size_t length, sockaddr_storage* addrStorage);
     int Receive(Uint8* data, size_t length);
     int Receive(Uint8* data, size_t length, sockaddr_storage* addrStorage);
+    void Close();
 };
 
-#endif /* ENGINE_NETWORK_TCPSOCKET_H */
+#endif /* ENGINE_NETWORK_SOCKET_TCPSOCKET_H */
