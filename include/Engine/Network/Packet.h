@@ -30,6 +30,8 @@ public:
     static void ResendListRemove(int packetNum);
     static void ResendListClear();
     static void RemovePendingPackets(int connectionID);
+    static Uint16 SwapShort(Uint16 value);
+    static Uint32 SwapLong(Uint32 value);
     static void WriteUint8(Uint8** buffer, Uint8 data);
     static void WriteSint8(Uint8** buffer, Sint8 data);
     static void WriteUint16(Uint8** buffer, Uint16 data);

@@ -23,6 +23,9 @@ public:
     static NetworkPlayer Players[MAX_NETGAME_PLAYERS];
 
     static Packet PacketsToResend[MAX_MESSAGES_TO_RESEND];
+
+    static NetworkCommands PlayerCommands;
+    static Uint32 CurrentFrame, NextFrame;
 };
 #endif
 
@@ -35,6 +38,9 @@ public:
 #include <Engine/Network/Netgame/Netgame.h>
 #include <Engine/Network/Netgame/NetgameClient.h>
 #include <Engine/Network/Netgame/NetgameServer.h>
+
+#include <Engine/Types/EntityTypes.h>
+#include <Engine/Types/ObjectList.h>
 
 #include <Engine/Diagnostics/Clock.h>
 
@@ -57,6 +63,10 @@ int                Netgame::PlayerID = 0;
 NetworkPlayer      Netgame::Players[MAX_NETGAME_PLAYERS];
 
 Packet             Netgame::PacketsToResend[MAX_MESSAGES_TO_RESEND];
+
+NetworkCommands    Netgame::PlayerCommands;
+Uint32             Netgame::CurrentFrame = 0;
+Uint32             Netgame::NextFrame = 0;
 
 #define IS_CLIENT (!Server)
 
@@ -128,8 +138,12 @@ PUBLIC STATIC void Netgame::Cleanup() {
 
     memset(Netgame::Players, 0x00, sizeof(Netgame::Players));
 
+    Netgame::ClearInputs(&Netgame::PlayerCommands);
+
     NetgameServer::Cleanup();
     NetgameClient::Cleanup();
+
+    Netgame::CurrentFrame = Netgame::NextFrame = 0;
 
     // Oh! Fuhgeddaboudit!!!
     Packet::ResendListClear();
@@ -509,7 +523,7 @@ PUBLIC STATIC bool Netgame::NewClientConnected() {
 }
 
 // Add and remove players
-PUBLIC STATIC void Netgame::InsertPlayerIntoSlot(int playerID, char* name, int client) {
+PUBLIC STATIC void Netgame::InsertPlayerIntoSlot(Uint8 playerID, char* name, int client) {
     NetworkPlayer* player = &Netgame::Players[playerID];
     player->ingame = true;
 
@@ -549,7 +563,7 @@ PUBLIC STATIC int Netgame::AddPlayer(char* name, int client) {
     return i;
 }
 
-PUBLIC STATIC void Netgame::RemovePlayer(int playerID) {
+PUBLIC STATIC void Netgame::RemovePlayer(Uint8 playerID) {
     if (playerID < 0 || playerID >= MAX_NETGAME_PLAYERS)
         return;
 
@@ -567,17 +581,19 @@ PUBLIC STATIC void Netgame::RemovePlayer(int playerID) {
 }
 
 // Returns true if the specified player ID is in-game
-PUBLIC STATIC bool Netgame::IsPlayerInGame(int playerID) {
+PUBLIC STATIC bool Netgame::IsPlayerInGame(Uint8 playerID) {
+    if (playerID == (Uint8)CONNECTION_ID_NOBODY)
+        return false;
     return Netgame::Players[playerID].ingame;
 }
 
 // Returns the name of the specified player ID
-PUBLIC STATIC char* Netgame::GetPlayerName(int playerID) {
+PUBLIC STATIC char* Netgame::GetPlayerName(Uint8 playerID) {
     return Netgame::Players[playerID].name;
 }
 
 // Renames a player
-PUBLIC STATIC bool Netgame::OnNameChange(int playerID, char* playerName, bool callback) {
+PUBLIC STATIC bool Netgame::OnNameChange(Uint8 playerID, char* playerName, bool callback) {
     NetworkPlayer* player = &Netgame::Players[playerID];
 
     strncpy(player->pendingName, playerName, MAX_CLIENT_NAME);
@@ -596,7 +612,7 @@ PUBLIC STATIC bool Netgame::OnNameChange(int playerID, char* playerName, bool ca
     return true;
 }
 
-PUBLIC STATIC void Netgame::ChangePlayerName(int playerID, char* playerName) {
+PUBLIC STATIC void Netgame::ChangePlayerName(Uint8 playerID, char* playerName) {
     NetworkPlayer* player = &Netgame::Players[playerID];
     strncpy(player->name, playerName, MAX_CLIENT_NAME);
     player->name[MAX_CLIENT_NAME - 1] = '\0';
@@ -622,12 +638,14 @@ PUBLIC STATIC void Netgame::ChangeName(char* playerName) {
 
 #define SERVER_ONLY \
     if (IS_CLIENT) { \
+        NETWORK_DEBUG_ERROR("Received a message that a client cannot handle"); \
         Netgame::CloseConnection(from); \
         return false; \
     }
 
 #define CLIENT_ONLY \
     if (Server) { \
+        NETWORK_DEBUG_ERROR("Received a message that a server cannot handle"); \
         if (from != CONNECTION_ID_SELF && !NetgameServer::ClientInGame(from)) \
             Netgame::CloseConnection(from); \
         return false; \
@@ -635,6 +653,7 @@ PUBLIC STATIC void Netgame::ChangeName(char* playerName) {
 
 #define CHECK_FOREIGN_MESSAGE \
     if (from != Netgame::GetServerID()) { \
+        NETWORK_DEBUG_ERROR("Received a message that did not come from the server"); \
         Netgame::CloseConnection(from); \
         return false; \
     }
@@ -710,6 +729,13 @@ PRIVATE STATIC bool Netgame::ProcessMessage(Message* message, int from) {
             NetgameServer::ClientWaiting(message, from);
             NetgameServer::SendAccept(from);
             return true;
+        case MESSAGE_COMMANDS:
+            SERVER_ONLY
+            if (from != CONNECTION_ID_SELF && NetgameServer::ClientDisconnected(from))
+                break;
+
+            NetgameServer::ReadCommands(message, from);
+            return true;
         // Messages handled by clients
         case MESSAGE_ACCEPT:
         case MESSAGE_REFUSE:
@@ -727,6 +753,10 @@ PRIVATE STATIC bool Netgame::ProcessMessage(Message* message, int from) {
         case MESSAGE_PLAYERLEAVE:
             CLIENT_ONLY
             return NetgameClient::ReceivePlayerLeave(message);
+        case MESSAGE_SERVERCOMMANDS:
+            CLIENT_ONLY
+            NetgameClient::NetgameClient::ReadCommands(message);
+            return true;
         // Messages handled by either
         case MESSAGE_READY:
             if (Server) {
@@ -850,7 +880,84 @@ PUBLIC STATIC void Netgame::UpdateHeartbeat() {
     Netgame::LastHeartbeat = Clock::GetTicks();
 }
 
-PUBLIC STATIC void Netgame::Update() {
+PUBLIC STATIC void Netgame::GetMessages() {
+    while (Netgame::Receive()) {
+        Message message;
+
+        if (Packet::Process(&message))
+            Netgame::ProcessMessage(&message, Netgame::GetConnectionID());
+    }
+}
+
+static const char *NetworkCallbackRegistry = "NetworkCallback";
+
+PUBLIC STATIC void Netgame::Callback_SendCommands() {
+    ObjectList* objectList;
+    if (!Scene::ObjectRegistries->Exists(NetworkCallbackRegistry))
+        return;
+
+    objectList = Scene::ObjectRegistries->Get(NetworkCallbackRegistry);
+
+    int objectListCount = objectList->Count();
+    for (int o = 0; o < objectListCount; o++) {
+        Entity* ent = objectList->GetNth(o);
+        if (ent && ent->Active && ent->Interactable) {
+            ent->Network_SendCommands(&Netgame::PlayerCommands);
+        }
+    }
+}
+
+PUBLIC STATIC void Netgame::Callback_ReceiveCommands(Uint32 frame) {
+    ObjectList* objectList;
+    if (!Scene::ObjectRegistries->Exists(NetworkCallbackRegistry))
+        return;
+
+    objectList = Scene::ObjectRegistries->Get(NetworkCallbackRegistry);
+
+    int objectListCount = objectList->Count();
+    for (int o = 0; o < objectListCount; o++) {
+        Entity* ent = objectList->GetNth(o);
+        if (!ent || !ent->Active || !ent->Interactable) {
+            continue;
+        }
+
+        for (Uint8 playerID = 0; playerID < MAX_NETGAME_PLAYERS; playerID++) {
+            NetworkPlayer* player = &Netgame::Players[playerID];
+            if (!player->ingame) {
+                continue;
+            }
+
+            Uint32 playerFrame = frame % INPUT_BUFFER_FRAMES;
+            if (player->receivedCommands[playerFrame])
+                ent->Network_ReceiveCommands(playerID, &player->commands[playerFrame]);
+            player->receivedCommands[playerFrame] = false;
+        }
+    }
+}
+
+PUBLIC STATIC void Netgame::ClearInputs(NetworkCommands* commands) {
+    memset(commands, 0x00, sizeof(NetworkCommands));
+}
+
+PUBLIC STATIC void Netgame::CopyInputs(NetworkCommands* dest, NetworkCommands* source) {
+    memcpy(dest, source, sizeof(NetworkCommands));
+}
+
+PUBLIC STATIC void Netgame::GetInputs() {
+    Netgame::Callback_SendCommands();
+}
+
+PUBLIC STATIC void Netgame::SendInputs() {
+    INIT_MESSAGE(message, MESSAGE_COMMANDS);
+
+    message.clientCommands.frame = Packet::SwapLong(Netgame::NextFrame);
+    message.clientCommands.missed = NetgameClient::MissedFrame;
+    Netgame::CopyInputs(&message.clientCommands.commands, &Netgame::PlayerCommands);
+
+    SEND_MESSAGE_NOACK(message, clientCommands, Netgame::GetServerID());
+}
+
+PUBLIC STATIC void Netgame::Update(Uint32 updatesPerFrame) {
     if (!Netgame::Started || Netgame::IsDisconnected())
         return;
 
@@ -864,12 +971,18 @@ PUBLIC STATIC void Netgame::Update() {
     if (!Netgame::CheckConnections())
         return;
 
-    while (Netgame::Receive()) {
-        Message message;
+    if (Netgame::IsConnected())
+        Netgame::GetInputs();
 
-        if (Packet::Process(&message))
-            Netgame::ProcessMessage(&message, Netgame::GetConnectionID());
-    }
+    if (Netgame::Server)
+        Netgame::SendInputs();
+
+    Netgame::GetMessages();
+
+    if (IS_CLIENT)
+        NetgameClient::Update();
+    else
+        NetgameServer::Update(updatesPerFrame);
 
     if (Netgame::UseAcks) {
         Packet::ResendMessages();
@@ -880,4 +993,10 @@ PUBLIC STATIC void Netgame::Update() {
 
     if (Server)
         NetgameServer::CheckClients();
+}
+
+PUBLIC STATIC bool Netgame::CanRunScene() {
+    if (Server && NetgameServer::WaitingClient)
+        return false;
+    return true;
 }

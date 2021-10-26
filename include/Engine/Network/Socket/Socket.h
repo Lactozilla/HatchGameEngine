@@ -30,8 +30,8 @@ public:
     static int GetFamilyFromProtocol(int protocol);
     static int GetDomainFromProtocol(int protocol);
     static int GetProtocolFromFamily(int family);
-    static char* GetProtocolName(int protocol);
-    static char* GetAnyAddress(int protocol);
+    static const char* GetProtocolName(int protocol);
+    static const char* GetAnyAddress(int protocol);
     bool AddressToSockAddr(SocketAddress* sockAddress, int protocol, sockaddr_storage* sa);
     static int SockAddrToAddress(SocketAddress* sockAddress, int family, sockaddr_storage* sa);
     void MakeSockAddr(int family, sockaddr_storage* sa);

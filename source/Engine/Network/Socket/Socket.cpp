@@ -64,7 +64,7 @@ PUBLIC STATIC int Socket::GetProtocolFromFamily(int family) {
     }
 }
 
-PUBLIC STATIC char* Socket::GetProtocolName(int protocol) {
+PUBLIC STATIC const char* Socket::GetProtocolName(int protocol) {
     switch (protocol) {
         case NETADDR_IPV4:
             return "IPv4";
@@ -75,7 +75,7 @@ PUBLIC STATIC char* Socket::GetProtocolName(int protocol) {
     }
 }
 
-PUBLIC STATIC char* Socket::GetAnyAddress(int protocol) {
+PUBLIC STATIC const char* Socket::GetAnyAddress(int protocol) {
     switch (protocol) {
         case NETADDR_IPV6:
             return "::";
@@ -276,6 +276,13 @@ PUBLIC STATIC bool Socket::CompareSockAddr(sockaddr_storage* addrA, sockaddr_sto
 #define FULL_ADDR_LENGTH IP_ADDR_LENGTH+6
 #define UNKNOWN_ADDRESS "????????????"
 
+static char unkaddr[sizeof(UNKNOWN_ADDRESS)];
+
+#define GET_UNK_ADDR \
+    if (!unkaddr[0]) \
+        snprintf(unkaddr, sizeof(unkaddr), "%s", UNKNOWN_ADDRESS); \
+    return unkaddr;
+
 PRIVATE STATIC char* Socket::FormatAddress(int family, void* addr, int port) {
     static char ipAddress[IP_ADDR_LENGTH];
     static char addrString[FULL_ADDR_LENGTH];
@@ -291,7 +298,7 @@ PRIVATE STATIC char* Socket::FormatAddress(int family, void* addr, int port) {
             snprintf(addrString, FULL_ADDR_LENGTH, "[%s]:%d", ipAddress, port);
             break;
         default:
-            return UNKNOWN_ADDRESS;
+            GET_UNK_ADDR
     }
 
     return addrString;
@@ -303,7 +310,7 @@ PRIVATE STATIC char* Socket::FormatAddress(int family, void* addr, int port) {
 PUBLIC STATIC char* Socket::AddressToString(int protocol, SocketAddress* sockAddr) {
     int family = Socket::GetFamilyFromProtocol(protocol);
     if (family < 0) {
-        return UNKNOWN_ADDRESS;
+        GET_UNK_ADDR
     }
 
     void* addr = NULL;
@@ -320,7 +327,7 @@ PUBLIC STATIC char* Socket::AddressToString(int protocol, SocketAddress* sockAdd
             addr = (void*)(&addrIPv6);
             break;
         default:
-            return UNKNOWN_ADDRESS;
+            GET_UNK_ADDR
     }
 
     return Socket::FormatAddress(family, addr, sockAddr->port);
@@ -340,7 +347,7 @@ PUBLIC STATIC char* Socket::SockAddrToString(int family, sockaddr_storage* addrS
             port = (Uint16)ntohs(((sockaddr_in6*)addrStorage)->sin6_port);
             break;
         default:
-            return UNKNOWN_ADDRESS;
+            GET_UNK_ADDR
     }
 
     return Socket::FormatAddress(family, addr, port);

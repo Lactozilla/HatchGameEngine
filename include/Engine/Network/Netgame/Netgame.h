@@ -39,6 +39,8 @@ public:
     static int PlayerCount, PlayerID;
     static NetworkPlayer Players[MAX_NETGAME_PLAYERS];
     static Packet PacketsToResend[MAX_MESSAGES_TO_RESEND];
+    static NetworkCommands PlayerCommands;
+    static Uint32 CurrentFrame, NextFrame;
 
     static bool Start();
     static void Disconnect();
@@ -81,17 +83,25 @@ public:
     static int GetServerID();
     static void SetServerID(int serverID);
     static bool NewClientConnected();
-    static void InsertPlayerIntoSlot(int playerID, char* name, int client);
+    static void InsertPlayerIntoSlot(Uint8 playerID, char* name, int client);
     static int AddPlayer(char* name, int client);
-    static void RemovePlayer(int playerID);
-    static bool IsPlayerInGame(int playerID);
-    static char* GetPlayerName(int playerID);
-    static bool OnNameChange(int playerID, char* playerName, bool callback);
-    static void ChangePlayerName(int playerID, char* playerName);
+    static void RemovePlayer(Uint8 playerID);
+    static bool IsPlayerInGame(Uint8 playerID);
+    static char* GetPlayerName(Uint8 playerID);
+    static bool OnNameChange(Uint8 playerID, char* playerName, bool callback);
+    static void ChangePlayerName(Uint8 playerID, char* playerName);
     static void ChangeName(char* playerName);
     static void Heartbeat();
     static void UpdateHeartbeat();
-    static void Update();
+    static void GetMessages();
+    static void Callback_SendCommands();
+    static void Callback_ReceiveCommands(Uint32 frame);
+    static void ClearInputs(NetworkCommands* commands);
+    static void CopyInputs(NetworkCommands* dest, NetworkCommands* source);
+    static void GetInputs();
+    static void SendInputs();
+    static void Update(Uint32 updatesPerFrame);
+    static bool CanRunScene();
 };
 
 #endif /* ENGINE_NETWORK_NETGAME_NETGAME_H */

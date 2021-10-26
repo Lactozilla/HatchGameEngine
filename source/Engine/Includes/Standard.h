@@ -57,6 +57,18 @@ typedef int16_t Sint16;
 typedef int32_t Sint32;
 typedef int64_t Sint64;
 
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+    #define PLATFORM_BIG_ENDIAN
+#else
+    #define PLATFORM_LITTLE_ENDIAN
+#endif
+
+#if !defined(_MSC_VER)
+    #define STRUCT_PACK __attribute__((packed))
+#else
+    #define STRUCT_PACK
+#endif
+
 #ifdef IOS
 #define NEW_STRUCT_MACRO(n) (n)
 #else

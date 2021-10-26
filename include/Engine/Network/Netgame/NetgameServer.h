@@ -20,11 +20,17 @@ private:
 
     static void SendReady(int client, int playerID);
     static void UpdateJoinTimeout(int client);
+    static void UpdateLastTimeCommandReceived(int client);
+    static void BuildFrames(Uint32& frameToBuild, Uint32 numFrames);
+    static void SendFrames(Uint32 frameToSend);
 
 public:
     static ServerClient Clients[MAX_NETWORK_CONNECTIONS];
     static Uint8 MaxPlayerCount;
     static bool JoinsAllowed;
+    static bool WaitingClient;
+    static Uint32 FrameToBuild;
+    static Uint32 FrameToSend;
 
     static void Cleanup();
     static char* GetClientName(int client);
@@ -51,6 +57,8 @@ public:
     static void BroadcastNameChange(Message* message, int client);
     static void Heartbeat();
     static void Disconnect();
+    static void ReadCommands(Message* message, int client);
+    static void Update(Uint32 updatesPerFrame);
 };
 
 #endif /* ENGINE_NETWORK_NETGAME_NETGAMESERVER_H */

@@ -55,7 +55,7 @@ struct PacketRetransmission {
 #define MAX_NETGAME_PLAYERS 8
 
 #define MAX_CLIENT_NAME 33
-#define MAX_CLIENT_COMMANDS 64
+#define MAX_CLIENT_COMMANDS 16
 #define MAX_NETWORK_EVENT_LENGTH 256
 
 #define MAX_MESSAGES_TO_RESEND 100
@@ -68,7 +68,25 @@ struct PacketRetransmission {
 #define CLIENT_WAITING_INTERVAL 1000
 #define CLIENT_RECONNECTION_INTERVAL 1000
 
-//#define NETWORK_DROP_PACKETS
+#define INPUT_BUFFER_FRAMES 60
+#define MESSAGE_INPUT_BUFFER_FRAMES INPUT_BUFFER_FRAMES
+
+// Pack this NetworkCommands struct.
+#if defined(_MSC_VER)
+    #pragma pack(push, 1)
+#endif
+
+struct NetworkCommands {
+    Uint8 data[MAX_CLIENT_COMMANDS];
+    Uint8 numCommands;
+} STRUCT_PACK;
+
+// Unpack this NetworkCommands struct.
+#if defined(_MSC_VER)
+    #pragma pack(pop)
+#endif
+
+// #define NETWORK_DROP_PACKETS
 #define NETWORK_PACKET_DROP_PERCENTAGE 50.0
 
 #define NETWORK_DEBUG
@@ -78,39 +96,90 @@ struct PacketRetransmission {
 
     #define NETWORK_LOG_INFO_MESSAGES
     #define NETWORK_LOG_VERBOSE_MESSAGES
-    #define NETWORK_LOG_ERROR_MESSAGES
     #define NETWORK_LOG_IMPORTANT_MESSAGES
+    // #define NETWORK_LOG_FRAME_MESSAGES
+    #define NETWORK_LOG_WARNING_MESSAGES
+    #define NETWORK_LOG_ERROR_MESSAGES
+
+    #if defined(_MSC_VER)
+        #define NETWORK_DEBUG_FUNCNAME __FUNCTION__
+    #else
+        inline char* GetClassAndMethodName(const char *fn)
+        {
+            std::string s = fn;
+            int end = s.find("(");
+            int start = s.substr(0, end).rfind(" ") + 1;
+
+            static char funcname[512];
+            strncpy(funcname, s.substr(start, end - start).c_str(), sizeof(funcname));
+
+            return funcname;
+        }
+
+        #define NETWORK_DEBUG_FUNCNAME GetClassAndMethodName(__PRETTY_FUNCTION__)
+    #endif
+
+    inline char *VariadicFormat(const char *format, ...)
+    {
+        static char buf[8192];
+        va_list vargs;
+
+        va_start(vargs, format);
+        vsnprintf(buf, sizeof(buf), format, vargs);
+        va_end(vargs);
+
+        return buf;
+    }
+
+    #define NETWORK_LOG_FORMAT "[%s] %s"
 
     #ifdef NETWORK_LOG_INFO_MESSAGES
         #define NETWORK_DEBUG_INFO(...) \
-            Log::Print(Log::LOG_INFO, "[" __FUNCTION__ "] " __VA_ARGS__)
+            Log::Print(Log::LOG_INFO, NETWORK_LOG_FORMAT, NETWORK_DEBUG_FUNCNAME, VariadicFormat(__VA_ARGS__))
     #else
         #define NETWORK_DEBUG_INFO
     #endif
 
     #ifdef NETWORK_LOG_VERBOSE_MESSAGES
         #define NETWORK_DEBUG_VERBOSE(...) \
-            Log::Print(Log::LOG_VERBOSE, "[" __FUNCTION__ "] " __VA_ARGS__)
+            Log::Print(Log::LOG_VERBOSE, NETWORK_LOG_FORMAT, NETWORK_DEBUG_FUNCNAME, VariadicFormat(__VA_ARGS__))
     #else
         #define NETWORK_DEBUG_VERBOSE
     #endif
 
     #ifdef NETWORK_LOG_IMPORTANT_MESSAGES
         #define NETWORK_DEBUG_IMPORTANT(...) \
-            Log::Print(Log::LOG_IMPORTANT, "[" __FUNCTION__ "] " __VA_ARGS__)
+            Log::Print(Log::LOG_IMPORTANT, NETWORK_LOG_FORMAT, NETWORK_DEBUG_FUNCNAME, VariadicFormat(__VA_ARGS__))
     #else
         #define NETWORK_DEBUG_IMPORTANT
     #endif
 
+    #ifdef NETWORK_LOG_FRAME_MESSAGES
+        #define NETWORK_DEBUG_FRAME(...) \
+            Log::Print(Log::LOG_VERBOSE, NETWORK_LOG_FORMAT, NETWORK_DEBUG_FUNCNAME, VariadicFormat(__VA_ARGS__))
+    #else
+        #define NETWORK_DEBUG_FRAME
+    #endif
+
+    #ifdef NETWORK_LOG_WARNING_MESSAGES
+        #define NETWORK_DEBUG_WARNING(...) \
+            Log::Print(Log::LOG_WARN, NETWORK_LOG_FORMAT, NETWORK_DEBUG_FUNCNAME, VariadicFormat(__VA_ARGS__))
+    #else
+        #define NETWORK_DEBUG_WARNING
+    #endif
+
     #ifdef NETWORK_LOG_ERROR_MESSAGES
         #define NETWORK_DEBUG_ERROR(...) \
-            Log::Print(Log::LOG_ERROR, "[" __FUNCTION__ "] " __VA_ARGS__)
+            Log::Print(Log::LOG_ERROR, NETWORK_LOG_FORMAT, NETWORK_DEBUG_FUNCNAME, VariadicFormat(__VA_ARGS__))
     #else
         #define NETWORK_DEBUG_ERROR
     #endif
 #else
     #define NETWORK_DEBUG_INFO
+    #define NETWORK_DEBUG_VERBOSE
     #define NETWORK_DEBUG_IMPORTANT
+    #define NETWORK_DEBUG_FRAME
+    #define NETWORK_DEBUG_WARNING
     #define NETWORK_DEBUG_ERROR
 #endif
 

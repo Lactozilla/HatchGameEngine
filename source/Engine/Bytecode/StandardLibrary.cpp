@@ -8650,12 +8650,12 @@ PUBLIC STATIC void StandardLibrary::Link() {
     BytecodeObjectManager::GlobalLinkDecimal(NULL, "LowPassFilter", &AudioManager::LowPassFilter);
 
     BytecodeObjectManager::GlobalLinkInteger(NULL, "Scene_Frame", &Scene::Frame);
-    BytecodeObjectManager::GlobalConstDecimal(NULL, "Scene_MaxViews", MAX_SCENE_VIEWS);
+    BytecodeObjectManager::GlobalConstInteger(NULL, "Scene_MaxViews", MAX_SCENE_VIEWS);
 
-    BytecodeObjectManager::GlobalConstDecimal(NULL, "Netgame_MaxPlayers", MAX_NETGAME_PLAYERS);
-    BytecodeObjectManager::GlobalConstDecimal(NULL, "Netgame_MaxCommands", MAX_CLIENT_COMMANDS);
-    BytecodeObjectManager::GlobalConstDecimal(NULL, "Netgame_MaxEventSize", MAX_NETWORK_EVENT_LENGTH);
-    BytecodeObjectManager::GlobalConstDecimal(NULL, "Netgame_MaxPlayerName", MAX_CLIENT_NAME - 1);
+    BytecodeObjectManager::GlobalConstInteger(NULL, "Netgame_MaxPlayers", MAX_NETGAME_PLAYERS);
+    BytecodeObjectManager::GlobalConstInteger(NULL, "Netgame_MaxCommands", MAX_CLIENT_COMMANDS);
+    BytecodeObjectManager::GlobalConstInteger(NULL, "Netgame_MaxEventSize", MAX_NETWORK_EVENT_LENGTH);
+    BytecodeObjectManager::GlobalConstInteger(NULL, "Netgame_MaxPlayerName", MAX_CLIENT_NAME - 1);
 
     BytecodeObjectManager::GlobalConstDecimal(NULL, "Math_PI", M_PI);
     BytecodeObjectManager::GlobalConstDecimal(NULL, "Math_PI_DOUBLE", M_PI * 2.0);

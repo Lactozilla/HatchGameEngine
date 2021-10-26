@@ -67,6 +67,7 @@ public:
     bool SetConnectionMessage(Uint8* message, size_t messageLength);
     void CloseConnection(int connectionNum);
     void SetPacketDropPercentage(float percentage);
+    float GetPacketDropPercentage();
     bool Send(int connectionNum);
     bool Send(int connectionNum, size_t length);
     bool Send();

@@ -30,6 +30,11 @@ enum {
 #define MESSAGE_HEADER_LENGTH 7 // offsetof(struct Message, data)
 #define MESSAGE_DATA_LENGTH (SOCKET_BUFFER_LENGTH - MESSAGE_HEADER_LENGTH)
 
+// Pack this Message struct.
+#if defined(_MSC_VER)
+    #pragma pack(push, 1)
+#endif
+
 struct Message {
     Uint32 checksum;
     Uint8 type;
@@ -37,7 +42,7 @@ struct Message {
     struct {
         AckNum sequence;
         AckNum lastReceived;
-    } ack;
+    } STRUCT_PACK ack;
 
     union {
         // Information about the server
@@ -45,69 +50,79 @@ struct Message {
             Uint8 numPlayers;
             Uint8 playerInGame[MAX_NETGAME_PLAYERS];
             char playerNames[MAX_NETGAME_PLAYERS][MAX_CLIENT_NAME];
-        } serverInfo;
+        } STRUCT_PACK serverInfo;
 
         // Information about the client
         struct {
             char name[MAX_CLIENT_NAME];
-        } clientInfo;
+        } STRUCT_PACK clientInfo;
 
         // Ready response from the server
         // The client can also send a ready message, but it won't have any info.
         struct {
+            Uint32 serverFrame;
             Uint8 playerID;
             char playerName[MAX_CLIENT_NAME];
-        } readyInfo;
+        } STRUCT_PACK readyInfo;
 
         // Why can't the client join?
         struct {
             Uint8 reason;
-        } refuseInfo;
+        } STRUCT_PACK refuseInfo;
 
         // Player join information
         struct {
             Uint8 id;
             char name[MAX_CLIENT_NAME];
-        } playerJoin;
+        } STRUCT_PACK playerJoin;
 
         // Player leave information
         struct {
             Uint8 id;
-        } playerLeave;
+        } STRUCT_PACK playerLeave;
 
         // Commands from the player
         struct {
-            Uint8 data[MAX_CLIENT_COMMANDS];
-            Uint8 length;
-        } clientCommands;
+            Uint32 frame;
+            Uint8 missed;
+            NetworkCommands commands;
+        } STRUCT_PACK clientCommands;
 
         // Event
         struct {
             Uint8 type;
             Uint8 data[MAX_NETWORK_EVENT_LENGTH];
             Uint8 length;
-        } event;
+        } STRUCT_PACK event;
 
         // Commands from the server, for all players
         struct {
-            Uint8 data[MAX_NETGAME_PLAYERS][MAX_CLIENT_COMMANDS];
-            Uint8 length[MAX_NETGAME_PLAYERS];
-            Uint8 numCommands;
-        } serverCommands;
+            Uint32 startFrame, endFrame;
+
+            Uint8 numPlayers;
+            Uint8 playerIDs[MAX_NETGAME_PLAYERS];
+
+            NetworkCommands commands[MAX_NETGAME_PLAYERS][MESSAGE_INPUT_BUFFER_FRAMES];
+        } STRUCT_PACK serverCommands;
 
         // Name change
         struct {
             Uint8 playerID;
             char name[MAX_CLIENT_NAME];
-        } nameChange;
+        } STRUCT_PACK nameChange;
 
         // Acknowledgements
         struct {
             AckNum numAcks;
             AckNum list[ACK_SEQUENCE_BUFFER_SIZE];
-        } ackList;
+        } STRUCT_PACK ackList;
     };
-};
+} STRUCT_PACK;
+
+// Unpack this Message struct.
+#if defined(_MSC_VER)
+    #pragma pack(pop)
+#endif
 
 struct MessageStorage {
     Uint8 data[SOCKET_BUFFER_LENGTH];

@@ -94,6 +94,8 @@ public:
     virtual void RenderEarly();
     virtual void Render(int CamX, int CamY);
     virtual void RenderLate();
+    virtual bool Network_SendCommands(void* commands);
+    virtual bool Network_ReceiveCommands(Uint8 playerID, void* commands);
     virtual void Dispose();
 };
 

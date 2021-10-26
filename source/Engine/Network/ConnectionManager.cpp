@@ -232,11 +232,13 @@ PUBLIC bool ConnectionManager::StartUDPServer(Uint16 port) {
 }
 
 PUBLIC bool ConnectionManager::StartTCPServer(Uint16 port) {
+    int sock = -1;
+
     if (!started && !StartTCP(port)) {
         goto fail;
     }
 
-    int sock = sockManager->OpenTCPServer(port);
+    sock = sockManager->OpenTCPServer(port);
     if (sock == -1) {
         goto fail;
     }
@@ -467,6 +469,10 @@ PUBLIC void ConnectionManager::SetPacketDropPercentage(float percentage) {
     packetDropPercentage = percentage;
 }
 
+PUBLIC float ConnectionManager::GetPacketDropPercentage() {
+    return packetDropPercentage;
+}
+
 PRIVATE bool ConnectionManager::DropMessage() {
     if (packetDropPercentage == 0.0)
         return false;
@@ -494,12 +500,12 @@ PRIVATE bool ConnectionManager::ReceiveOwnMessages() {
 }
 
 PRIVATE int ConnectionManager::ReceiveUDP() {
+    int numSockets = sockets.size();
+
     if (ReceiveOwnMessages()) {
         DO_PACKET_DROP;
         return connectionID;
     }
-
-    int numSockets = sockets.size();
 
     for (int sock = 0; sock < numSockets; sock++) {
         SocketAddress sockAddress;
@@ -699,10 +705,16 @@ PUBLIC int ConnectionManager::Receive() {
 }
 
 PUBLIC char* ConnectionManager::GetAddress(int connectionNum) {
-    if (connectionNum == CONNECTION_ID_SELF)
-        return "(myself)";
-    else if (!CONNECTION_ID_VALID(connectionNum))
-        return "(nobody)";
+    static char buf[9];
+
+    if (connectionNum == CONNECTION_ID_SELF) {
+        snprintf(buf, sizeof(buf), "(myself)");
+        return buf;
+    }
+    else if (!CONNECTION_ID_VALID(connectionNum)) {
+        snprintf(buf, sizeof(buf), "(nobody)");
+        return buf;
+    }
 
     NetworkConnection* conn = connections[connectionNum];
     return Socket::AddressToString(sockManager->GetIPProtocol(conn->socket), &conn->address);

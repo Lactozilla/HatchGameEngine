@@ -16,6 +16,7 @@ private:
 
 public:
     static bool Accepted;
+    static bool MissedFrame;
 
     static void Cleanup();
     static void PrepareJoin();
@@ -30,6 +31,8 @@ public:
     static void ReceiveNameChange(Message* message);
     static void Heartbeat();
     static void Disconnect();
+    static void ReadCommands(Message* message);
+    static void Update();
 };
 
 #endif /* ENGINE_NETWORK_NETGAME_NETGAMECLIENT_H */

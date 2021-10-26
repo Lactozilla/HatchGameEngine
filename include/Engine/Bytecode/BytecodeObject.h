@@ -11,6 +11,7 @@
 
 #include <Engine/Types/Entity.h>
 #include <Engine/Bytecode/BytecodeObjectManager.h>
+#include <Engine/Network/Network.h>
 
 class BytecodeObject : public Entity {
 public:
@@ -31,6 +32,8 @@ public:
     void RenderLate();
     void OnAnimationFinish();
     void Dispose();
+    bool Network_SendCommands(void* commands);
+    bool Network_ReceiveCommands(Uint8 playerID, void* commands);
     static VMValue VM_SetAnimation(int argCount, VMValue* args, Uint32 threadID);
     static VMValue VM_ResetAnimation(int argCount, VMValue* args, Uint32 threadID);
     static VMValue VM_Animate(int argCount, VMValue* args, Uint32 threadID);

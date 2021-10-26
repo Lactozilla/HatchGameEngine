@@ -1362,5 +1362,13 @@ PUBLIC VIRTUAL void Entity::RenderLate() {
 
 }
 
+PUBLIC VIRTUAL bool Entity::Network_SendCommands(void* commands) {
+    return false;
+}
+
+PUBLIC VIRTUAL bool Entity::Network_ReceiveCommands(Uint8 playerID, void* commands) {
+    return false;
+}
+
 PUBLIC VIRTUAL void Entity::Dispose() {
 }

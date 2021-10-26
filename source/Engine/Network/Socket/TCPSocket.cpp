@@ -226,7 +226,7 @@ PUBLIC bool TCPSocket::Bind(Uint16 port, int family) {
         return false;
     }
 
-    int addrLength = sizeof(sockaddr);
+    socklen_t addrLength = sizeof(sockaddr);
     if (getsockname(sock, (sockaddr*)(&addrStorage), &addrLength) < 0) {
         SOCKET_DEBUG_ERROR("getsockname failed");
         error = socketerrno;
@@ -252,7 +252,7 @@ PUBLIC bool TCPSocket::Listen() {
 }
 
 PUBLIC TCPSocket* TCPSocket::Accept() {
-    int addrLength = sizeof(sockaddr_storage);
+    socklen_t addrLength = sizeof(sockaddr_storage);
 
     if (!server) {
         SOCKET_DEBUG_ERROR("Cannot accept as a client");

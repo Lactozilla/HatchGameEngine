@@ -160,7 +160,7 @@ PUBLIC bool UDPSocket::Bind(sockaddr_storage* addrStorage) {
         return false;
     }
 
-    int addrLength = sizeof(sockaddr);
+    socklen_t addrLength = sizeof(sockaddr);
     if (getsockname(sock, (sockaddr*)addrStorage, &addrLength) < 0) {
         SOCKET_DEBUG_ERROR("getsockname failed");
         error = socketerrno;
@@ -265,7 +265,7 @@ PUBLIC int UDPSocket::Send(Uint8* data, size_t length, sockaddr_storage* addrSto
 }
 
 PUBLIC int UDPSocket::Receive(Uint8* data, size_t length, sockaddr_storage* addrStorage) {
-    int addrLength = sizeof(sockaddr);
+    socklen_t addrLength = sizeof(sockaddr);
     int recvLength = recvfrom(sock, (char*)data, length, 0, (sockaddr*)addrStorage, &addrLength);
 
     if (recvLength < 0) {

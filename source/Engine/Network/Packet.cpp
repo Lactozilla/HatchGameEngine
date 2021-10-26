@@ -30,8 +30,10 @@ PUBLIC void Packet::Init() {
 // Prepares an outgoing message, but doesn't send it.
 PUBLIC bool Packet::PrepareMessage(int connection, size_t length, bool useAck) {
     messageLength = (int)length + MESSAGE_HEADER_LENGTH;
-    if (messageLength >= SOCKET_BUFFER_LENGTH)
+    if (messageLength >= SOCKET_BUFFER_LENGTH) {
+        NETWORK_DEBUG_ERROR("Message too large to send (length was %d)", messageLength);
         return false;
+    }
 
     Checksum();
 
@@ -217,19 +219,25 @@ PUBLIC STATIC void Packet::RemovePendingPackets(int connectionID) {
 
 #undef RETRANSMISSION_OCCUPIED_AT
 
-#ifdef BIG_ENDIAN
-static Uint16 SwapShort(Uint16 value) {
+PUBLIC STATIC Uint16 Packet::SwapShort(Uint16 value) {
+#ifdef PLATFORM_BIG_ENDIAN
     return ((value & 0xFF) >> 8) | ((value << 8) & 0xFF);
+#else
+    return value;
+#endif
 }
 
-static Uint32 SwapLong(Uint32 value) {
-    Uint8 a = (value & 0xFF) << 24;
-    Uint8 b = (value & 0xFF00) << 8;
-    Uint8 c = (value >> 8) & 0xFF00;
-    Uint8 d = (value >> 24) & 0xFF;
+PUBLIC STATIC Uint32 Packet::SwapLong(Uint32 value) {
+#ifdef PLATFORM_BIG_ENDIAN
+    Uint32 a = (value & 0xFF) << 24;
+    Uint32 b = (value & 0xFF00) << 8;
+    Uint32 c = (value >> 8) & 0xFF00;
+    Uint32 d = (value >> 24) & 0xFF;
     return a | b | c | d;
-}
+#else
+    return value;
 #endif
+}
 
 // Writes data
 PUBLIC STATIC void Packet::WriteUint8(Uint8** buffer, Uint8 data) {
@@ -244,8 +252,8 @@ PUBLIC STATIC void Packet::WriteSint8(Uint8** buffer, Sint8 data) {
 
 PUBLIC STATIC void Packet::WriteUint16(Uint8** buffer, Uint16 data) {
     Uint16* buf = (Uint16*)(*buffer);
-#ifdef BIG_ENDIAN
-    *buf = SwapShort(data);
+#ifdef PLATFORM_BIG_ENDIAN
+    *buf = Packet::SwapShort(data);
 #else
     *buf = data;
 #endif
@@ -254,8 +262,8 @@ PUBLIC STATIC void Packet::WriteUint16(Uint8** buffer, Uint16 data) {
 
 PUBLIC STATIC void Packet::WriteSint16(Uint8** buffer, Sint16 data) {
     Sint16* buf = (Sint16*)(*buffer);
-#ifdef BIG_ENDIAN
-    *buf = SwapShort(data);
+#ifdef PLATFORM_BIG_ENDIAN
+    *buf = Packet::SwapShort(data);
 #else
     *buf = data;
 #endif
@@ -264,8 +272,8 @@ PUBLIC STATIC void Packet::WriteSint16(Uint8** buffer, Sint16 data) {
 
 PUBLIC STATIC void Packet::WriteUint32(Uint8** buffer, Uint32 data) {
     Uint32* buf = (Uint32*)(*buffer);
-#ifdef BIG_ENDIAN
-    *buf = SwapLong(data);
+#ifdef PLATFORM_BIG_ENDIAN
+    *buf = Packet::SwapLong(data);
 #else
     *buf = data;
 #endif
@@ -274,8 +282,8 @@ PUBLIC STATIC void Packet::WriteUint32(Uint8** buffer, Uint32 data) {
 
 PUBLIC STATIC void Packet::WriteSint32(Uint8** buffer, Sint32 data) {
     Sint32* buf = (Sint32*)(*buffer);
-#ifdef BIG_ENDIAN
-    *buf = SwapLong(data);
+#ifdef PLATFORM_BIG_ENDIAN
+    *buf = Packet::SwapLong(data);
 #else
     *buf = data;
 #endif
@@ -321,7 +329,7 @@ PUBLIC STATIC Sint8 Packet::ReadSint8(Uint8** buffer) {
 
 PUBLIC STATIC Uint16 Packet::ReadUint16(Uint8** buffer) {
     Uint16 data = (Uint16)(**buffer);
-#ifdef BIG_ENDIAN
+#ifdef PLATFORM_BIG_ENDIAN
     data = SwapShort(data);
 #endif
     *buffer += 2;
@@ -330,7 +338,7 @@ PUBLIC STATIC Uint16 Packet::ReadUint16(Uint8** buffer) {
 
 PUBLIC STATIC Sint16 Packet::ReadSint16(Uint8** buffer) {
     Sint16 data = (Sint16)(**buffer);
-#ifdef BIG_ENDIAN
+#ifdef PLATFORM_BIG_ENDIAN
     data = SwapShort(data);
 #endif
     *buffer += 2;
@@ -339,7 +347,7 @@ PUBLIC STATIC Sint16 Packet::ReadSint16(Uint8** buffer) {
 
 PUBLIC STATIC Uint32 Packet::ReadUint32(Uint8** buffer) {
     Uint32 data = (Uint32)(**buffer);
-#ifdef BIG_ENDIAN
+#ifdef PLATFORM_BIG_ENDIAN
     data = SwapShort(data);
 #endif
     *buffer += 4;
@@ -348,7 +356,7 @@ PUBLIC STATIC Uint32 Packet::ReadUint32(Uint8** buffer) {
 
 PUBLIC STATIC Sint32 Packet::ReadSint32(Uint8** buffer) {
     Sint32 data = (Sint32)(**buffer);
-#ifdef BIG_ENDIAN
+#ifdef PLATFORM_BIG_ENDIAN
     data = SwapShort(data);
 #endif
     *buffer += 4;

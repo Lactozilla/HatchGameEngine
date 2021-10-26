@@ -655,14 +655,32 @@ PUBLIC STATIC void Application::RunFrame(void* p) {
     Scene::AfterScene();
     MetricAfterSceneTime = Clock::GetTicks() - MetricAfterSceneTime;
 
-    // Network update
-    if (Netgame::Started)
-        Netgame::Update();
-
     if (DoNothing) goto DO_NOTHING;
 
+    // Network update
+    if (Netgame::Started)
+        Netgame::Update(UpdatesPerFrame);
+
     // Update
-    for (int m = 0; m < UpdatesPerFrame; m++) {
+    if (!Netgame::IsConnected()) {
+        for (int m = 0; m < UpdatesPerFrame; m++) {
+            Scene::ResetPerf();
+            MetricPollTime = 0.0;
+            MetricUpdateTime = 0.0;
+            if ((Stepper && Step) || !Stepper) {
+                // Poll for inputs
+                MetricPollTime = Clock::GetTicks();
+                InputManager::Poll();
+                MetricPollTime = Clock::GetTicks() - MetricPollTime;
+
+                // Update scene
+                MetricUpdateTime = Clock::GetTicks();
+                Scene::Update();
+                MetricUpdateTime = Clock::GetTicks() - MetricUpdateTime;
+            }
+            Step = false;
+        }
+    } else {
         Scene::ResetPerf();
         MetricPollTime = 0.0;
         MetricUpdateTime = 0.0;
@@ -674,7 +692,13 @@ PUBLIC STATIC void Application::RunFrame(void* p) {
 
             // Update scene
             MetricUpdateTime = Clock::GetTicks();
-            Scene::Update();
+            if (Netgame::CanRunScene()) {
+                while (Netgame::NextFrame > Netgame::CurrentFrame) {
+                    Netgame::Callback_ReceiveCommands(Netgame::CurrentFrame);
+                    Scene::Update();
+                    Netgame::CurrentFrame++;
+                }
+            }
             MetricUpdateTime = Clock::GetTicks() - MetricUpdateTime;
         }
         Step = false;

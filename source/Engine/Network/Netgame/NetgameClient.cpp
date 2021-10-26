@@ -2,6 +2,7 @@
 class NetgameClient {
 public:
     static bool Accepted;
+    static bool MissedFrame;
 };
 #endif
 
@@ -14,10 +15,11 @@ public:
 #include <Engine/Network/Netgame/Netgame.h>
 #include <Engine/Network/Netgame/NetgameClient.h>
 
-bool   NetgameClient::Accepted = false;
+bool NetgameClient::Accepted = false;
+bool NetgameClient::MissedFrame = false;
 
 PUBLIC STATIC void NetgameClient::Cleanup() {
-    NetgameClient::Accepted = false;
+    NetgameClient::Accepted = NetgameClient::MissedFrame = false;
 }
 
 PUBLIC STATIC void NetgameClient::PrepareJoin() {
@@ -96,6 +98,11 @@ PUBLIC STATIC void NetgameClient::ReceiveReady(Message* message) {
 
     Netgame::Connected = CONNSTATUS_CONNECTED;
     Netgame::UpdateHeartbeat();
+
+    Netgame::CurrentFrame = Packet::SwapLong(message->readyInfo.serverFrame);
+    Netgame::NextFrame = Netgame::CurrentFrame;
+
+    NETWORK_DEBUG_INFO("Frame: %d", Netgame::CurrentFrame);
 }
 
 #define DISCONNECT_ON_INVALID_PACKET(...) \
@@ -167,4 +174,60 @@ PUBLIC STATIC void NetgameClient::Disconnect() {
         Netgame::Connected = CONNSTATUS_DISCONNECTED;
     else
         Netgame::Connected = CONNSTATUS_FAILED;
+}
+
+PUBLIC STATIC void NetgameClient::ReadCommands(Message* message) {
+    Uint32 start = Packet::SwapLong(message->serverCommands.startFrame);
+    Uint32 end = Packet::SwapLong(message->serverCommands.endFrame);
+    Uint32 maxFrames = Netgame::CurrentFrame + MESSAGE_INPUT_BUFFER_FRAMES;
+    Uint32 nextFrame = Netgame::NextFrame;
+
+    if (end > maxFrames)
+        end = maxFrames;
+
+    NetgameClient::MissedFrame = false;
+
+    if (start > nextFrame) {
+        NetgameClient::MissedFrame = true;
+        NETWORK_DEBUG_FRAME("Ignored (missed: start [%d] > nextFrame [%d])", start, nextFrame);
+        return;
+    }
+
+    if (end < nextFrame) {
+        NETWORK_DEBUG_FRAME("Ignored (out of range: end [%d] < nextFrame [%d])", end, nextFrame);
+        return;
+    }
+    else if (end == nextFrame) {
+        return;
+    }
+
+    Sint32 range = (end - start);
+    if (range <= 0) {
+        if (range == 0)
+            Netgame::NextFrame = end;
+        else
+            NETWORK_DEBUG_FRAME("Ignored (invalid range %d through %d)", start, end);
+        return;
+    }
+
+    Uint8* cmdBuffer = (Uint8*)(&(message->serverCommands.commands[0][0]));
+
+    for (Uint8 i = 0; i < message->serverCommands.numPlayers; i++) {
+        Uint8 playerID = message->serverCommands.playerIDs[i];
+        NetworkPlayer* player = &Netgame::Players[playerID];
+
+        NETWORK_DEBUG_FRAME("Got frames from %d to %d for player %d", start, end, playerID);
+
+        for (Uint32 frame = start; frame < end; frame++) {
+            Netgame::CopyInputs(&player->commands[frame % INPUT_BUFFER_FRAMES], (NetworkCommands*)cmdBuffer);
+            cmdBuffer += sizeof(NetworkCommands);
+            player->receivedCommands[frame % INPUT_BUFFER_FRAMES] = true;
+        }
+    }
+
+    Netgame::NextFrame = end;
+}
+
+PUBLIC STATIC void NetgameClient::Update() {
+    Netgame::SendInputs();
 }

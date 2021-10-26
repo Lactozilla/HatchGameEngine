@@ -30,17 +30,21 @@ struct NetworkPlayer {
     char name[MAX_CLIENT_NAME];
     char pendingName[MAX_CLIENT_NAME];
 
-    Uint8 data[MAX_CLIENT_COMMANDS];
-    int numCommands;
+    NetworkCommands commands[INPUT_BUFFER_FRAMES];
+    bool receivedCommands[INPUT_BUFFER_FRAMES];
 };
 
 struct ServerClient {
     Uint8 State;
+    Uint8 PlayerID;
+
     char Name[MAX_CLIENT_NAME];
     double Timeout;
+    double CommandTimeout;
     double JoinTimeout;
     Uint8 ReadyResent;
-    Uint8 PlayerID;
+
+    Uint32 Frame, NextFrame;
 };
 
 #endif /* NETWORKCONNECTION_H */

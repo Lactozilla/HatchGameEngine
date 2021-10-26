@@ -1,6 +1,7 @@
 #if INTERFACE
 #include <Engine/Types/Entity.h>
 #include <Engine/Bytecode/BytecodeObjectManager.h>
+#include <Engine/Network/Network.h>
 
 class BytecodeObject : public Entity {
 public:
@@ -13,6 +14,7 @@ public:
 #include <Engine/Bytecode/Compiler.h>
 #include <Engine/Bytecode/StandardLibrary.h>
 #include <Engine/Scene.h>
+#include <Engine/Network/Network.h>
 
 #define LINK_INT(VAR) Instance->Fields->Put(#VAR, INTEGER_LINK_VAL(&VAR))
 #define LINK_DEC(VAR) Instance->Fields->Put(#VAR, DECIMAL_LINK_VAL(&VAR))
@@ -29,6 +31,10 @@ Uint32 Hash_RenderEarly = 0;
 Uint32 Hash_Render = 0;
 Uint32 Hash_RenderLate = 0;
 Uint32 Hash_OnAnimationFinish = 0;
+Uint32 Hash_SendCommands = 0;
+Uint32 Hash_ReceiveCommands = 0;
+Uint32 Hash_OutCommandsField = 0;
+Uint32 Hash_InCommandsField = 0;
 
 PUBLIC void BytecodeObject::Link(ObjInstance* instance) {
     Instance = instance;
@@ -46,6 +52,10 @@ PUBLIC void BytecodeObject::Link(ObjInstance* instance) {
         Hash_Render = Murmur::EncryptString("Render");
         Hash_RenderLate = Murmur::EncryptString("RenderLate");
         Hash_OnAnimationFinish = Murmur::EncryptString("OnAnimationFinish");
+        Hash_SendCommands = Murmur::EncryptString("SendCommands");
+        Hash_ReceiveCommands = Murmur::EncryptString("ReceiveCommands");
+        Hash_OutCommandsField = Murmur::EncryptString("outCommands");
+        Hash_InCommandsField = Murmur::EncryptString("inCommands");
 
         SavedHashes = true;
     }
@@ -287,6 +297,116 @@ PUBLIC void BytecodeObject::Dispose() {
         // Memory::Free(Instance);
         Instance = NULL;
     }
+}
+
+// Events called from the network code
+PUBLIC bool BytecodeObject::Network_SendCommands(void* commands) {
+    VMThread* thread = BytecodeObjectManager::Threads + 0;
+    Uint32 hash = Hash_SendCommands;
+    if (!Instance->Class->Methods->Exists(hash)) {
+        // thread->ThrowRuntimeError(false, "\"SendCommands\" event does not exist.");
+        return false;
+    }
+
+    if (!Instance->Fields->Exists(Hash_OutCommandsField)) {
+        // thread->ThrowRuntimeError(false, "\"outCommands\" field does not exist.");
+        return false;
+    }
+
+    VMValue field = Instance->Fields->Get(Hash_OutCommandsField);
+    if (!IS_ARRAY(field)) {
+        // thread->ThrowRuntimeError(false, "\"outCommands\" field is not an array.");
+        return false;
+    }
+
+    NetworkCommands* cmds = (NetworkCommands*)commands;
+    ObjFunction* func = AS_FUNCTION(Instance->Class->Methods->Get(hash));
+    VMValue* StackTop = thread->StackTop;
+
+    thread->Push(OBJECT_VAL(Instance));
+    thread->RunInvoke(hash, func->Arity);
+    thread->StackTop = StackTop;
+
+    ObjArray* array = AS_ARRAY(field);
+    int numCommands = array->Values->size();
+
+    if (numCommands <= 0) {
+        cmds->numCommands = 0;
+    }
+    else if (numCommands > MAX_CLIENT_COMMANDS) {
+        // thread->ThrowRuntimeError(false, "Too many commands (%d) to fit in size (%d) of outgoing commands list.", numCommands, MAX_CLIENT_COMMANDS);
+        return false;
+    }
+    else {
+        for (int i = 0; i < numCommands; i++) {
+            VMValue val = (*array->Values)[i];
+
+            if (!IS_INTEGER(val)) {
+                cmds->data[i] = 0;
+
+                /*if (thread->ThrowRuntimeError(false,
+                        "Expected command %d to be of type Integer instead of %s.",
+                        i, GetTypeString(val)) == ERROR_RES_CONTINUE) {
+                    continue;
+                }
+
+                return false;*/
+            } else
+                cmds->data[i] = AS_INTEGER(val);
+        }
+
+        cmds->numCommands = (Uint8)numCommands;
+    }
+
+    return true;
+}
+PUBLIC bool BytecodeObject::Network_ReceiveCommands(Uint8 playerID, void* commands) {
+    NetworkCommands* cmds = (NetworkCommands*)commands;
+    Uint8 numCommands = cmds->numCommands;
+    if (!numCommands)
+        return true;
+
+    VMThread* thread = BytecodeObjectManager::Threads + 0;
+    Uint32 hash = Hash_ReceiveCommands;
+    if (!Instance->Class->Methods->Exists(hash)){
+        // thread->ThrowRuntimeError(false, "\"ReceiveCommands\" event does not exist.");
+        return false;
+    }
+
+    if (!Instance->Fields->Exists(Hash_InCommandsField)) {
+        // thread->ThrowRuntimeError(false, "\"inCommands\" field does not exist.");
+        return false;
+    }
+
+    VMValue field = Instance->Fields->Get(Hash_InCommandsField);
+    if (!IS_ARRAY(field)) {
+        // thread->ThrowRuntimeError(false, "\"inCommands\" field is not an array.");
+        return false;
+    }
+
+    ObjFunction* func = AS_FUNCTION(Instance->Class->Methods->Get(hash));
+    if (func->Arity != 1) {
+        // thread->ThrowRuntimeError(false, "Expected 1 argument to function call, got %d.", func->Arity);
+        return false;
+    }
+
+    ObjArray* array = AS_ARRAY(field);
+
+    if (numCommands != array->Values->size()) {
+        array->Values->resize(numCommands);
+    }
+
+    for (int i = 0; i < numCommands; i++) {
+        (*array->Values)[i] = INTEGER_VAL(cmds->data[i]);
+    }
+
+    VMValue* StackTop = thread->StackTop;
+    thread->Push(OBJECT_VAL(Instance));
+    thread->Push(INTEGER_VAL(playerID));
+    thread->RunInvoke(hash, func->Arity);
+    thread->StackTop = StackTop;
+
+    return true;
 }
 
 // Events/methods called from VM
