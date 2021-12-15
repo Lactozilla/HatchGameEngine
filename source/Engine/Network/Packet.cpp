@@ -30,7 +30,7 @@ PUBLIC void Packet::Init() {
 // Prepares an outgoing message, but doesn't send it.
 PUBLIC bool Packet::PrepareMessage(int connection, size_t length, bool useAck) {
     messageLength = (int)length + MESSAGE_HEADER_LENGTH;
-    if (messageLength >= SOCKET_BUFFER_LENGTH) {
+    if (messageLength > SOCKET_BUFFER_LENGTH) {
         NETWORK_DEBUG_ERROR("Message too large to send (length was %d)", messageLength);
         return false;
     }

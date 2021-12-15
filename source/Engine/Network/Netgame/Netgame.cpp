@@ -940,7 +940,7 @@ PUBLIC STATIC void Netgame::ClearInputs(NetworkCommands* commands) {
 }
 
 PUBLIC STATIC void Netgame::CopyInputs(NetworkCommands* dest, NetworkCommands* source) {
-    memcpy(dest, source, sizeof(NetworkCommands));
+    memcpy(dest, source, source->numCommands + 1);
 }
 
 PUBLIC STATIC void Netgame::GetInputs() {
@@ -950,11 +950,14 @@ PUBLIC STATIC void Netgame::GetInputs() {
 PUBLIC STATIC void Netgame::SendInputs() {
     INIT_MESSAGE(message, MESSAGE_COMMANDS);
 
+    NetworkCommands* cmds = &Netgame::PlayerCommands;
+    size_t msgSize = 5 + COMMAND_DATA_SIZE(cmds);
+
     message.clientCommands.frame = Packet::SwapLong(Netgame::NextFrame);
     message.clientCommands.missed = NetgameClient::MissedFrame;
-    Netgame::CopyInputs(&message.clientCommands.commands, &Netgame::PlayerCommands);
+    Netgame::CopyInputs(&message.clientCommands.commands, cmds);
 
-    SEND_MESSAGE_NOACK(message, clientCommands, Netgame::GetServerID());
+    SEND_MESSAGE_WITH_LENGTH_NOACK(message, msgSize, Netgame::GetServerID());
 }
 
 PUBLIC STATIC void Netgame::Update(Uint32 updatesPerFrame) {

@@ -154,6 +154,9 @@ struct MessageStorage {
 #define SEND_MESSAGE(messageVar, field, to) MESSAGE_SEND_CALL(messageVar, to, sizeof(messageVar.field), true)
 #define SEND_MESSAGE_NOACK(messageVar, field, to) MESSAGE_SEND_CALL(messageVar, to, sizeof(messageVar.field), false)
 
+#define SEND_MESSAGE_WITH_LENGTH(messageVar, length, to) MESSAGE_SEND_CALL(messageVar, to, length, true)
+#define SEND_MESSAGE_WITH_LENGTH_NOACK(messageVar, length, to) MESSAGE_SEND_CALL(messageVar, to, length, false)
+
 #define SEND_MESSAGE_ZEROLENGTH(messageVar, to) MESSAGE_SEND_CALL(messageVar, to, 0, true)
 
 #define INIT_AND_SEND_MESSAGE_CALL(ty, to, useAck) { \

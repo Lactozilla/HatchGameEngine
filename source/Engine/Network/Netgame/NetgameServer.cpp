@@ -407,15 +407,98 @@ PRIVATE STATIC void NetgameServer::BuildFrames(Uint32& frameToBuild, Uint32 numF
     }
 }
 
+PRIVATE STATIC void NetgameServer::SendFramesToClient(Uint8 clientNum, Uint32 frameToSend, Uint8 playerCount, Uint8 *playerIDs) {
+    ServerClient* cl = &NetgameServer::Clients[clientNum];
+
+    Uint32 clFrame = cl->Frame;
+    Uint32 maxFrames = clFrame + MESSAGE_INPUT_BUFFER_FRAMES;
+    Uint32 end = NetgameServer::FrameToBuild;
+
+    if (end >= maxFrames)
+        end = maxFrames;
+
+    // Send from the client's NEXT frame, until the frame we need to build
+    Uint32 start = cl->NextFrame;
+
+    // Nothing to send?
+    if (start >= end) {
+        start = clFrame; // Send from the client's CURRENT frame, until the frame we need to build
+        if (start >= end) // No need to send anything then
+            return;
+    }
+
+    cl->NextFrame = end;
+
+    if (end-1 > start)
+        cl->NextFrame = end-1;
+
+    // Somehow less than cl->Frame?
+    if (cl->NextFrame < clFrame)
+        cl->NextFrame = clFrame;
+
+    // Don't send old frames
+    if (start < frameToSend)
+        start = frameToSend;
+
+    INIT_MESSAGE(message, MESSAGE_SERVERCOMMANDS);
+
+    // Check the message size.
+    NetworkCommands* cmds = NULL;
+    Uint8* cmdBuffer = (Uint8*)(&(message.serverCommands.commands[0][0]));
+    Uint32 msgSize = (cmdBuffer - (Uint8*)(&message));
+    Uint32 bufSize = SOCKET_BUFFER_LENGTH - MESSAGE_HEADER_LENGTH;
+
+    for (Uint8 j = 0; j < playerCount; j++) {
+        Uint8 playerID = playerIDs[j];
+        Uint32 lastMsgSize = msgSize;
+
+        for (Uint32 frame = start; frame < end; frame++) {
+            cmds = &Netgame::Players[playerID].commands[frame % INPUT_BUFFER_FRAMES];
+            msgSize += COMMAND_DATA_SIZE(cmds);
+
+            // Send up until the last frame, since there's no more space
+            if (msgSize >= bufSize) {
+                msgSize = lastMsgSize;
+                end = frame ? (frame - 1) : 0;
+                if (end == start)
+                    end++;
+                goto done;
+            }
+        }
+    }
+
+done:
+    // Copy the commands
+    for (Uint8 j = 0; j < playerCount; j++) {
+        Uint8 playerID = playerIDs[j];
+
+        for (Uint32 frame = start; frame < end; frame++) {
+            cmds = &Netgame::Players[playerID].commands[frame % INPUT_BUFFER_FRAMES];
+            Netgame::CopyInputs((NetworkCommands*)cmdBuffer, cmds);
+            cmdBuffer += COMMAND_DATA_SIZE(cmds);
+        }
+
+        message.serverCommands.playerIDs[j] = playerID;
+    }
+
+    message.serverCommands.numPlayers = playerCount;
+    message.serverCommands.startFrame = Packet::SwapLong(start);
+    message.serverCommands.endFrame = Packet::SwapLong(end);
+
+    NETWORK_DEBUG_FRAME("Sending frames %d through %d to client %d (size: %d)", start, end-1, clientNum, msgSize);
+
+    SEND_MESSAGE_WITH_LENGTH_NOACK(message, msgSize, clientNum);
+}
+
 PRIVATE STATIC void NetgameServer::SendFrames(Uint32 frameToSend) {
     Uint8 playerCount = 0;
     Uint8 playerIDs[MAX_NETGAME_PLAYERS];
 
-    for (Uint8 j = 0; j < Netgame::PlayerCount; j++) {
-        if (!Netgame::IsPlayerInGame(j))
+    for (Uint8 i = 0; i < Netgame::PlayerCount; i++) {
+        if (!Netgame::IsPlayerInGame(i))
             continue;
 
-        playerIDs[playerCount] = j;
+        playerIDs[playerCount] = i;
         playerCount++;
     }
 
@@ -423,79 +506,7 @@ PRIVATE STATIC void NetgameServer::SendFrames(Uint32 frameToSend) {
         if (!NetgameServer::ClientInGame(i))
             continue;
 
-        ServerClient* cl = &NetgameServer::Clients[i];
-
-        Uint32 clFrame = cl->Frame;
-        Uint32 maxFrames = clFrame + MESSAGE_INPUT_BUFFER_FRAMES;
-        Uint32 end = NetgameServer::FrameToBuild;
-
-        if (end >= maxFrames)
-            end = maxFrames;
-
-        // Send from the client's NEXT frame, until the frame we need to build
-        Uint32 start = cl->NextFrame;
-
-        // Nothing to send?
-        if (start >= end) {
-            start = clFrame; // Send from the client's CURRENT frame, until the frame we need to build
-            if (start >= end) // No need to send anything then
-                continue;
-        }
-
-        cl->NextFrame = end;
-
-        if (end-1 > start)
-            cl->NextFrame = end-1;
-
-        // Somehow less than cl->Frame?
-        if (cl->NextFrame < clFrame)
-            cl->NextFrame = clFrame;
-
-        // Don't send old frames
-        if (start < frameToSend)
-            start = frameToSend;
-
-        INIT_MESSAGE(message, MESSAGE_SERVERCOMMANDS);
-
-        // Check the message size.
-        Uint8* cmdBuffer = (Uint8*)(&(message.serverCommands.commands[0][0]));
-        Uint32 msgSize = (cmdBuffer - (Uint8*)(&message));
-        Uint32 bufSize = SOCKET_BUFFER_LENGTH - MESSAGE_HEADER_LENGTH;
-        Uint32 cmdSize = sizeof(NetworkCommands) * playerCount;
-
-        for (Uint32 frame = start; frame < end; frame++) {
-            msgSize += cmdSize;
-
-            // Send up until the last frame, since there's no more space
-            if (msgSize >= bufSize) {
-                msgSize = bufSize - 1;
-                end = frame ? (frame - 1) : 0;
-                if (end == start)
-                    end++;
-                break;
-            }
-        }
-
-        // Copy the commands
-        for (Uint8 j = 0; j < playerCount; j++) {
-            Uint8 playerID = playerIDs[j];
-
-            for (Uint32 frame = start; frame < end; frame++) {
-                Netgame::CopyInputs((NetworkCommands*)cmdBuffer, &Netgame::Players[playerID].commands[frame % INPUT_BUFFER_FRAMES]);
-                cmdBuffer += sizeof(NetworkCommands);
-            }
-
-            message.serverCommands.playerIDs[j] = playerID;
-        }
-
-        message.serverCommands.numPlayers = playerCount;
-        message.serverCommands.startFrame = Packet::SwapLong(start);
-        message.serverCommands.endFrame = Packet::SwapLong(end);
-
-        NETWORK_DEBUG_FRAME("Sending frames %d through %d to client %d (size: %d)", start, end-1, i, msgSize);
-
-        STORE_MESSAGE_IN_PACKET(message);
-        packetToSend.Send(i, msgSize, false);
+        NetgameServer::SendFramesToClient(i, frameToSend, playerCount, playerIDs);
     }
 
     NetgameServer::FrameToSend = frameToSend;

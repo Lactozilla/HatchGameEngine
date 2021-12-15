@@ -77,9 +77,11 @@ struct PacketRetransmission {
 #endif
 
 struct NetworkCommands {
-    Uint8 data[MAX_CLIENT_COMMANDS];
     Uint8 numCommands;
+    Uint8 data[MAX_CLIENT_COMMANDS];
 } STRUCT_PACK;
+
+#define COMMAND_DATA_SIZE(commands) ((commands)->numCommands + 1)
 
 // Unpack this NetworkCommands struct.
 #if defined(_MSC_VER)

@@ -22,6 +22,7 @@ private:
     static void UpdateJoinTimeout(int client);
     static void UpdateLastTimeCommandReceived(int client);
     static void BuildFrames(Uint32& frameToBuild, Uint32 numFrames);
+    static void SendFramesToClient(Uint8 clientNum, Uint32 frameToSend, Uint8 playerCount, Uint8 *playerIDs);
     static void SendFrames(Uint32 frameToSend);
 
 public:

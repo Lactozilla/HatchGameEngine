@@ -219,8 +219,9 @@ PUBLIC STATIC void NetgameClient::ReadCommands(Message* message) {
         NETWORK_DEBUG_FRAME("Got frames from %d to %d for player %d", start, end, playerID);
 
         for (Uint32 frame = start; frame < end; frame++) {
-            Netgame::CopyInputs(&player->commands[frame % INPUT_BUFFER_FRAMES], (NetworkCommands*)cmdBuffer);
-            cmdBuffer += sizeof(NetworkCommands);
+            NetworkCommands* cmds = &player->commands[frame % INPUT_BUFFER_FRAMES];
+            Netgame::CopyInputs(cmds, (NetworkCommands*)cmdBuffer);
+            cmdBuffer += COMMAND_DATA_SIZE(cmds);
             player->receivedCommands[frame % INPUT_BUFFER_FRAMES] = true;
         }
     }
