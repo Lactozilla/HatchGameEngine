@@ -9,6 +9,7 @@
 class Application {
 public:
     static INI*        Settings;
+    static char        SettingsFile[4096];
 
     static float       FPS;
     static bool        Running;
@@ -23,6 +24,10 @@ public:
     static int         UpdatesPerFrame;
     static bool        Stepper;
     static bool        Step;
+
+    static int         MasterVolume;
+    static int         MusicVolume;
+    static int         SoundVolume;
 };
 #endif
 
@@ -73,6 +78,7 @@ extern "C" {
 #endif
 
 INI*        Application::Settings = NULL;
+char        Application::SettingsFile[4096];
 
 float       Application::FPS = 60.f;
 int         TargetFPS = 60;
@@ -87,6 +93,10 @@ int         Application::WindowHeight = 480;
 int         Application::UpdatesPerFrame = 1;
 bool        Application::Stepper = false;
 bool        Application::Step = false;
+
+int         Application::MasterVolume = 100;
+int         Application::MusicVolume = 100;
+int         Application::SoundVolume = 100;
 
 char        StartingScene[256];
 
@@ -123,6 +133,7 @@ PUBLIC STATIC void Application::Init(int argc, char* args[]) {
 
     SDL_SetEventFilter(Application::HandleAppEvents, NULL);
 
+    strcpy(Application::SettingsFile, "config.ini");
     Application::LoadSettings();
 
     Graphics::ChooseBackend();
@@ -1037,9 +1048,6 @@ PUBLIC STATIC void Application::LoadGameConfig() {
 
     XMLNode* gameconfig = gameConfigXML->children[0];
 
-    if (gameconfig->attributes.Exists("version"))
-        XMLParser::MatchToken(gameconfig->attributes.Get("version"), "1.2");
-
     for (size_t i = 0; i < gameconfig->children.size(); i++) {
         XMLNode* configItem = gameconfig->children[i];
         if (XMLParser::MatchToken(configItem->name, "startscene")) {
@@ -1051,33 +1059,49 @@ PUBLIC STATIC void Application::LoadGameConfig() {
 
     XMLParser::Free(gameConfigXML);
 }
+
+#define CLAMP_VOLUME(vol) \
+    if (vol < 0) \
+        vol = 0; \
+    else if (vol > 100) \
+        vol = 100 \
+
+PUBLIC STATIC void Application::SetMasterVolume(int volume) {
+    CLAMP_VOLUME(volume);
+
+    Application::MasterVolume = volume;
+    AudioManager::MasterVolume = Application::MasterVolume / 100.0f;
+}
+PUBLIC STATIC void Application::SetMusicVolume(int volume) {
+    CLAMP_VOLUME(volume);
+
+    Application::MusicVolume = volume;
+    AudioManager::MusicVolume = Application::MusicVolume / 100.0f;
+}
+PUBLIC STATIC void Application::SetSoundVolume(int volume) {
+    CLAMP_VOLUME(volume);
+
+    Application::SoundVolume = volume;
+    AudioManager::SoundVolume = Application::SoundVolume / 100.0f;
+}
+
+#undef CLAMP_VOLUME
+
 PUBLIC STATIC void Application::LoadSettings() {
     if (Application::Settings)
-        delete Application::Settings;
+        Application::Settings->Dispose();
 
-    Application::Settings = INI::Load("config.ini");
+    Application::Settings = INI::Load(Application::SettingsFile);
     // NOTE: If no settings could be loaded, create settings with default values.
     if (!Application::Settings) {
         Application::Settings = new INI;
-        // Application::Settings->SetInteger("display", "width", Application::WIDTH * 2);
-        // Application::Settings->SetInteger("display", "height", Application::HEIGHT * 2);
-        Application::Settings->SetBool("display", "sharp", true);
-        Application::Settings->SetBool("display", "crtFilter", true);
+
         Application::Settings->SetBool("display", "fullscreen", false);
+        Application::Settings->SetBool("display", "vsync", false);
 
-        Application::Settings->SetInteger("input1", "up", 26);
-        Application::Settings->SetInteger("input1", "down", 22);
-        Application::Settings->SetInteger("input1", "left", 4);
-        Application::Settings->SetInteger("input1", "right", 7);
-        Application::Settings->SetInteger("input1", "confirm", 13);
-        Application::Settings->SetInteger("input1", "deny", 14);
-        Application::Settings->SetInteger("input1", "extra", 15);
-        Application::Settings->SetInteger("input1", "pause", 19);
-        Application::Settings->SetBool("input1", "vibration", true);
-
-        Application::Settings->SetInteger("audio", "masterVolume", 100);
-        Application::Settings->SetInteger("audio", "musicVolume", 100);
-        Application::Settings->SetInteger("audio", "soundVolume", 100);
+        Application::Settings->SetInteger("audio", "masterVolume", Application::MasterVolume);
+        Application::Settings->SetInteger("audio", "musicVolume", Application::MusicVolume);
+        Application::Settings->SetInteger("audio", "soundVolume", Application::SoundVolume);
     }
 
     int LogLevel = 0;
@@ -1102,14 +1126,21 @@ PUBLIC STATIC void Application::LoadSettings() {
     Application::Settings->GetInteger("display", "multisample", &Graphics::MultisamplingEnabled);
 
     int volume;
-    Application::Settings->GetInteger("audio", "masterVolume", &volume);
-    AudioManager::MasterVolume = volume / 100.0f;
+    if (!Application::Settings->GetInteger("audio", "masterVolume", &volume))
+        volume = 100;
+    Application::SetMasterVolume(volume);
 
-    Application::Settings->GetInteger("audio", "musicVolume", &volume);
-    AudioManager::MusicVolume = volume / 100.0f;
+    if (!Application::Settings->GetInteger("audio", "musicVolume", &volume))
+        volume = 100;
+    Application::SetMusicVolume(volume);
 
-    Application::Settings->GetInteger("audio", "soundVolume", &volume);
-    AudioManager::SoundVolume = volume / 100.0f;
+    if (!Application::Settings->GetInteger("audio", "soundVolume", &volume))
+        volume = 100;
+    Application::SetSoundVolume(volume);
+}
+PUBLIC STATIC void Application::SaveSettings() {
+    if (Application::Settings)
+        Application::Settings->Save();
 }
 
 PUBLIC STATIC int  Application::HandleAppEvents(void* data, SDL_Event* event) {

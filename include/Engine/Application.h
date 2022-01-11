@@ -19,6 +19,7 @@
 class Application {
 public:
     static INI*        Settings;
+    static char        SettingsFile[4096];
     static float       FPS;
     static bool        Running;
     static bool        GameStart;
@@ -30,6 +31,9 @@ public:
     static int         UpdatesPerFrame;
     static bool        Stepper;
     static bool        Step;
+    static int         MasterVolume;
+    static int         MusicVolume;
+    static int         SoundVolume;
 
     static void Init(int argc, char* args[]);
     static void GetPerformanceSnapshot();
@@ -40,7 +44,11 @@ public:
     static void Run(int argc, char* args[]);
     static void Cleanup();
     static void LoadGameConfig();
+    static void SetMasterVolume(int volume);
+    static void SetMusicVolume(int volume);
+    static void SetSoundVolume(int volume);
     static void LoadSettings();
+    static void SaveSettings();
     static int  HandleAppEvents(void* data, SDL_Event* event);
 };
 
