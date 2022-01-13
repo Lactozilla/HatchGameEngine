@@ -564,11 +564,14 @@ PUBLIC STATIC void    BytecodeObjectManager::DefineMethod(int index, Uint32 hash
 }
 PUBLIC STATIC void    BytecodeObjectManager::DefineNative(ObjClass* klass, const char* name, NativeFn function) {
     if (function == NULL) return;
-    if (klass == NULL) return;
     if (name == NULL) return;
 
-    if (!klass->Methods->Exists(name))
+    if (klass == NULL) {
+        Globals->Put(name, OBJECT_VAL(NewNative(function)));
+    }
+    else if (!klass->Methods->Exists(name)) {
         klass->Methods->Put(name, OBJECT_VAL(NewNative(function)));
+    }
 }
 PUBLIC STATIC void    BytecodeObjectManager::GlobalLinkInteger(ObjClass* klass, const char* name, int* value) {
     if (name == NULL) return;

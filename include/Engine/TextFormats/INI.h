@@ -16,6 +16,7 @@ public:
     void* Struct;
     char* Filename;
 
+    static INI* New(const char* filename);
     static INI* Load(const char* filename);
     bool Save();
     bool GetString(const char* section, const char* key, char* dest, size_t destSize);

@@ -17,6 +17,14 @@ public:
 
 #include <Libraries/ini.h>
 
+PUBLIC STATIC INI* INI::New(const char* filename) {
+    INI* ini = new INI;
+
+    ini->Struct = (void*)ini_create(NULL);
+    ini->Filename = StringUtils::Duplicate(filename);
+
+    return ini;
+}
 PUBLIC STATIC INI* INI::Load(const char* filename) {
     INI* ini = new INI;
 
@@ -91,6 +99,8 @@ PUBLIC bool INI::GetString(const char* section, const char* key, char* dest, siz
         return false;
 
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -109,6 +119,8 @@ PUBLIC bool INI::GetString(const char* section, const char* key, char* dest, siz
 }
 PUBLIC bool INI::GetInteger(const char* section, const char* key, int* dest) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -125,6 +137,8 @@ PUBLIC bool INI::GetInteger(const char* section, const char* key, int* dest) {
 }
 PUBLIC bool INI::GetBool(const char* section, const char* key, bool* dest) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -144,6 +158,8 @@ PUBLIC bool INI::GetBool(const char* section, const char* key, bool* dest) {
 
 PUBLIC bool INI::SetString(const char* section, const char* key, const char* value) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -162,9 +178,9 @@ PUBLIC bool INI::SetString(const char* section, const char* key, const char* val
     return true;
 }
 PUBLIC bool INI::SetInteger(const char* section, const char* key, int value) {
-    char toStr[21];
-
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -173,6 +189,7 @@ PUBLIC bool INI::SetInteger(const char* section, const char* key, int value) {
             secnum = ini_section_add(iniData, section, 0);
     }
 
+    char toStr[21];
     snprintf(toStr, sizeof toStr, "%d", value);
 
     int property = ini_find_property(iniData, secnum, key);
@@ -185,9 +202,9 @@ PUBLIC bool INI::SetInteger(const char* section, const char* key, int value) {
     return true;
 }
 PUBLIC bool INI::SetBool(const char* section, const char* key, bool value) {
-    const char* toStr = value ? "true" : "false";
-
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -195,6 +212,8 @@ PUBLIC bool INI::SetBool(const char* section, const char* key, bool value) {
         if (secnum == INI_NOT_FOUND)
             secnum = ini_section_add(iniData, section, 0);
     }
+
+    const char* toStr = value ? "true" : "false";
 
     int property = ini_find_property(iniData, secnum, key);
     if (property == INI_NOT_FOUND) {
@@ -208,6 +227,8 @@ PUBLIC bool INI::SetBool(const char* section, const char* key, bool value) {
 
 PUBLIC bool INI::AddSection(const char* section) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = ini_find_section(iniData, section);
     if (secnum == INI_NOT_FOUND) {
@@ -219,6 +240,8 @@ PUBLIC bool INI::AddSection(const char* section) {
 }
 PUBLIC bool INI::RemoveSection(const char* section) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -232,6 +255,8 @@ PUBLIC bool INI::RemoveSection(const char* section) {
 }
 PUBLIC bool INI::SectionExists(const char* section) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     if (section == NULL)
         return false;
@@ -240,11 +265,15 @@ PUBLIC bool INI::SectionExists(const char* section) {
 }
 PUBLIC int INI::GetSectionCount() {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return 0;
     return ini_section_count(iniData);
 }
 
 PUBLIC char const* INI::GetProperty(const char* section, const char* key) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return NULL;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -261,6 +290,8 @@ PUBLIC char const* INI::GetProperty(const char* section, const char* key) {
 }
 PUBLIC bool INI::PropertyExists(const char* section, const char* key) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -273,6 +304,8 @@ PUBLIC bool INI::PropertyExists(const char* section, const char* key) {
 }
 PUBLIC bool INI::RemoveProperty(const char* section, const char* key) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return false;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -290,6 +323,8 @@ PUBLIC bool INI::RemoveProperty(const char* section, const char* key) {
 }
 PUBLIC int INI::GetPropertyCount(const char* section) {
     ini_t* iniData = (ini_t*)this->Struct;
+    if (!iniData)
+        return 0;
 
     int secnum = INI_GLOBAL_SECTION;
     if (section) {
@@ -302,7 +337,10 @@ PUBLIC int INI::GetPropertyCount(const char* section) {
 }
 
 PUBLIC void INI::Dispose() {
-    ini_destroy((ini_t*)this->Struct);
+    ini_t* iniData = (ini_t*)this->Struct;
+    if (iniData)
+        ini_destroy(iniData);
+
     free(this->Filename);
     delete this;
 }

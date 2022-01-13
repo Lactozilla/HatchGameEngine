@@ -5,11 +5,15 @@
 #include <Engine/Scene.h>
 #include <Engine/Math/Math.h>
 #include <Engine/TextFormats/INI.h>
+#include <Engine/TextFormats/XML/XMLParser.h>
+#include <Engine/TextFormats/XML/XMLNode.h>
 
 class Application {
 public:
     static INI*        Settings;
     static char        SettingsFile[4096];
+
+    static XMLNode*    GameConfig;
 
     static float       FPS;
     static bool        Running;
@@ -44,6 +48,7 @@ public:
 #include <Engine/Filesystem/Directory.h>
 #include <Engine/ResourceTypes/ResourceManager.h>
 #include <Engine/TextFormats/XML/XMLParser.h>
+#include <Engine/TextFormats/XML/XMLNode.h>
 #include <Engine/Utilities/StringUtils.h>
 
 #include <Engine/Media/MediaSource.h>
@@ -79,6 +84,8 @@ extern "C" {
 
 INI*        Application::Settings = NULL;
 char        Application::SettingsFile[4096];
+
+XMLNode*    Application::GameConfig = NULL;
 
 float       Application::FPS = 60.f;
 int         TargetFPS = 60;
@@ -185,6 +192,10 @@ PUBLIC STATIC void Application::Init(int argc, char* args[]) {
     Clock::Init();
 
     Application::LoadGameConfig();
+    Application::LoadAudioSettings();
+    Application::LoadDevSettings();
+
+    Application::DisposeGameConfig();
 
     switch (Application::Platform) {
         case Platforms::Windows:
@@ -424,7 +435,118 @@ PUBLIC STATIC void Application::UpdateWindowTitle() {
     SDL_SetWindowTitle(Application::Window, full);
 }
 
-PUBLIC STATIC void Application::PollEvents() {
+PRIVATE STATIC void Application::Restart() {
+    // Reset FPS timer
+    BenchmarkFrameCount = 0;
+
+    Scene::Dispose();
+    Graphics::SpriteSheetTextureMap->WithAll([](Uint32, Texture* tex) -> void {
+        Graphics::DisposeTexture(tex);
+    });
+    Graphics::SpriteSheetTextureMap->Clear();
+
+    Application::LoadSettings();
+    Application::LoadGameConfig();
+
+    Application::LoadAudioSettings();
+    Application::LoadDevSettings();
+
+    Application::DisposeGameConfig();
+}
+
+#define CLAMP_VOLUME(vol) \
+    if (vol < 0) \
+        vol = 0; \
+    else if (vol > 100) \
+        vol = 100
+
+PUBLIC STATIC void Application::SetMasterVolume(int volume) {
+    CLAMP_VOLUME(volume);
+
+    Application::MasterVolume = volume;
+    AudioManager::MasterVolume = Application::MasterVolume / 100.0f;
+}
+PUBLIC STATIC void Application::SetMusicVolume(int volume) {
+    CLAMP_VOLUME(volume);
+
+    Application::MusicVolume = volume;
+    AudioManager::MusicVolume = Application::MusicVolume / 100.0f;
+}
+PUBLIC STATIC void Application::SetSoundVolume(int volume) {
+    CLAMP_VOLUME(volume);
+
+    Application::SoundVolume = volume;
+    AudioManager::SoundVolume = Application::SoundVolume / 100.0f;
+}
+
+PRIVATE STATIC void Application::LoadAudioSettings() {
+    int masterVolume = 100;
+    int musicVolume = 100, soundVolume = 100;
+
+    if (Application::GameConfig) {
+        XMLNode* gameconfig = Application::GameConfig->children[0];
+        char *xmlTokStr = NULL;
+
+#define GET_VOLUME(node, var) \
+        if (node->attributes.Exists("volume")) { \
+            free(xmlTokStr); \
+            xmlTokStr = XMLParser::TokenToString(node->attributes.Get("volume")); \
+            if (StringUtils::ToNumber(&var, xmlTokStr)) { \
+                CLAMP_VOLUME(var); \
+            } \
+        }
+
+        for (size_t i = 0; i < gameconfig->children.size(); i++) {
+            XMLNode* configItem = gameconfig->children[i];
+            if (XMLParser::MatchToken(configItem->name, "audio")) {
+                // Get master audio volume
+                GET_VOLUME(configItem, masterVolume);
+
+                // Get music and sound volume
+                for (size_t j = 0; j < configItem->children.size(); j++) {
+                    XMLNode* child = configItem->children[j];
+
+                    if (XMLParser::MatchToken(child->name, "music")) {
+                        GET_VOLUME(child, musicVolume);
+                    } else if (XMLParser::MatchToken(child->name, "sound")) {
+                        GET_VOLUME(child, soundVolume);
+                    }
+                }
+            }
+        }
+    }
+
+#undef GET_VOLUME
+
+    INI* settings = Application::Settings;
+
+#define GET_OR_SET_VOLUME(var) \
+    if (!settings->PropertyExists("audio", #var)) \
+        settings->SetInteger("audio", #var, var); \
+    else \
+        settings->GetInteger("audio", #var, &var)
+
+    GET_OR_SET_VOLUME(masterVolume);
+    GET_OR_SET_VOLUME(musicVolume);
+    GET_OR_SET_VOLUME(soundVolume);
+
+#undef GET_OR_SET_VOLUME
+
+    Application::SetMasterVolume(masterVolume);
+    Application::SetMusicVolume(musicVolume);
+    Application::SetSoundVolume(soundVolume);
+}
+
+#undef CLAMP_VOLUME
+
+PRIVATE STATIC void Application::LoadDevSettings() {
+    Application::Settings->GetBool("dev", "devMenu", &DevMenu);
+    Application::Settings->GetBool("dev", "viewPerformance", &ShowFPS);
+    Application::Settings->GetBool("dev", "donothing", &DoNothing);
+    Application::Settings->GetInteger("dev", "fastforward", &UpdatesPerFastForward);
+}
+
+PRIVATE STATIC void Application::PollEvents() {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
@@ -458,22 +580,7 @@ PUBLIC STATIC void Application::PollEvents() {
                     // Restart application (dev)
                     case SDLK_F1: {
                         if (DevMenu) {
-                            // Reset FPS timer
-                            BenchmarkFrameCount = 0;
-
-                            Scene::Dispose();
-                            Graphics::SpriteSheetTextureMap->WithAll([](Uint32, Texture* tex) -> void {
-                                Graphics::DisposeTexture(tex);
-                            });
-                            Graphics::SpriteSheetTextureMap->Clear();
-
-                            Application::LoadGameConfig();
-                            Application::LoadSettings();
-
-                            Application::Settings->GetBool("dev", "devMenu", &DevMenu);
-                            Application::Settings->GetBool("dev", "viewPerformance", &ShowFPS);
-                            Application::Settings->GetBool("dev", "donothing", &DoNothing);
-                            Application::Settings->GetInteger("dev", "fastforward", &UpdatesPerFastForward);
+                            Application::Restart();
 
                             Scene::Init();
                             if (*StartingScene)
@@ -515,23 +622,7 @@ PUBLIC STATIC void Application::PollEvents() {
                     // Restart scene (dev)
                     case SDLK_F5: {
                         if (DevMenu) {
-                            // Reset FPS timer
-                            BenchmarkFrameCount = 0;
-
-                            Scene::Dispose();
-
-                            Graphics::SpriteSheetTextureMap->WithAll([](Uint32, Texture* tex) -> void {
-                                Graphics::DisposeTexture(tex);
-                            });
-                            Graphics::SpriteSheetTextureMap->Clear();
-
-                            Application::LoadGameConfig();
-                            Application::LoadSettings();
-
-                            Application::Settings->GetBool("dev", "devMenu", &DevMenu);
-                            Application::Settings->GetBool("dev", "viewPerformance", &ShowFPS);
-                            Application::Settings->GetBool("dev", "donothing", &DoNothing);
-                            Application::Settings->GetInteger("dev", "fastforward", &UpdatesPerFastForward);
+                            Application::Restart();
 
                             char temp[256];
                             memcpy(temp, Scene::CurrentScene, 256);
@@ -648,7 +739,7 @@ PUBLIC STATIC void Application::PollEvents() {
         }
     }
 }
-PUBLIC STATIC void Application::RunFrame(void* p) {
+PRIVATE STATIC void Application::RunFrame(void* p) {
     FrameTimeStart = Clock::GetTicks();
 
     // Event loop
@@ -911,7 +1002,7 @@ PUBLIC STATIC void Application::RunFrame(void* p) {
 
     MetricFrameTime = Clock::GetTicks() - FrameTimeStart;
 }
-PUBLIC STATIC void Application::DelayFrame() {
+PRIVATE STATIC void Application::DelayFrame() {
     // HACK: MacOS V-Sync timing gets disabled if window is not visible
     if (!Graphics::VsyncEnabled || Application::Platform == Platforms::MacOSX) {
         double frameTime = Clock::GetTicks() - FrameTimeStart;
@@ -942,11 +1033,6 @@ PUBLIC STATIC void Application::Run(int argc, char* args[]) {
     Application::Init(argc, args);
     if (!Running)
         return;
-
-    Application::Settings->GetBool("dev", "devMenu", &DevMenu);
-    Application::Settings->GetBool("dev", "viewPerformance", &ShowFPS);
-    Application::Settings->GetBool("dev", "donothing", &DoNothing);
-    Application::Settings->GetInteger("dev", "fastforward", &UpdatesPerFastForward);
 
     Scene::Init();
     if (argc > 1 && !!StringUtils::StrCaseStr(args[1], ".tmx")) {
@@ -1026,7 +1112,7 @@ PUBLIC STATIC void Application::Run(int argc, char* args[]) {
     #endif
 }
 
-PUBLIC STATIC void Application::Cleanup() {
+PRIVATE STATIC void Application::Cleanup() {
     ResourceManager::Dispose();
     AudioManager::Dispose();
     InputManager::Dispose();
@@ -1040,13 +1126,13 @@ PUBLIC STATIC void Application::Cleanup() {
     // Memory::PrintLeak();
 }
 
-PUBLIC STATIC void Application::LoadGameConfig() {
+PRIVATE STATIC void Application::LoadGameConfig() {
     StartingScene[0] = '\0';
 
-    XMLNode* gameConfigXML = XMLParser::ParseFromResource("GameConfig.xml");
-    if (!gameConfigXML) return;
+    Application::GameConfig = XMLParser::ParseFromResource("GameConfig.xml");
+    if (!Application::GameConfig) return;
 
-    XMLNode* gameconfig = gameConfigXML->children[0];
+    XMLNode* gameconfig = Application::GameConfig->children[0];
 
     for (size_t i = 0; i < gameconfig->children.size(); i++) {
         XMLNode* configItem = gameconfig->children[i];
@@ -1056,52 +1142,28 @@ PUBLIC STATIC void Application::LoadGameConfig() {
             StartingScene[value.Length] = 0;
         }
     }
-
-    XMLParser::Free(gameConfigXML);
 }
 
-#define CLAMP_VOLUME(vol) \
-    if (vol < 0) \
-        vol = 0; \
-    else if (vol > 100) \
-        vol = 100 \
+PRIVATE STATIC void Application::DisposeGameConfig() {
+    if (Application::GameConfig)
+        XMLParser::Free(Application::GameConfig);
 
-PUBLIC STATIC void Application::SetMasterVolume(int volume) {
-    CLAMP_VOLUME(volume);
-
-    Application::MasterVolume = volume;
-    AudioManager::MasterVolume = Application::MasterVolume / 100.0f;
+    Application::GameConfig = NULL;
 }
-PUBLIC STATIC void Application::SetMusicVolume(int volume) {
-    CLAMP_VOLUME(volume);
-
-    Application::MusicVolume = volume;
-    AudioManager::MusicVolume = Application::MusicVolume / 100.0f;
-}
-PUBLIC STATIC void Application::SetSoundVolume(int volume) {
-    CLAMP_VOLUME(volume);
-
-    Application::SoundVolume = volume;
-    AudioManager::SoundVolume = Application::SoundVolume / 100.0f;
-}
-
-#undef CLAMP_VOLUME
 
 PUBLIC STATIC void Application::LoadSettings() {
     if (Application::Settings)
         Application::Settings->Dispose();
 
     Application::Settings = INI::Load(Application::SettingsFile);
+
     // NOTE: If no settings could be loaded, create settings with default values.
     if (!Application::Settings) {
-        Application::Settings = new INI;
+        Application::Settings = INI::New(Application::SettingsFile);
 
         Application::Settings->SetBool("display", "fullscreen", false);
         Application::Settings->SetBool("display", "vsync", false);
-
-        Application::Settings->SetInteger("audio", "masterVolume", Application::MasterVolume);
-        Application::Settings->SetInteger("audio", "musicVolume", Application::MusicVolume);
-        Application::Settings->SetInteger("audio", "soundVolume", Application::SoundVolume);
+        Application::Settings->SetBool("display", "software", true);
     }
 
     int LogLevel = 0;
@@ -1124,26 +1186,13 @@ PUBLIC STATIC void Application::LoadSettings() {
 
     Application::Settings->GetBool("display", "vsync", &Graphics::VsyncEnabled);
     Application::Settings->GetInteger("display", "multisample", &Graphics::MultisamplingEnabled);
-
-    int volume;
-    if (!Application::Settings->GetInteger("audio", "masterVolume", &volume))
-        volume = 100;
-    Application::SetMasterVolume(volume);
-
-    if (!Application::Settings->GetInteger("audio", "musicVolume", &volume))
-        volume = 100;
-    Application::SetMusicVolume(volume);
-
-    if (!Application::Settings->GetInteger("audio", "soundVolume", &volume))
-        volume = 100;
-    Application::SetSoundVolume(volume);
 }
 PUBLIC STATIC void Application::SaveSettings() {
     if (Application::Settings)
         Application::Settings->Save();
 }
 
-PUBLIC STATIC int  Application::HandleAppEvents(void* data, SDL_Event* event) {
+PRIVATE STATIC int Application::HandleAppEvents(void* data, SDL_Event* event) {
     switch (event->type) {
         case SDL_APP_TERMINATING:
             Log::Print(Log::LOG_VERBOSE, "SDL_APP_TERMINATING");

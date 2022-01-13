@@ -8053,6 +8053,126 @@ VMValue Window_GetFullscreen(int argCount, VMValue* args, Uint32 threadID) {
 }
 // #endregion
 
+// #region XML
+static VMValue _XML_FillMap(XMLNode* parent) {
+    ObjMap* map = NewMap();
+    Uint32 keyHash;
+
+    XMLAttributes* attributes = &parent->attributes;
+    size_t numAttr = attributes->KeyVector.size();
+    size_t numChildren = parent->children.size();
+
+    if (numChildren == 1 && !parent->children[0]->children.size()) {
+        Token text = parent->children[0]->name;
+
+        if (numAttr) {
+            const char* textKey = "#text";
+            keyHash = map->Keys->HashFunction(textKey, strlen(textKey));
+
+            map->Keys->Put(keyHash, HeapCopyString(textKey, strlen(textKey)));
+            map->Values->Put(keyHash, OBJECT_VAL(CopyString(text.Start, text.Length)));
+        }
+        else
+            return OBJECT_VAL(CopyString(text.Start, text.Length));
+    }
+    else {
+        for (size_t i = 0; i < numChildren; i++) {
+            XMLNode* node = parent->children[i];
+
+            Token *nodeName = &node->name;
+            keyHash = map->Keys->HashFunction(nodeName->Start, nodeName->Length);
+
+            // If the key already exists, push into it
+            if (map->Keys->Exists(keyHash)) {
+                VMValue thisVal = map->Values->Get(keyHash);
+                ObjArray* thisArray = NULL;
+
+                // Turn the value into an array if it isn't one
+                if (!IS_ARRAY(thisVal)) {
+                    thisArray = NewArray();
+                    thisArray->Values->push_back(thisVal);
+                    map->Values->Put(keyHash, OBJECT_VAL(thisArray));
+                } else {
+                    thisArray = AS_ARRAY(thisVal);
+                }
+
+                thisArray->Values->push_back(_XML_FillMap(node));
+            }
+            else {
+                map->Keys->Put(keyHash, HeapCopyString(nodeName->Start, nodeName->Length));
+                map->Values->Put(keyHash, _XML_FillMap(node));
+            }
+        }
+    }
+
+    // Insert attributes
+    if (!numAttr)
+        return OBJECT_VAL(map);
+
+    char* attrName = NULL;
+
+    for (size_t i = 0; i < numAttr; i++) {
+        char *key = attributes->KeyVector[i];
+        char *value = XMLParser::TokenToString(attributes->ValueMap.Get(key));
+
+        attrName = (char*)realloc(attrName, strlen(key) + 2);
+        if (!attrName) {
+            Log::Print(Log::LOG_ERROR, "Out of memory in XML.FillMap!");
+            abort();
+        }
+
+        sprintf(attrName, "#%s", key);
+
+        keyHash = map->Keys->HashFunction(attrName, strlen(attrName));
+        map->Keys->Put(keyHash, HeapCopyString(attrName, strlen(attrName)));
+        map->Values->Put(keyHash, OBJECT_VAL(CopyString(value, strlen(value))));
+    }
+
+    free(attrName);
+
+    return OBJECT_VAL(map);
+}
+
+/***
+ * XML.Parse
+ * \desc Decodes a String value into a Map value.
+ * \param xmlText (String): XML-compliant text.
+ * \return Returns a Map value if the text can be decoded, otherwise returns <code>null</code>.
+ * \ns XML
+ */
+VMValue XML_Parse(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    if (BytecodeObjectManager::Lock()) {
+        ObjString* string = AS_STRING(args[0]);
+        MemoryStream* stream = MemoryStream::New(string->Chars, string->Length);
+
+        if (stream) {
+            XMLNode* xmlRoot = XMLParser::ParseFromStream(stream);
+
+            if (xmlRoot) {
+                VMValue mapValue = _XML_FillMap(xmlRoot);
+                BytecodeObjectManager::Unlock();
+                return mapValue;
+            }
+        }
+
+        BytecodeObjectManager::Unlock();
+    }
+    return NULL_VAL;
+}
+// #endregion
+
+VMValue Global_typeOf(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    if (BytecodeObjectManager::Lock()) {
+        const char* typeOfValue = GetTypeString(args[0]);
+        ObjString* string = CopyString(typeOfValue, strlen(typeOfValue));
+        BytecodeObjectManager::Unlock();
+        return OBJECT_VAL(string);
+    }
+    return NULL_VAL;
+}
+
 #define String_CaseMapBind(lowerCase, upperCase) \
     String_ToUpperCase_Map_ExtendedASCII[(Uint8)lowerCase] = (Uint8)upperCase; \
     String_ToLowerCase_Map_ExtendedASCII[(Uint8)upperCase] = (Uint8)lowerCase;
@@ -8086,7 +8206,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
         val = OBJECT_VAL(klass); \
         BytecodeObjectManager::Globals->Put(klass->Hash, OBJECT_VAL(klass));
     #define DEF_NATIVE(className, funcName) \
-        BytecodeObjectManager::DefineNative(klass, #funcName, className##_##funcName);
+        BytecodeObjectManager::DefineNative(klass, #funcName, className##_##funcName)
 
     // #region Audio
     INIT_CLASS(Audio);
@@ -8658,8 +8778,20 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Window, GetFullscreen);
     // #endregion
 
+    // #region XML
+    INIT_CLASS(XML);
+    DEF_NATIVE(XML, Parse);
+    // #endregion
+
     #undef DEF_NATIVE
     #undef INIT_CLASS
+
+    #define DEF_GLOBAL(funcName) \
+        BytecodeObjectManager::DefineNative(NULL, #funcName, Global_##funcName)
+
+    DEF_GLOBAL(typeOf);
+
+    #undef DEF_GLOBAL
 
     BytecodeObjectManager::Globals->Put("other", NULL_VAL);
 
