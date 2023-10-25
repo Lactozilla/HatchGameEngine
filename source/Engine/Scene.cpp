@@ -821,18 +821,6 @@ PUBLIC STATIC void Scene::SetViewPriority(int viewIndex, int priority) {
     Scene::SortViews();
 }
 
-PRIVATE STATIC void Scene::ResetViews() {
-    Scene::ViewsActive = 0;
-
-    // Deactivate extra views
-    for (int i = 0; i < MAX_SCENE_VIEWS; i++) {
-        Scene::Views[i].Active = false;
-        Scene::Views[i].Priority = 0;
-    }
-
-    Scene::SetViewActive(0, true);
-}
-
 PUBLIC STATIC void Scene::SortViews() {
     int count = 0;
 
@@ -894,6 +882,12 @@ PUBLIC STATIC bool Scene::CheckPosOnScreen(float posX, float posY, float rangeX,
     }
     
     return false;
+}
+
+PRIVATE STATIC void Scene::ResetView(View* view) {
+    view->X = 0.0f;
+    view->Y = 0.0f;
+    view->Z = 0.0f;
 }
 
 #define PERF_START(n) if (viewPerf) viewPerf->n = Clock::GetTicks()
@@ -1267,13 +1261,11 @@ PRIVATE int Scene::GetPersistenceScopeForObjectDeletion() {
 }
 
 PUBLIC void Scene::Restart() {
-    // TODO: Remove this
-    Scene::ViewCurrent = 0;
-
-    View* currentView = &Scene::Views[Scene::ViewCurrent];
-    currentView->X = 0.0f;
-    currentView->Y = 0.0f;
-    currentView->Z = 0.0f;
+    for (int i = 0; i < MAX_SCENE_VIEWS; i++) {
+        View* view = &Scene::Views[i];
+        if (view->ScenePtr == this)
+            Scene::ResetView(view);
+    }
 
     Frame = 0;
     Paused = false;
@@ -1285,8 +1277,6 @@ PUBLIC void Scene::Restart() {
     Milliseconds = 0;
 
     DebugMode = 0;
-
-    Scene::ResetViews();
 
     ObjectViewRenderFlag = 0xFFFFFFFF;
     TileViewRenderFlag = 0xFFFFFFFF;
