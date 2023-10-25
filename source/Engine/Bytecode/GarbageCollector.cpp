@@ -1,6 +1,7 @@
 #if INTERFACE
 #include <Engine/Bytecode/Types.h>
 #include <Engine/Includes/HashMap.h>
+#include <Engine/Scene.h>
 
 class GarbageCollector {
 public:
@@ -22,6 +23,7 @@ public:
 #include <Engine/Bytecode/BytecodeObject.h>
 #include <Engine/Bytecode/BytecodeObjectManager.h>
 #include <Engine/Bytecode/Compiler.h>
+#include <Engine/Bytecode/StandardLibrary.h>
 #include <Engine/Diagnostics/Clock.h>
 #include <Engine/Diagnostics/Log.h>
 #include <Engine/Scene.h>
@@ -42,6 +44,35 @@ int          GarbageCollector::FilterSweepType = 0;
 PUBLIC STATIC void GarbageCollector::Init() {
     GarbageCollector::RootObject = NULL;
     GarbageCollector::NextGC = 0x100000;
+}
+
+PRIVATE STATIC void GarbageCollector::CollectScene(Scene *scene) {
+    // Mark static objects
+    for (Entity* ent = scene->StaticObjectFirst, *next; ent; ent = next) {
+        next = ent->NextEntity;
+
+        BytecodeObject* bobj = (BytecodeObject*)ent;
+        GrayObject(bobj->Instance);
+        GrayHashMap(bobj->Properties);
+    }
+    // Mark dynamic objects
+    for (Entity* ent = scene->DynamicObjectFirst, *next; ent; ent = next) {
+        next = ent->NextEntity;
+
+        BytecodeObject* bobj = (BytecodeObject*)ent;
+        GrayObject(bobj->Instance);
+        GrayHashMap(bobj->Properties);
+    }
+
+    // Mark Scene properties
+    if (scene->Properties)
+        GrayHashMap(scene->Properties);
+
+    // Mark Layer properties
+    for (size_t i = 0; i < scene->Layers.size(); i++) {
+        if (scene->Layers[i].Properties)
+            GrayHashMap(scene->Layers[i].Properties);
+    }
 }
 
 PUBLIC STATIC void GarbageCollector::Collect() {
@@ -68,36 +99,20 @@ PUBLIC STATIC void GarbageCollector::Collect() {
     // Mark constants
     GrayHashMap(BytecodeObjectManager::Constants);
 
-    // Mark static objects
-    for (Entity* ent = Scene::StaticObjectFirst, *next; ent; ent = next) {
-        next = ent->NextEntity;
-
-        BytecodeObject* bobj = (BytecodeObject*)ent;
-        GrayObject(bobj->Instance);
-        GrayHashMap(bobj->Properties);
-    }
-    // Mark dynamic objects
-    for (Entity* ent = Scene::DynamicObjectFirst, *next; ent; ent = next) {
-        next = ent->NextEntity;
-
-        BytecodeObject* bobj = (BytecodeObject*)ent;
-        GrayObject(bobj->Instance);
-        GrayHashMap(bobj->Properties);
-    }
-
-    // Mark Scene properties
-    if (Scene::Properties)
-        GrayHashMap(Scene::Properties);
-
-    // Mark Layer properties
-    for (size_t i = 0; i < Scene::Layers.size(); i++) {
-        if (Scene::Layers[i].Properties)
-            GrayHashMap(Scene::Layers[i].Properties);
+    // Mark scene
+    for (Scene* scene : Scene::List) {
+        if (scene)
+            CollectScene(scene);
     }
 
     // Mark functions
     for (size_t i = 0; i < BytecodeObjectManager::AllFunctionList.size(); i++) {
         GrayObject(BytecodeObjectManager::AllFunctionList[i]);
+    }
+
+    // Mark instanceable StandardLibrary classes
+    for (ObjClass* klass : StandardLibrary::InstanceableClassList) {
+        GrayObject(klass);
     }
 
     grayElapsed = Clock::GetTicks() - grayElapsed;

@@ -1775,12 +1775,12 @@ PUBLIC STATIC void     GLRenderer::DrawPolygon3D(void* data, int vertexCount, in
         renderer->DrawPolygon3D((VertexAttribute*)data, vertexCount, vertexFlag, texture);
     }
 }
-PUBLIC STATIC void     GLRenderer::DrawSceneLayer3D(void* layer, int sx, int sy, int sw, int sh, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
+PUBLIC STATIC void     GLRenderer::DrawSceneLayer3D(void* scenePtr, void* layer, int sx, int sy, int sw, int sh, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
     PolygonRenderer *renderer = GL_GetPolygonRenderer();
     if (renderer != nullptr) {
         renderer->ModelMatrix = modelMatrix;
         renderer->NormalMatrix = normalMatrix;
-        renderer->DrawSceneLayer3D((SceneLayer*)layer, sx, sy, sw, sh);
+        renderer->DrawSceneLayer3D((Scene*)scenePtr, (SceneLayer*)layer, sx, sy, sw, sh);
     }
 }
 PUBLIC STATIC void     GLRenderer::DrawModel(void* inModel, Uint16 animation, Uint32 frame, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {

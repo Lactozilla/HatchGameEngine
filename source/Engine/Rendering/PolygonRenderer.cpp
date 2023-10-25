@@ -167,10 +167,10 @@ PUBLIC void PolygonRenderer::DrawPolygon3D(VertexAttribute* data, int vertexCoun
     vertexBuffer->VertexCount += vertexCount;
     vertexBuffer->FaceCount++;
 }
-PUBLIC void PolygonRenderer::DrawSceneLayer3D(SceneLayer* layer, int sx, int sy, int sw, int sh) {
+PUBLIC void PolygonRenderer::DrawSceneLayer3D(Scene* scene, SceneLayer* layer, int sx, int sy, int sw, int sh) {
     int vertexCountPerFace = 4;
-    int tileWidth = Scene::TileWidth;
-    int tileHeight = Scene::TileHeight;
+    int tileWidth = scene->TileWidth;
+    int tileHeight = scene->TileHeight;
     Uint32 colRGB = CurrentColor;
 
     Matrix4x4 mvpMatrix;
@@ -185,10 +185,10 @@ PUBLIC void PolygonRenderer::DrawSceneLayer3D(SceneLayer* layer, int sx, int sy,
 
     vector<AnimFrame> animFrames;
     vector<Texture*> textureSources;
-    animFrames.resize(Scene::TileSpriteInfos.size());
-    textureSources.resize(Scene::TileSpriteInfos.size());
-    for (size_t i = 0; i < Scene::TileSpriteInfos.size(); i++) {
-        TileSpriteInfo info = Scene::TileSpriteInfos[i];
+    animFrames.resize(scene->TileSpriteInfos.size());
+    textureSources.resize(scene->TileSpriteInfos.size());
+    for (size_t i = 0; i < scene->TileSpriteInfos.size(); i++) {
+        TileSpriteInfo info = scene->TileSpriteInfos[i];
         animFrames[i] = info.Sprite->Animations[info.AnimationIndex].Frames[info.FrameIndex];
         textureSources[i] = info.Sprite->Spritesheets[animFrames[i].SheetNumber];
     }
@@ -197,7 +197,7 @@ PUBLIC void PolygonRenderer::DrawSceneLayer3D(SceneLayer* layer, int sx, int sy,
     for (int y = sy; y < sh; y++) {
         for (int x = sx; x < sw; x++) {
             Uint32 tileID = (Uint32)(layer->Tiles[x + (y << layer->WidthInBits)] & TILE_IDENT_MASK);
-            if (tileID != Scene::EmptyTile && tileID < Scene::TileSpriteInfos.size())
+            if (tileID != scene->EmptyTile && tileID < scene->TileSpriteInfos.size())
                 totalVertexCount += vertexCountPerFace;
         }
     }
@@ -213,7 +213,7 @@ PUBLIC void PolygonRenderer::DrawSceneLayer3D(SceneLayer* layer, int sx, int sy,
         for (int x = sx, destX = 0; x < sw; x++, destX++) {
             Uint32 tileAtPos = layer->Tiles[x + (y << layer->WidthInBits)];
             Uint32 tileID = tileAtPos & TILE_IDENT_MASK;
-            if (tileID == Scene::EmptyTile || tileID >= Scene::TileSpriteInfos.size())
+            if (tileID == scene->EmptyTile || tileID >= scene->TileSpriteInfos.size())
                 continue;
 
             // 0--1

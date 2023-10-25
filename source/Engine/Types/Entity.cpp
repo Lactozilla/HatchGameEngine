@@ -422,15 +422,15 @@ PUBLIC void Entity::Copy(Entity* other) {
         other->List->Add(other);
     }
 
-    for (int l = 0; l < Scene::PriorityPerLayer; l++) {
-        if (Scene::PriorityLists[l].Contains(this)) {
+    for (int l = 0; l < Scene::Current->PriorityPerLayer; l++) {
+        if (Scene::Current->PriorityLists[l].Contains(this)) {
             // If the other object isn't in this priority list already, it's added into it
-            if (!Scene::PriorityLists[l].Contains(other))
-                Scene::PriorityLists[l].Add(other);
+            if (!Scene::Current->PriorityLists[l].Contains(other))
+                Scene::Current->PriorityLists[l].Add(other);
         }
         else {
             // If this object isn't in this priority list, the other object is removed from it
-            Scene::PriorityLists[l].Remove(other);
+            Scene::Current->PriorityLists[l].Remove(other);
         }
     }
 

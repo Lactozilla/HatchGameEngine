@@ -44,6 +44,7 @@ struct Animator {
     int                LoopIndex        = 0;
     int                RotationStyle    = 0;
     Uint32             UnloadPolicy     = 0;
+    size_t             SceneID          = -1;
 };
 
 enum {

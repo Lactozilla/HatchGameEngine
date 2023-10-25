@@ -29,8 +29,6 @@ public:
     Texture*   DrawTarget = NULL;
     Matrix4x4* ProjectionMatrix = NULL;
     Matrix4x4* BaseProjectionMatrix = NULL;
+    Scene*     ScenePtr = NULL;
 };
 #endif
-
-// #include <Engine/Scene/View.h>
-// #include <Engine/Diagnostics/Memory.h>

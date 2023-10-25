@@ -899,18 +899,6 @@ PUBLIC STATIC void     D3DRenderer::SetGraphicsFunctions() {
     Graphics::Internal.DrawTexture = D3DRenderer::DrawTexture;
     Graphics::Internal.DrawSprite = D3DRenderer::DrawSprite;
     Graphics::Internal.DrawSpritePart = D3DRenderer::DrawSpritePart;
-
-    // 3D drawing functions
-    Graphics::Internal.DrawPolygon3D = D3DRenderer::DrawPolygon3D;
-    Graphics::Internal.DrawSceneLayer3D = D3DRenderer::DrawSceneLayer3D;
-    Graphics::Internal.DrawModel = D3DRenderer::DrawModel;
-    Graphics::Internal.DrawModelSkinned = D3DRenderer::DrawModelSkinned;
-    Graphics::Internal.DrawVertexBuffer = D3DRenderer::DrawVertexBuffer;
-    Graphics::Internal.BindVertexBuffer = D3DRenderer::BindVertexBuffer;
-    Graphics::Internal.UnbindVertexBuffer = D3DRenderer::UnbindVertexBuffer;
-    Graphics::Internal.BindScene3D = D3DRenderer::BindScene3D;
-    Graphics::Internal.ClearScene3D = D3DRenderer::ClearScene3D;
-    Graphics::Internal.DrawScene3D = D3DRenderer::DrawScene3D;
 }
 PUBLIC STATIC void     D3DRenderer::Dispose() {
     Memory::Free(D3D_BufferCircleFill);
@@ -1409,71 +1397,5 @@ PUBLIC STATIC void     D3DRenderer::DrawSpritePart(ISprite* sprite, int animatio
             flipX, flipY);
     Graphics::Restore();
 }
-// 3D drawing functions
-PUBLIC STATIC void     D3DRenderer::DrawPolygon3D(void* data, int vertexCount, int vertexFlag, Texture* texture, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
-
-}
-PUBLIC STATIC void     D3DRenderer::DrawSceneLayer3D(void* layer, int sx, int sy, int sw, int sh, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
-
-}
-PUBLIC STATIC void     D3DRenderer::DrawModel(void* model, Uint16 animation, Uint32 frame, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
-
-}
-PUBLIC STATIC void     D3DRenderer::DrawModelSkinned(void* model, Uint16 armature, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
-
-}
-PUBLIC STATIC void     D3DRenderer::DrawVertexBuffer(Uint32 vertexBufferIndex, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
-
-}
-PUBLIC STATIC void     D3DRenderer::BindVertexBuffer(Uint32 vertexBufferIndex) {
-
-}
-PUBLIC STATIC void     D3DRenderer::UnbindVertexBuffer() {
-
-}
-PUBLIC STATIC void     D3DRenderer::BindScene3D(Uint32 sceneIndex) {
-
-}
-PUBLIC STATIC void     D3DRenderer::ClearScene3D(Uint32 sceneIndex) {
-
-}
-PUBLIC STATIC void     D3DRenderer::DrawScene3D(Uint32 sceneIndex, Uint32 drawMode) {
-
-}
-
-/*
-// Draw buffering
-PUBLIC STATIC Uint32   D3DRenderer::CreateTexturedShapeBuffer(float** data, int vertexCount) {
-    // x, y, z, u, v
-    Uint32 bufferID;
-    glGenBuffers(1, &bufferID);
-    glBindBuffer(GL_ARRAY_BUFFER, bufferID);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertexCount * 5, data, GL_STATIC_DRAW);
-
-    *data = NULL;
-
-    return bufferID;
-}
-
-PUBLIC STATIC void     D3DRenderer::DrawTexturedShapeBuffer(Texture* texture, Uint32 bufferID, int vertexCount) {
-    UseShader(D3D_SelectedShader ? D3D_SelectedShader : D3D_ShaderTexturedShape);
-
-    GLTextureData* textureData = (GLTextureData*)texture->DriverData;
-    glUniformMatrix4fv(D3DRenderer::D3D_CurrentShader->LocModelViewMatrix, 1, false, D3DRenderer::Graphics::ModelViewMatrix->Values);
-
-    glActiveTexture(GL_TEXTURE0);
-    glUniform1i(D3DRenderer::D3D_CurrentShader->LocTexture, 0);
-    glBindTexture(GL_TEXTURE_2D, textureData->TextureID);
-
-    glEnableVertexAttribArray(D3DRenderer::D3D_CurrentShader->LocTexCoord);
-
-        glBindBuffer(GL_ARRAY_BUFFER, bufferID);
-        glVertexAttribPointer(D3DRenderer::D3D_CurrentShader->LocPosition, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (GLvoid*)0);
-        glVertexAttribPointer(D3DRenderer::D3D_CurrentShader->LocTexCoord, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (GLvoid*)12);
-        glDrawArrays(GL_TRIANGLES, 0, vertexCount);
-
-    glDisableVertexAttribArray(D3DRenderer::D3D_CurrentShader->LocTexCoord);
-}
-//*/
 
 #endif

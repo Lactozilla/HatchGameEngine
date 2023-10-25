@@ -6,6 +6,7 @@
 #include <Engine/Math/Matrix4x4.h>
 #include <Engine/ResourceTypes/ISprite.h>
 #include <Engine/ResourceTypes/IModel.h>
+#include <Engine/Scene.h>
 #include <Engine/Scene/SceneLayer.h>
 #include <Engine/Scene/View.h>
 #include <Engine/Includes/HashMap.h>
@@ -836,20 +837,20 @@ PUBLIC STATIC void     Graphics::DrawSpritePart(ISprite* sprite, int animation, 
     Graphics::GfxFunctions->DrawSpritePart(sprite, animation, frame, sx, sy, sw, sh, x, y, flipX, flipY, scaleW, scaleH, rotation);
 }
 
-PUBLIC STATIC void     Graphics::DrawTile(int tile, int x, int y, bool flipX, bool flipY) {
+PUBLIC STATIC void     Graphics::DrawTile(Scene* scene, int tile, int x, int y, bool flipX, bool flipY) {
     // If possible, uses optimized software-renderer call instead.
     if (Graphics::GfxFunctions == &SoftwareRenderer::BackendFunctions) {
-        SoftwareRenderer::DrawTile(tile, x, y, flipX, flipY);
+        SoftwareRenderer::DrawTile(scene, tile, x, y, flipX, flipY);
         return;
     }
 
-    TileSpriteInfo info = Scene::TileSpriteInfos[tile];
+    TileSpriteInfo info = scene->TileSpriteInfos[tile];
     Graphics::GfxFunctions->DrawSprite(info.Sprite, info.AnimationIndex, info.FrameIndex, x, y, flipX, flipY, 1.0f, 1.0f, 0.0f);
 }
-PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* layer, View* currentView) {
-    int tileWidth = Scene::TileWidth;
+PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(Scene* scene, SceneLayer* layer, View* currentView) {
+    int tileWidth = scene->TileWidth;
     int tileWidthHalf = tileWidth >> 1;
-    int tileHeight = Scene::TileHeight;
+    int tileHeight = scene->TileHeight;
     int tileHeightHalf = tileHeight >> 1;
     int tileCellMaxWidth = 3 + (currentView->Width / tileWidth);
     int tileCellMaxHeight = 2 + (currentView->Height / tileHeight);
@@ -858,10 +859,10 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
     int TileBaseX, TileBaseY, baseX, baseY, tile, tileOrig, baseXOff, baseYOff;
 
     TileConfig* baseTileCfg = NULL;
-    if (Scene::TileCfg.size()) {
-        size_t collisionPlane = Scene::ShowTileCollisionFlag - 1;
-        if (collisionPlane < Scene::TileCfg.size())
-            baseTileCfg = Scene::TileCfg[collisionPlane];
+    if (scene->TileCfg.size()) {
+        size_t collisionPlane = scene->ShowTileCollisionFlag - 1;
+        if (collisionPlane < scene->TileCfg.size())
+            baseTileCfg = scene->TileCfg[collisionPlane];
     }
 
     if (layer->ScrollInfosSplitIndexes && layer->ScrollInfosSplitIndexesCount > 0) {
@@ -870,7 +871,7 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
 
         // Vertical
         if (layer->DrawBehavior == DrawBehavior_VerticalParallax) {
-            baseXOff = ((((int)currentView->X + layer->OffsetX) * layer->RelativeY) + Scene::Frame * layer->ConstantY) >> 8;
+            baseXOff = ((((int)currentView->X + layer->OffsetX) * layer->RelativeY) + scene->Frame * layer->ConstantY) >> 8;
             TileBaseX = 0;
 
             for (int split = 0, spl; split < 4096; split++) {
@@ -890,11 +891,11 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
 
                 index = layer->ScrollInfosSplitIndexes[spl] & 0xFF;
 
-                baseYOff = ((((int)currentView->Y + layer->OffsetY) * layer->ScrollInfos[index].RelativeParallax) + Scene::Frame * layer->ScrollInfos[index].ConstantParallax) >> 8;
+                baseYOff = ((((int)currentView->Y + layer->OffsetY) * layer->ScrollInfos[index].RelativeParallax) + scene->Frame * layer->ScrollInfos[index].ConstantParallax) >> 8;
                 TileBaseY = baseYOff;
 
                 // Loop or cut off sourceTileCellX
-                if (layer->Flags & SceneLayer::FLAGS_NO_REPEAT_X) {
+                if (!(layer->Flags & SceneLayer::FLAGS_REPEAT_X)) {
                     if (sourceTileCellX < 0) goto SKIP_TILE_ROW_DRAW_ROT90;
                     if (sourceTileCellX >= layer->Width) goto SKIP_TILE_ROW_DRAW_ROT90;
                 }
@@ -911,9 +912,9 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
                 iy--;
 
                 for (int t = 0; t < tileCellMaxHeight; t++) {
-                    // Loop or cut off sourceTileCellX
+                    // Loop or cut off sourceTileCellY
                     sourceTileCellY = iy;
-                    if (layer->Flags & SceneLayer::FLAGS_NO_REPEAT_Y) {
+                    if (!(layer->Flags & SceneLayer::FLAGS_REPEAT_Y)) {
                         if (sourceTileCellY < 0) goto SKIP_TILE_DRAW_ROT90;
                         if (sourceTileCellY >= layer->Height) goto SKIP_TILE_DRAW_ROT90;
                     }
@@ -927,21 +928,21 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
 
                     tile &= TILE_IDENT_MASK;
                     // "li == 0" should ideally be "layer->DrawGroup == 0", but in some games multiple layers will use DrawGroup == 0, which would look bad & lag
-                    if (tile != Scene::EmptyTile) { // || li == 0
+                    if (tile != scene->EmptyTile) { // || li == 0
                         flipX = (tileOrig & TILE_FLIPX_MASK);
                         flipY = (tileOrig & TILE_FLIPY_MASK);
 
                         int partY = TileBaseX & 0xF;
                         if (flipX) partY = tileWidth - height - partY;
 
-                        TileSpriteInfo info = Scene::TileSpriteInfos[tile];
+                        TileSpriteInfo info = scene->TileSpriteInfos[tile];
                         Graphics::DrawSpritePart(info.Sprite, info.AnimationIndex, info.FrameIndex, partY, 0, height, tileWidth, baseX, baseY, flipX, flipY, 1.0f, 1.0f, 0.0f);
 
-                        if (Scene::ShowTileCollisionFlag && baseTileCfg && layer->ScrollInfoCount <= 1) {
+                        if (scene->ShowTileCollisionFlag && baseTileCfg && layer->ScrollInfoCount <= 1) {
                             col = 0;
-                            if (Scene::ShowTileCollisionFlag == 1)
+                            if (scene->ShowTileCollisionFlag == 1)
                                 col = (tileOrig & TILE_COLLA_MASK) >> 28;
-                            else if (Scene::ShowTileCollisionFlag == 2)
+                            else if (scene->ShowTileCollisionFlag == 2)
                                 col = (tileOrig & TILE_COLLB_MASK) >> 26;
 
                             switch (col) {
@@ -992,7 +993,7 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
         }
         // Horizontal
         else {
-            baseYOff = ((((int)currentView->Y + layer->OffsetY) * layer->RelativeY) + Scene::Frame * layer->ConstantY) >> 8;
+            baseYOff = ((((int)currentView->Y + layer->OffsetY) * layer->RelativeY) + scene->Frame * layer->ConstantY) >> 8;
             TileBaseY = 0;
 
             for (int split = 0, spl; split < 4096; split++) {
@@ -1011,11 +1012,11 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
                     break;
 
                 index = layer->ScrollInfosSplitIndexes[spl] & 0xFF;
-                baseXOff = ((((int)currentView->X + layer->OffsetX) * layer->ScrollInfos[index].RelativeParallax) + Scene::Frame * layer->ScrollInfos[index].ConstantParallax) >> 8;
+                baseXOff = ((((int)currentView->X + layer->OffsetX) * layer->ScrollInfos[index].RelativeParallax) + scene->Frame * layer->ScrollInfos[index].ConstantParallax) >> 8;
                 TileBaseX = baseXOff;
 
                 // Loop or cut off sourceTileCellY
-                if (layer->Flags & SceneLayer::FLAGS_NO_REPEAT_Y) {
+                if (!(layer->Flags & SceneLayer::FLAGS_REPEAT_Y)) {
                     if (sourceTileCellY < 0) goto SKIP_TILE_ROW_DRAW;
                     if (sourceTileCellY >= layer->Height) goto SKIP_TILE_ROW_DRAW;
                 }
@@ -1035,7 +1036,7 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
                 for (int t = 0; t < tileCellMaxWidth; t++) {
                     // Loop or cut off sourceTileCellX
                     sourceTileCellX = ix;
-                    if (layer->Flags & SceneLayer::FLAGS_NO_REPEAT_X) {
+                    if (!(layer->Flags & SceneLayer::FLAGS_REPEAT_X)) {
                         if (sourceTileCellX < 0) goto SKIP_TILE_DRAW;
                         if (sourceTileCellX >= layer->Width) goto SKIP_TILE_DRAW;
                     }
@@ -1049,21 +1050,21 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
 
                     tile &= TILE_IDENT_MASK;
                     // "li == 0" should ideally be "layer->DrawGroup == 0", but in some games multiple layers will use DrawGroup == 0, which would look bad & lag
-                    if (tile != Scene::EmptyTile) { // || li == 0
+                    if (tile != scene->EmptyTile) { // || li == 0
                         flipX = !!(tileOrig & TILE_FLIPX_MASK);
                         flipY = !!(tileOrig & TILE_FLIPY_MASK);
 
                         int partY = TileBaseY & 0xF;
                         if (flipY) partY = tileHeight - height - partY;
 
-                        TileSpriteInfo info = Scene::TileSpriteInfos[tile];
+                        TileSpriteInfo info = scene->TileSpriteInfos[tile];
                         Graphics::DrawSpritePart(info.Sprite, info.AnimationIndex, info.FrameIndex, 0, partY, tileWidth, height, baseX, baseY, flipX, flipY, 1.0f, 1.0f, 0.0f);
 
-                        if (Scene::ShowTileCollisionFlag && baseTileCfg && layer->ScrollInfoCount <= 1) {
+                        if (scene->ShowTileCollisionFlag && baseTileCfg && layer->ScrollInfoCount <= 1) {
                             col = 0;
-                            if (Scene::ShowTileCollisionFlag == 1)
+                            if (scene->ShowTileCollisionFlag == 1)
                                 col = (tileOrig & TILE_COLLA_MASK) >> 28;
-                            else if (Scene::ShowTileCollisionFlag == 2)
+                            else if (scene->ShowTileCollisionFlag == 2)
                                 col = (tileOrig & TILE_COLLB_MASK) >> 26;
 
                             switch (col) {
@@ -1114,13 +1115,13 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer_HorizontalParallax(SceneLayer* l
         }
     }
 }
-PUBLIC STATIC void     Graphics::DrawSceneLayer_VerticalParallax(SceneLayer* layer, View* currentView) {
+PRIVATE STATIC void     Graphics::DrawSceneLayer_VerticalParallax(Scene* scene, SceneLayer* layer, View* currentView) {
 
 }
-PUBLIC STATIC void     Graphics::DrawSceneLayer(SceneLayer* layer, View* currentView) {
+PUBLIC STATIC void     Graphics::DrawSceneLayer(Scene* scene, SceneLayer* layer, View* currentView) {
     // If possible, uses optimized software-renderer call instead.
     if (Graphics::GfxFunctions == &SoftwareRenderer::BackendFunctions) {
-        SoftwareRenderer::DrawSceneLayer(layer, currentView);
+        SoftwareRenderer::DrawSceneLayer(scene, layer, currentView);
         return;
     }
 
@@ -1129,10 +1130,10 @@ PUBLIC STATIC void     Graphics::DrawSceneLayer(SceneLayer* layer, View* current
         case DrawBehavior_HorizontalParallax:
         case DrawBehavior_CustomTileScanLines:
         case DrawBehavior_PGZ1_BG:
-            Graphics::DrawSceneLayer_HorizontalParallax(layer, currentView);
+            Graphics::DrawSceneLayer_HorizontalParallax(scene, layer, currentView);
             break;
         // case DrawBehavior_VerticalParallax:
-        //  Graphics::DrawSceneLayer_VerticalParallax(layer, currentView);
+        //  Graphics::DrawSceneLayer_VerticalParallax(scene, layer, currentView);
             break;
     }
 }
@@ -1142,9 +1143,9 @@ PUBLIC STATIC void     Graphics::DrawPolygon3D(void* data, int vertexCount, int 
     if (Graphics::GfxFunctions->DrawPolygon3D)
         Graphics::GfxFunctions->DrawPolygon3D(data, vertexCount, vertexFlag, texture, modelMatrix, normalMatrix);
 }
-PUBLIC STATIC void     Graphics::DrawSceneLayer3D(void* layer, int sx, int sy, int sw, int sh, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
+PUBLIC STATIC void     Graphics::DrawSceneLayer3D(void* scenePtr, void* layer, int sx, int sy, int sw, int sh, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
     if (Graphics::GfxFunctions->DrawSceneLayer3D)
-        Graphics::GfxFunctions->DrawSceneLayer3D(layer, sx, sy, sw, sh, modelMatrix, normalMatrix);
+        Graphics::GfxFunctions->DrawSceneLayer3D(scenePtr, layer, sx, sy, sw, sh, modelMatrix, normalMatrix);
 }
 PUBLIC STATIC void     Graphics::DrawModel(void* model, Uint16 animation, Uint32 frame, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
     if (Graphics::GfxFunctions->DrawModel)

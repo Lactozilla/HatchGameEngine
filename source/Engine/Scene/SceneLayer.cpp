@@ -25,7 +25,6 @@ public:
     int               ConstantY = 0x0000;
     int               OffsetX = 0x0000;
     int               OffsetY = 0x0000;
-    bool              Repeat = true;
 
     Uint32*           Tiles = NULL;
     Uint32*           TilesBackup = NULL;
@@ -62,13 +61,14 @@ public:
 
     enum {
         FLAGS_COLLIDEABLE = 1,
-        FLAGS_NO_REPEAT_X = 2,
-        FLAGS_NO_REPEAT_Y = 4,
+        FLAGS_REPEAT_X = 2,
+        FLAGS_REPEAT_Y = 4,
     };
 };
 #endif
 
 #include <Engine/Scene/SceneLayer.h>
+#include <Engine/Rendering/Enums.h>
 #include <Engine/Diagnostics/Memory.h>
 #include <Engine/Math/Math.h>
 
@@ -113,6 +113,89 @@ PUBLIC VMValue SceneLayer::PropertyGet(char* property) {
     if (!PropertyExists(property))
         return NULL_VAL;
     return Properties->Get(property);
+}
+PUBLIC void SceneLayer::SetTile(int x, int y, int tileID) {
+    SetTile(x, y, tileID, false, false, TILE_COLLA_MASK, TILE_COLLB_MASK);
+}
+PUBLIC void SceneLayer::SetTile(int x, int y, int tileID, bool flip_x, bool flip_y) {
+    SetTile(x, y, tileID, flip_x, flip_y, TILE_COLLA_MASK, TILE_COLLB_MASK);
+}
+PUBLIC void SceneLayer::SetTile(int x, int y, int tileID, bool flip_x, bool flip_y, int collA, int collB) {
+    if (x < 0 || y < 0 || x >= Width || y >= Height)
+        return;
+
+    Uint32* tile = &Tiles[x + (y << WidthInBits)];
+
+    *tile = tileID & TILE_IDENT_MASK;
+    if (flip_x)
+        *tile |= TILE_FLIPX_MASK;
+    if (flip_y)
+        *tile |= TILE_FLIPY_MASK;
+
+    *tile |= collA;
+    *tile |= collB;
+}
+PUBLIC void SceneLayer::SetTileCollisionSides(int x, int y, int collA, int collB) {
+    if (x < 0 || y < 0 || x >= Width || y >= Height)
+        return;
+
+    collA <<= 28;
+    collB <<= 26;
+
+    Uint32* tile = &Tiles[x + (y << WidthInBits)];
+
+    *tile &= TILE_FLIPX_MASK | TILE_FLIPY_MASK | TILE_IDENT_MASK;
+    *tile |= collA;
+    *tile |= collB;
+}
+PUBLIC void SceneLayer::SetCollidable(bool collidable) {
+    if (collidable)
+        Flags |=  SceneLayer::FLAGS_COLLIDEABLE;
+    else
+        Flags &= ~SceneLayer::FLAGS_COLLIDEABLE;
+}
+PUBLIC void SceneLayer::SetRepeatable(bool repeatableX, bool repeatableY) {
+    if (repeatableX)
+        Flags |=  SceneLayer::FLAGS_REPEAT_X;
+    else
+        Flags &= ~SceneLayer::FLAGS_REPEAT_X;
+
+    if (repeatableY)
+        Flags |=  SceneLayer::FLAGS_REPEAT_Y;
+    else
+        Flags &= ~SceneLayer::FLAGS_REPEAT_Y;
+}
+PUBLIC void SceneLayer::SetRepeatable(bool repeatable) {
+    SetRepeatable(repeatable, repeatable);
+}
+PUBLIC void SceneLayer::SetInternalSize(int w, int h) {
+    if (w > 0) {
+        Width = w;
+    }
+    if (h > 0) {
+        Height = h;
+    }
+}
+PUBLIC void SceneLayer::SetScroll(float relative, float constant) {
+    RelativeY = (short)(relative * 0x100);
+    ConstantY = (short)(constant * 0x100);
+}
+PUBLIC void SceneLayer::SetTileDeforms(int lineIndex, int deformA, int deformB) {
+    const int maxDeformLineMask = MAX_DEFORM_LINES - 1;
+
+    lineIndex &= maxDeformLineMask;
+    DeformSetA[lineIndex] = deformA;
+    DeformSetB[lineIndex] = deformB;
+}
+PUBLIC void SceneLayer::SetCustomScanlineFunction(void* fn) {
+    if (fn == nullptr) {
+        UsingCustomScanlineFunction = false;
+    }
+    else {
+        ObjFunction* function = (ObjFunction*)fn;
+        CustomScanlineFunction = *function;
+        UsingCustomScanlineFunction = true;
+    }
 }
 PUBLIC void    SceneLayer::Dispose() {
     if (Properties)

@@ -17,6 +17,7 @@ struct MediaBag {
 };
 
 struct ResourceType {
+    size_t SceneID;
     Uint32 FilenameHash;
     union {
         ISprite*  AsSprite;

@@ -85,7 +85,7 @@ PUBLIC STATIC void    BytecodeObjectManager::RequestGarbageCollection() {
         ForceGarbageCollection();
 
         // startSize = GarbageCollector::GarbageSize - startSize;
-        Log::Print(Log::LOG_INFO, "%04X: Freed garbage from %u to %u (%d), next GC at %d", Scene::Frame, (Uint32)startSize, (Uint32)GarbageCollector::GarbageSize, GarbageCollector::GarbageSize - startSize, GarbageCollector::NextGC);
+        Log::Print(Log::LOG_INFO, "%04X: Freed garbage from %u to %u (%d), next GC at %d", Scene::Current->Frame, (Uint32)startSize, (Uint32)GarbageCollector::GarbageSize, GarbageCollector::GarbageSize - startSize, GarbageCollector::NextGC);
     }
 }
 PUBLIC STATIC void    BytecodeObjectManager::ForceGarbageCollection() {

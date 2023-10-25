@@ -60,7 +60,7 @@ struct GraphicsFunctions {
     void     (*DrawSpritePart)(ISprite* sprite, int animation, int frame, int sx, int sy, int sw, int sh, int x, int y, bool flipX, bool flipY, float scaleW, float scaleH, float rotation);
 
     void     (*DrawPolygon3D)(void* data, int vertexCount, int vertexFlag, Texture* texture, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix);
-    void     (*DrawSceneLayer3D)(void* layer, int sx, int sy, int sw, int sh, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix);
+    void     (*DrawSceneLayer3D)(void* scenePtr, void* layer, int sx, int sy, int sw, int sh, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix);
     void     (*DrawModel)(void* model, Uint16 animation, Uint32 frame, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix);
     void     (*DrawModelSkinned)(void* model, Uint16 armature, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix);
     void     (*DrawVertexBuffer)(Uint32 vertexBufferIndex, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix);

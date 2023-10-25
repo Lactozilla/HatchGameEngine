@@ -1,9 +1,11 @@
 #if INTERFACE
 #include <Engine/IO/Stream.h>
 #include <Engine/Bytecode/BytecodeObjectManager.h>
+
+need_t Scene;
+
 class TiledMapReader {
 public:
-    // static bool             Initialized;
 };
 #endif
 
@@ -225,7 +227,7 @@ PRIVATE STATIC ObjArray* TiledMapReader::ParsePolyPoints(XMLNode* node) {
     return array;
 }
 
-PRIVATE STATIC Tileset* TiledMapReader::ParseTilesetImage(XMLNode* node, int firstgid, const char* parentFolder) {
+PRIVATE STATIC Tileset* TiledMapReader::ParseTilesetImage(Scene* scene, XMLNode* node, int firstgid, const char* parentFolder) {
     char imagePath[4096];
 
     Token image_source = node->attributes.Get("source");
@@ -234,13 +236,13 @@ PRIVATE STATIC Tileset* TiledMapReader::ParseTilesetImage(XMLNode* node, int fir
     ISprite* tileSprite = new ISprite();
     tileSprite->Spritesheets[0] = tileSprite->AddSpriteSheet(imagePath);
 
-    int cols = tileSprite->Spritesheets[0]->Width / Scene::TileWidth;
-    int rows = tileSprite->Spritesheets[0]->Height / Scene::TileHeight;
+    int cols = tileSprite->Spritesheets[0]->Width / scene->TileWidth;
+    int rows = tileSprite->Spritesheets[0]->Height / scene->TileHeight;
 
     tileSprite->ReserveAnimationCount(1);
     tileSprite->AddAnimation("TileSprite", 0, 0, cols * rows);
 
-    size_t curTileCount = Scene::TileSpriteInfos.size();
+    size_t curTileCount = scene->TileSpriteInfos.size();
     size_t numEmptyTiles = firstgid - curTileCount;
 
     if (firstgid == 1)
@@ -252,7 +254,7 @@ PRIVATE STATIC Tileset* TiledMapReader::ParseTilesetImage(XMLNode* node, int fir
         info.Sprite = tileSprite;
         info.AnimationIndex = 0;
         info.FrameIndex = (int)tileSprite->Animations[0].Frames.size();
-        Scene::TileSpriteInfos.push_back(info);
+        scene->TileSpriteInfos.push_back(info);
 
         tileSprite->AddFrame(0, 0, 0, 1, 1, 0, 0);
     }
@@ -262,21 +264,21 @@ PRIVATE STATIC Tileset* TiledMapReader::ParseTilesetImage(XMLNode* node, int fir
         info.Sprite = tileSprite;
         info.AnimationIndex = 0;
         info.FrameIndex = (int)tileSprite->Animations[0].Frames.size();
-        Scene::TileSpriteInfos.push_back(info);
+        scene->TileSpriteInfos.push_back(info);
 
         tileSprite->AddFrame(0,
-            (i % cols) * Scene::TileWidth,
-            (i / cols) * Scene::TileHeight,
-            Scene::TileWidth, Scene::TileHeight, -Scene::TileWidth / 2, -Scene::TileHeight / 2);
+            (i % cols) * scene->TileWidth,
+            (i / cols) * scene->TileHeight,
+            scene->TileWidth, scene->TileHeight, -scene->TileWidth / 2, -scene->TileHeight / 2);
     }
 
-    Tileset sceneTileset(tileSprite, Scene::TileWidth, Scene::TileHeight, firstgid, curTileCount + numEmptyTiles, (cols * rows) + 1, imagePath);
-    Scene::Tilesets.push_back(sceneTileset);
+    Tileset sceneTileset(tileSprite, scene->TileWidth, scene->TileHeight, firstgid, curTileCount + numEmptyTiles, (cols * rows) + 1, imagePath);
+    scene->Tilesets.push_back(sceneTileset);
 
-    return &Scene::Tilesets.back();
+    return &scene->Tilesets.back();
 }
 
-PRIVATE STATIC void TiledMapReader::ParseTileAnimation(int tileID, int firstgid, Tileset* tilesetPtr, XMLNode* node) {
+PRIVATE STATIC void TiledMapReader::ParseTileAnimation(Scene* scene, int tileID, int firstgid, Tileset* tilesetPtr, XMLNode* node) {
     vector<int> tileIDs;
     vector<int> frameDurations;
 
@@ -285,28 +287,28 @@ PRIVATE STATIC void TiledMapReader::ParseTileAnimation(int tileID, int firstgid,
             XMLNode* child = node->children[e];
             int otherTileID = (int)XMLParser::TokenToNumber(child->attributes.Get("tileid")) + firstgid;
             float duration = ceil(XMLParser::TokenToNumber(child->attributes.Get("duration")) / (1000.0 / 60));
-            if ((size_t)otherTileID < Scene::TileSpriteInfos.size()) {
+            if ((size_t)otherTileID < scene->TileSpriteInfos.size()) {
                 tileIDs.push_back(otherTileID);
                 frameDurations.push_back((int)duration);
             }
         }
     }
 
-    tilesetPtr->AddTileAnimSequence(tileID, &Scene::TileSpriteInfos[tileID], tileIDs, frameDurations);
+    tilesetPtr->AddTileAnimSequence(tileID, &scene->TileSpriteInfos[tileID], tileIDs, frameDurations);
 }
 
-PRIVATE STATIC void TiledMapReader::ParseTile(Tileset* tilesetPtr, XMLNode* node) {
+PRIVATE STATIC void TiledMapReader::ParseTile(Scene* scene, Tileset* tilesetPtr, XMLNode* node) {
     for (size_t e = 0; e < node->children.size(); e++) {
         if (tilesetPtr && XMLParser::MatchToken(node->children[e]->name, "animation")) {
             int firstgid = tilesetPtr->FirstGlobalTileID;
             int tileID = (int)XMLParser::TokenToNumber(node->attributes.Get("id")) + firstgid;
-            if ((size_t)tileID < Scene::TileSpriteInfos.size())
-                ParseTileAnimation(tileID, firstgid, tilesetPtr, node->children[e]);
+            if ((size_t)tileID < scene->TileSpriteInfos.size())
+                ParseTileAnimation(scene, tileID, firstgid, tilesetPtr, node->children[e]);
         }
     }
 }
 
-PRIVATE STATIC void TiledMapReader::LoadTileset(XMLNode* tileset, const char* parentFolder) {
+PRIVATE STATIC void TiledMapReader::LoadTileset(Scene* scene, XMLNode* tileset, const char* parentFolder) {
     int firstgid = (int)XMLParser::TokenToNumber(tileset->attributes.Get("firstgid"));
 
     XMLNode* tilesetXML = NULL;
@@ -332,10 +334,10 @@ PRIVATE STATIC void TiledMapReader::LoadTileset(XMLNode* tileset, const char* pa
 
     for (size_t e = 0; e < tilesetNode->children.size(); e++) {
         if (XMLParser::MatchToken(tilesetNode->children[e]->name, "image")) {
-            tilesetPtr = ParseTilesetImage(tilesetNode->children[e], firstgid, parentFolder);
+            tilesetPtr = ParseTilesetImage(scene, tilesetNode->children[e], firstgid, parentFolder);
         }
         else if (XMLParser::MatchToken(tilesetNode->children[e]->name, "tile")) {
-            ParseTile(tilesetPtr, tilesetNode->children[e]);
+            ParseTile(scene, tilesetPtr, tilesetNode->children[e]);
         }
     }
 
@@ -343,7 +345,7 @@ PRIVATE STATIC void TiledMapReader::LoadTileset(XMLNode* tileset, const char* pa
         XMLParser::Free(tilesetXML);
 }
 
-PUBLIC STATIC void TiledMapReader::Read(const char* sourceF, const char* parentFolder) {
+PUBLIC STATIC void TiledMapReader::Read(Scene* scene, const char* sourceF, const char* parentFolder) {
     XMLNode* tileMapXML = XMLParser::ParseFromResource(sourceF);
     if (!tileMapXML) {
         Log::Print(Log::LOG_ERROR, "Could not parse from resource \"%s\"", sourceF);
@@ -364,9 +366,9 @@ PUBLIC STATIC void TiledMapReader::Read(const char* sourceF, const char* parentF
         return;
     }
 
-    Scene::EmptyTile = 0;
-    Scene::TileWidth = (int)XMLParser::TokenToNumber(map->attributes.Get("tilewidth"));
-    Scene::TileHeight = (int)XMLParser::TokenToNumber(map->attributes.Get("tileheight"));
+    scene->EmptyTile = 0;
+    scene->TileWidth = (int)XMLParser::TokenToNumber(map->attributes.Get("tilewidth"));
+    scene->TileHeight = (int)XMLParser::TokenToNumber(map->attributes.Get("tileheight"));
 
     int layer_width = (int)XMLParser::TokenToNumber(map->attributes.Get("width"));
     int layer_height = (int)XMLParser::TokenToNumber(map->attributes.Get("height"));
@@ -374,7 +376,7 @@ PUBLIC STATIC void TiledMapReader::Read(const char* sourceF, const char* parentF
     for (size_t i = 0; i < map->children.size(); i++) {
         if (XMLParser::MatchToken(map->children[i]->name, "tileset")) {
             XMLNode* tileset = map->children[i];
-            TiledMapReader::LoadTileset(tileset, parentFolder);
+            TiledMapReader::LoadTileset(scene, tileset, parentFolder);
         }
         else if (XMLParser::MatchToken(map->children[i]->name, "layer")) {
             XMLNode* layer = map->children[i];
@@ -447,7 +449,7 @@ PUBLIC STATIC void TiledMapReader::Read(const char* sourceF, const char* parentF
 
             scenelayer.RelativeY = 0x100;
             scenelayer.ConstantY = 0x00;
-            scenelayer.Flags = SceneLayer::FLAGS_COLLIDEABLE | SceneLayer::FLAGS_NO_REPEAT_X | SceneLayer::FLAGS_NO_REPEAT_Y;
+            scenelayer.Flags = SceneLayer::FLAGS_COLLIDEABLE | SceneLayer::FLAGS_REPEAT_X | SceneLayer::FLAGS_REPEAT_Y;
             scenelayer.DrawGroup = 0;
             scenelayer.Properties = layer_properties;
 
@@ -475,7 +477,6 @@ PUBLIC STATIC void TiledMapReader::Read(const char* sourceF, const char* parentF
             }
             memcpy(scenelayer.TilesBackup, scenelayer.Tiles, scenelayer.DataSize);
 
-
             // Create parallax data
             scenelayer.ScrollInfoCount = 1;
             scenelayer.ScrollInfos = (ScrollingInfo*)Memory::Malloc(scenelayer.ScrollInfoCount * sizeof(ScrollingInfo));
@@ -485,7 +486,7 @@ PUBLIC STATIC void TiledMapReader::Read(const char* sourceF, const char* parentF
                 scenelayer.ScrollInfos[g].CanDeform = false;
             }
 
-            Scene::Layers.push_back(scenelayer);
+            scene->Layers.push_back(scenelayer);
 
             Memory::Free(tile_buffer);
         }
@@ -501,7 +502,7 @@ PUBLIC STATIC void TiledMapReader::Read(const char* sourceF, const char* parentF
                 strncpy(object_type_string, object_type.Start, object_type.Length);
                 object_type_string[object_type.Length] = 0;
 
-                ObjectList* objectList = Scene::GetStaticObjectList(object_type_string);
+                ObjectList* objectList = scene->GetStaticObjectList(object_type_string);
                 if (objectList->SpawnFunction) {
                     BytecodeObject* obj = (BytecodeObject*)objectList->Spawn();
                     obj->X = object_x;
@@ -509,7 +510,7 @@ PUBLIC STATIC void TiledMapReader::Read(const char* sourceF, const char* parentF
                     obj->InitialX = obj->X;
                     obj->InitialY = obj->Y;
                     obj->List = objectList;
-                    Scene::AddStatic(objectList, obj);
+                    scene->AddStatic(objectList, obj);
 
                     if (object->attributes.Exists("id"))
                         obj->SlotID = (int)XMLParser::TokenToNumber(object->attributes.Get("id"));
@@ -560,10 +561,10 @@ PUBLIC STATIC void TiledMapReader::Read(const char* sourceF, const char* parentF
                 if (!XMLParser::MatchToken(properties->children[pr]->name, "property"))
                     continue;
 
-                if (Scene::Properties == NULL)
-                    Scene::Properties = new HashMap<VMValue>(NULL, 4);
+                if (scene->Properties == NULL)
+                    scene->Properties = new HashMap<VMValue>(NULL, 4);
 
-                TiledMapReader::ParsePropertyNode(properties->children[pr], Scene::Properties);
+                TiledMapReader::ParsePropertyNode(properties->children[pr], scene->Properties);
             }
         }
     }

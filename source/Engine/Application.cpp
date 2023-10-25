@@ -293,8 +293,8 @@ double  MetricFPSCounterTime = -1;
 double  MetricPresentTime = -1;
 double  MetricFrameTime = 0.0;
 vector<ObjectList*> ListList;
-PUBLIC STATIC void Application::GetPerformanceSnapshot() {
-    if (Scene::ObjectLists) {
+PUBLIC STATIC void Application::GetPerformanceSnapshot(Scene* scene) {
+    if (scene->ObjectLists) {
         // General Performance Snapshot
         double types[] = {
             MetricEventTime,
@@ -324,7 +324,7 @@ PUBLIC STATIC void Application::GetPerformanceSnapshot() {
         };
 
         ListList.clear();
-        Scene::ObjectLists->WithAll([](Uint32, ObjectList* list) -> void {
+        scene->ObjectLists->WithAll([](Uint32, ObjectList* list) -> void {
             if ((list->AverageUpdateTime > 0.0 && list->AverageUpdateItemCount > 0) ||
                 (list->AverageRenderTime > 0.0 && list->AverageRenderItemCount > 0))
                 ListList.push_back(list);
@@ -348,13 +348,13 @@ PUBLIC STATIC void Application::GetPerformanceSnapshot() {
             if (currentView->Active) {
                 layerText[0] = 0;
                 double tilesTotal = 0.0;
-                for (size_t li = 0; li < Scene::Layers.size(); li++) {
-                    SceneLayer* layer = &Scene::Layers[li];
+                for (size_t li = 0; li < scene->Layers.size(); li++) {
+                    SceneLayer* layer = &scene->Layers[li];
                     char temp[128];
                     snprintf(temp, sizeof(temp), "     > %24s:   %8.3f ms\n",
-                        layer->Name, Scene::PERF_ViewRender[i].LayerTileRenderTime[li]);
+                        layer->Name, scene->PERF_ViewRender[i].LayerTileRenderTime[li]);
                     StringUtils::Concat(layerText, temp, sizeof(layerText));
-                    tilesTotal += Scene::PERF_ViewRender[i].LayerTileRenderTime[li];
+                    tilesTotal += scene->PERF_ViewRender[i].LayerTileRenderTime[li];
                 }
                 Log::Print(Log::LOG_INFO, "View %d:\n"
                     "           - Render Setup:        %8.3f ms %s\n"
@@ -366,24 +366,15 @@ PUBLIC STATIC void Application::GetPerformanceSnapshot() {
                     "           - Finish:              %8.3f ms\n"
                     "           - Total:               %8.3f ms",
                     i,
-                    Scene::PERF_ViewRender[i].RenderSetupTime, Scene::PERF_ViewRender[i].RecreatedDrawTarget ? "(recreated draw target)" : "",
-                    Scene::PERF_ViewRender[i].ProjectionSetupTime,
-                    Scene::PERF_ViewRender[i].ObjectRenderEarlyTime,
-                    Scene::PERF_ViewRender[i].ObjectRenderTime,
-                    Scene::PERF_ViewRender[i].ObjectRenderLateTime,
+                    scene->PERF_ViewRender[i].RenderSetupTime, scene->PERF_ViewRender[i].RecreatedDrawTarget ? "(recreated draw target)" : "",
+                    scene->PERF_ViewRender[i].ProjectionSetupTime,
+                    scene->PERF_ViewRender[i].ObjectRenderEarlyTime,
+                    scene->PERF_ViewRender[i].ObjectRenderTime,
+                    scene->PERF_ViewRender[i].ObjectRenderLateTime,
                     tilesTotal, layerText,
-                    Scene::PERF_ViewRender[i].RenderFinishTime,
-                    Scene::PERF_ViewRender[i].RenderTime);
+                    scene->PERF_ViewRender[i].RenderFinishTime,
+                    scene->PERF_ViewRender[i].RenderTime);
             }
-            // double RenderSetupTime;
-            // bool   RecreatedDrawTarget;
-            // double ProjectionSetupTime;
-            // double ObjectRenderEarlyTime;
-            // double ObjectRenderTime;
-            // double ObjectRenderLateTime;
-            // double LayerTileRenderTime[32]; // MAX_LAYERS
-            // double RenderFinishTime;
-            // double RenderTime;
         }
 
         // Object Performance Snapshot
@@ -675,15 +666,15 @@ PRIVATE STATIC void Application::PollEvents() {
 
                         Scene::Init();
                         if (*StartingScene)
-                            Scene::LoadScene(StartingScene);
-                        Scene::Restart();
+                            Scene::Current->LoadScene(StartingScene);
+                        Scene::Current->Restart();
                         Application::UpdateWindowTitle();
                         break;
                     }
                     // Show layer info (dev)
                     else if (key == KeyBindsSDL[(int)KeyBind::DevLayerInfo]) {
-                        for (size_t li = 0; li < Scene::Layers.size(); li++) {
-                            SceneLayer layer = Scene::Layers[li];
+                        for (size_t li = 0; li < Scene::Current->Layers.size(); li++) {
+                            SceneLayer layer = Scene::Current->Layers[li];
                             Log::Print(Log::LOG_IMPORTANT, "%2d: %20s (Visible: %d, Width: %d, Height: %d, OffsetX: %d, OffsetY: %d, RelativeY: %d, ConstantY: %d, DrawGroup: %d, ScrollDirection: %d, Flags: %d)", li,
                                 layer.Name,
                                 layer.Visible,
@@ -706,17 +697,16 @@ PRIVATE STATIC void Application::PollEvents() {
                     }
                     // Recompile and restart scene (dev)
                     else if (key == KeyBindsSDL[(int)KeyBind::DevRecompile]) {
-                        Application::Restart();
-
                         char temp[256];
-                        memcpy(temp, Scene::CurrentScene, 256);
+                        memcpy(temp, Scene::Current->CurrentScene, 256);
 
+                        Application::Restart();
                         Scene::Init();
 
-                        memcpy(Scene::CurrentScene, temp, 256);
-                        Scene::LoadScene(Scene::CurrentScene);
+                        memcpy(Scene::Current->CurrentScene, temp, 256);
+                        Scene::Current->LoadScene(Scene::Current->CurrentScene);
+                        Scene::Current->Restart();
 
-                        Scene::Restart();
                         Application::UpdateWindowTitle();
                         break;
                     }
@@ -727,7 +717,10 @@ PRIVATE STATIC void Application::PollEvents() {
 
                         InputManager::ControllerStopRumble();
 
-                        Scene::Restart();
+                        for (Scene* scene : Scene::List) {
+                            if (scene)
+                                scene->Restart();
+                        }
                         Application::UpdateWindowTitle();
                         break;
                     }
@@ -802,20 +795,27 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
     Application::PollEvents();
     MetricEventTime = Clock::GetTicks() - MetricEventTime;
 
-    // BUG: Having Stepper on prevents the first
-    //   frame of a new scene from Updating, but still rendering.
-    if (*Scene::NextScene)
-        Step = true;
-
     MetricAfterSceneTime = Clock::GetTicks();
-    Scene::AfterScene();
+    for (Scene* scene : Scene::List) {
+        if (scene) {
+            Scene::Current = scene;
+            // BUG: Having Stepper on prevents the first
+            //   frame of a new scene from Updating, but still rendering.
+            if (*scene->NextScene)
+                Step = true;
+            scene->AfterScene();
+        }
+    }
     MetricAfterSceneTime = Clock::GetTicks() - MetricAfterSceneTime;
 
     if (DoNothing) goto DO_NOTHING;
 
     // Update
     for (int m = 0; m < UpdatesPerFrame; m++) {
-        Scene::ResetPerf();
+        for (Scene* scene : Scene::List) {
+            if (scene)
+                scene->ResetPerf();
+        }
         MetricPollTime = 0.0;
         MetricUpdateTime = 0.0;
         if ((Stepper && Step) || !Stepper) {
@@ -826,13 +826,20 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
 
             // Update scene
             MetricUpdateTime = Clock::GetTicks();
-            Scene::Update();
+            for (Scene* scene : Scene::List) {
+                if (scene) {
+                    Scene::Current = scene;
+                    scene->Update();
+                    if (UpdatesPerFrame != 1 && (*scene->NextScene || scene->DoRestart))
+                        m = UpdatesPerFrame;
+                }
+            }
             MetricUpdateTime = Clock::GetTicks() - MetricUpdateTime;
         }
         Step = false;
-        if (UpdatesPerFrame != 1 && (*Scene::NextScene || Scene::DoRestart))
-            break;
     }
+
+    Scene::SetFirstSubscene();
 
     // Rendering
     MetricClearTime = Clock::GetTicks();
@@ -844,6 +851,8 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
     MetricRenderTime = Clock::GetTicks() - MetricRenderTime;
 
     DO_NOTHING:
+
+    Scene::SetFirstSubscene();
 
     // Show FPS counter
     MetricFPSCounterTime = Clock::GetTicks();
@@ -1034,8 +1043,8 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
                 listY += 30.0;
 
                 float* listYPtr = &listY;
-                if (Scene::ObjectLists && Application::Platform != Platforms::Android) {
-                    Scene::ObjectLists->WithAll([infoPadding, listYPtr](Uint32, ObjectList* list) -> void {
+                if (Scene::Current->ObjectLists && Application::Platform != Platforms::Android) {
+                    Scene::Current->ObjectLists->WithAll([infoPadding, listYPtr](Uint32, ObjectList* list) -> void {
                         char textBufferXXX[1024];
                         if (list->AverageUpdateItemCount > 0.0) {
                             Graphics::Save();
@@ -1106,17 +1115,17 @@ PUBLIC STATIC void Application::Run(int argc, char* args[]) {
                 if (*i == '\\')
                     *i = '/';
             }
-            Scene::LoadScene(tmxPath);
+            Scene::Current->LoadScene(tmxPath);
         }
         else {
             Log::Print(Log::LOG_WARN, "Map file \"%s\" not inside Resources folder!", args[1]);
         }
     }
     else if (*StartingScene) {
-        Scene::LoadScene(StartingScene);
+        Scene::Current->LoadScene(StartingScene);
     }
 
-    Scene::Restart();
+    Scene::Current->Restart();
     Application::UpdateWindowTitle();
     Application::SetWindowSize(Application::WindowWidth, Application::WindowHeight);
 
@@ -1154,7 +1163,7 @@ PUBLIC STATIC void Application::Run(int argc, char* args[]) {
 
             if (TakeSnapshot) {
                 TakeSnapshot = false;
-                Application::GetPerformanceSnapshot();
+                Application::GetPerformanceSnapshot(Scene::Current);
             }
         }
 
@@ -1355,12 +1364,12 @@ PUBLIC STATIC void Application::LoadSceneInfo() {
         // Read category and starting scene number to be used by the SceneConfig
         node = Application::GameConfig->children[0];
         if (node) {
-            ParseGameConfigInt(node, "activeCategory", Scene::ActiveCategory);
+            ParseGameConfigInt(node, "activeCategory", Scene::InitialCategory);
             ParseGameConfigInt(node, "startSceneNum", Application::StartSceneNum);
         }
         else {
-            Scene::ActiveCategory       = 0;
-            Application::StartSceneNum  = 0;
+            Scene::InitialCategory     = 0;
+            Application::StartSceneNum = 0;
         }
 
         // Open and read SceneConfig
@@ -1374,7 +1383,7 @@ PUBLIC STATIC void Application::LoadSceneInfo() {
 
         Scene::CategoryCount = 0;
         Scene::StageCount = 0;
-        Scene::ListPos = 0;
+        Scene::InitialListPos = 0;
 
         Scene::ListCategory.clear();
         Scene::ListCategory.shrink_to_fit();
@@ -1438,11 +1447,11 @@ PUBLIC STATIC void Application::LoadSceneInfo() {
             }
         }
 
-        Scene::ListPos = Scene::ListCategory[Scene::ActiveCategory].sceneOffsetStart + Application::StartSceneNum;
-        SceneListEntry scene = Scene::ListData[Scene::ListPos];
-        strcpy(Scene::CurrentFolder, scene.folder);
-        strcpy(Scene::CurrentID, scene.id);
-        strcpy(Scene::CurrentSpriteFolder, scene.spriteFolder);
+        Scene::InitialListPos = Scene::ListCategory[Scene::InitialCategory].sceneOffsetStart + Application::StartSceneNum;
+        SceneListEntry scene = Scene::ListData[Scene::InitialListPos];
+        strcpy(Scene::InitialFolder, scene.folder);
+        strcpy(Scene::InitialID, scene.id);
+        strcpy(Scene::InitialSpriteFolder, scene.spriteFolder);
         char filePath[4096];
         if (!strcmp(scene.fileType, "bin")) {
             snprintf(filePath, sizeof(filePath), "Stages/%s/Scene%s.%s", scene.folder, scene.id, scene.fileType);

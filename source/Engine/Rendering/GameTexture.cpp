@@ -7,6 +7,7 @@ public:
     Texture* TexturePtr = nullptr;
     int      UnloadPolicy;
     bool     OwnsTexture = true;
+    size_t   SceneID;
 };
 #endif
 

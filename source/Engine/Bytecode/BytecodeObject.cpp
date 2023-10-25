@@ -998,12 +998,12 @@ PUBLIC STATIC VMValue BytecodeObject::VM_AddToRegistry(int argCount, VMValue* ar
         return NULL_VAL;
 
     ObjectRegistry* objectRegistry;
-    if (!Scene::ObjectRegistries->Exists(registry)) {
+    if (!Scene::Current->ObjectRegistries->Exists(registry)) {
         objectRegistry = new ObjectRegistry();
-        Scene::ObjectRegistries->Put(registry, objectRegistry);
+        Scene::Current->ObjectRegistries->Put(registry, objectRegistry);
     }
     else {
-        objectRegistry = Scene::ObjectRegistries->Get(registry);
+        objectRegistry = Scene::Current->ObjectRegistries->Get(registry);
     }
 
     objectRegistry->Add(self);
@@ -1025,10 +1025,10 @@ PUBLIC STATIC VMValue BytecodeObject::VM_RemoveFromRegistry(int argCount, VMValu
         return NULL_VAL;
 
     ObjectRegistry* objectRegistry;
-    if (!Scene::ObjectRegistries->Exists(registry)) {
+    if (!Scene::Current->ObjectRegistries->Exists(registry)) {
         return NULL_VAL;
     }
-    objectRegistry = Scene::ObjectRegistries->Get(registry);
+    objectRegistry = Scene::Current->ObjectRegistries->Get(registry);
 
     objectRegistry->Remove(self);
 
@@ -1098,12 +1098,12 @@ PUBLIC STATIC VMValue BytecodeObject::VM_CollidedWithObject(int argCount, VMValu
         return NULL_VAL;
     }
 
-    if (!Scene::ObjectLists) return NULL_VAL;
-    if (!Scene::ObjectRegistries) return NULL_VAL;
+    if (!Scene::Current->ObjectLists) return NULL_VAL;
+    if (!Scene::Current->ObjectRegistries) return NULL_VAL;
 
     char* object = GET_ARG(1, GetString);
-    if (!Scene::ObjectRegistries->Exists(object)) {
-        if (!Scene::ObjectLists->Exists(object))
+    if (!Scene::Current->ObjectRegistries->Exists(object)) {
+        if (!Scene::Current->ObjectLists->Exists(object))
             return NULL_VAL;
     }
 
@@ -1111,7 +1111,7 @@ PUBLIC STATIC VMValue BytecodeObject::VM_CollidedWithObject(int argCount, VMValu
         self->HitboxH == 0.0f) return NULL_VAL;
 
     BytecodeObject* other = NULL;
-    ObjectList* objectList = Scene::ObjectLists->Get(object);
+    ObjectList* objectList = Scene::Current->ObjectLists->Get(object);
 
     other = (BytecodeObject*)objectList->EntityFirst;
     for (Entity* next; other; other = (BytecodeObject*)next) {
@@ -1356,12 +1356,12 @@ PUBLIC STATIC VMValue BytecodeObject::VM_AddToDrawGroup(int argCount, VMValue* a
     StandardLibrary::CheckArgCount(argCount, 2);
     BytecodeObject* self = GET_ENTITY(0);
     int drawGroup = GET_ARG(1, GetInteger);
-    if (drawGroup >= 0 && drawGroup < Scene::PriorityPerLayer) {
-        if (!Scene::PriorityLists[drawGroup].Contains(self))
-            Scene::PriorityLists[drawGroup].Add(self);
+    if (drawGroup >= 0 && drawGroup < Scene::Current->PriorityPerLayer) {
+        if (!Scene::Current->PriorityLists[drawGroup].Contains(self))
+            Scene::Current->PriorityLists[drawGroup].Add(self);
     }
     else
-        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Draw group %d out of range. (0 - %d)", drawGroup, Scene::PriorityPerLayer - 1);
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Draw group %d out of range. (0 - %d)", drawGroup, Scene::Current->PriorityPerLayer - 1);
     return NULL_VAL;
 }
 /***
@@ -1375,10 +1375,10 @@ PUBLIC STATIC VMValue BytecodeObject::VM_IsInDrawGroup(int argCount, VMValue* ar
     StandardLibrary::CheckArgCount(argCount, 2);
     BytecodeObject* self = GET_ENTITY(0);
     int drawGroup = GET_ARG(1, GetInteger);
-    if (drawGroup >= 0 && drawGroup < Scene::PriorityPerLayer)
-        return INTEGER_VAL(!!(Scene::PriorityLists[drawGroup].Contains(self)));
+    if (drawGroup >= 0 && drawGroup < Scene::Current->PriorityPerLayer)
+        return INTEGER_VAL(!!(Scene::Current->PriorityLists[drawGroup].Contains(self)));
     else
-        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Draw group %d out of range. (0 - %d)", drawGroup, Scene::PriorityPerLayer - 1);
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Draw group %d out of range. (0 - %d)", drawGroup, Scene::Current->PriorityPerLayer - 1);
     return NULL_VAL;
 }
 /***
@@ -1391,10 +1391,10 @@ PUBLIC STATIC VMValue BytecodeObject::VM_RemoveFromDrawGroup(int argCount, VMVal
     StandardLibrary::CheckArgCount(argCount, 2);
     BytecodeObject* self = GET_ENTITY(0);
     int drawGroup = GET_ARG(1, GetInteger);
-    if (drawGroup >= 0 && drawGroup < Scene::PriorityPerLayer)
-        Scene::PriorityLists[drawGroup].Remove(self);
+    if (drawGroup >= 0 && drawGroup < Scene::Current->PriorityPerLayer)
+        Scene::Current->PriorityLists[drawGroup].Remove(self);
     else
-        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Draw group %d out of range. (0 - %d)", drawGroup, Scene::PriorityPerLayer - 1);
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Draw group %d out of range. (0 - %d)", drawGroup, Scene::Current->PriorityPerLayer - 1);
     return NULL_VAL;
 }
 

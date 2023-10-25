@@ -1502,7 +1502,7 @@ PUBLIC STATIC void     PolygonRasterizer::SetDepthTest(bool enabled) {
 
     memset(DepthBuffer, 0xFF, dpSize * sizeof(*DepthBuffer));
 }
-PUBLIC STATIC void     PolygonRasterizer::FreeDepthBuffer(void) {
+PUBLIC STATIC void     PolygonRasterizer::FreeDepthBuffer() {
     Memory::Free(DepthBuffer);
     DepthBuffer = NULL;
 }

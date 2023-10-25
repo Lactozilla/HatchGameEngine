@@ -1267,9 +1267,9 @@ PUBLIC STATIC void     SoftwareRenderer::DrawPolygon3D(void* data, int vertexCou
     if (SetupPolygonRenderer(modelMatrix, normalMatrix))
         polygonRenderer.DrawPolygon3D((VertexAttribute*)data, vertexCount, vertexFlag, texture);
 }
-PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer3D(void* layer, int sx, int sy, int sw, int sh, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
+PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer3D(void* scenePtr, void* layer, int sx, int sy, int sw, int sh, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
     if (SetupPolygonRenderer(modelMatrix, normalMatrix))
-        polygonRenderer.DrawSceneLayer3D((SceneLayer*)layer, sx, sy, sw, sh);
+        polygonRenderer.DrawSceneLayer3D((Scene*)scenePtr, (SceneLayer*)layer, sx, sy, sw, sh);
 }
 PUBLIC STATIC void     SoftwareRenderer::DrawModel(void* model, Uint16 animation, Uint32 frame, Matrix4x4* modelMatrix, Matrix4x4* normalMatrix) {
     if (SetupPolygonRenderer(modelMatrix, normalMatrix))
@@ -2317,10 +2317,10 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSpritePart(ISprite* sprite, int ani
 }
 
 // Default Tile Display Line setup
-PUBLIC STATIC void     SoftwareRenderer::DrawTile(int tile, int x, int y, bool flipX, bool flipY) {
+PUBLIC STATIC void     SoftwareRenderer::DrawTile(Scene* scene, int tile, int x, int y, bool flipX, bool flipY) {
 
 }
-PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(SceneLayer* layer, View* currentView) {
+PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(Scene* scene, SceneLayer* layer, View* currentView) {
     switch (layer->DrawBehavior) {
         case DrawBehavior_PGZ1_BG:
         case DrawBehavior_HorizontalParallax: {
@@ -2336,9 +2336,9 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(SceneL
             // Set parallax positions
             ScrollingInfo* info = &layer->ScrollInfos[0];
             for (int i = 0; i < layer->ScrollInfoCount; i++) {
-                info->Offset = Scene::Frame * info->ConstantParallax;
+                info->Offset = scene->Frame * info->ConstantParallax;
                 info->Position = (info->Offset + ((viewX + layerOffsetX) * info->RelativeParallax)) >> 8;
-                if (layer->Repeat) {
+                if (layer->Flags & SceneLayer::FLAGS_REPEAT_X) {
                     info->Position %= layerWidth;
                     if (info->Position < 0)
                         info->Position += layerWidth;
@@ -2347,11 +2347,16 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(SceneL
             }
 
             // Create scan lines
-            Sint64 scrollOffset = Scene::Frame * layer->ConstantY;
+            Sint64 scrollOffset = scene->Frame * layer->ConstantY;
             Sint64 scrollLine = (scrollOffset + ((viewY + layerOffsetY) * layer->RelativeY)) >> 8;
-                   scrollLine %= layerHeight;
+            Sint64 scrollLineY = scrollLine << 16;
+
+            scrollLine %= layerHeight;
             if (scrollLine < 0)
                 scrollLine += layerHeight;
+
+            if (layer->Flags & SceneLayer::FLAGS_REPEAT_Y)
+                scrollLineY = scrollLine << 16;
 
             int* deformValues;
             Uint8* parallaxIndex;
@@ -2368,7 +2373,8 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(SceneL
                 if (info->CanDeform)
                     scanLine->SrcX += *deformValues;
                 scanLine->SrcX <<= 16;
-                scanLine->SrcY = scrollLine << 16;
+                scanLine->SrcY = scrollLineY;
+                scrollLineY += 0x10000;
 
                 scanLine->DeltaX = 0x10000;
                 scanLine->DeltaY = 0x0000;
@@ -2382,6 +2388,8 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(SceneL
                 // If we've reach the last line of the layer, return to the first.
                 if (scrollLine == layerHeight) {
                     scrollLine = 0;
+                    if (layer->Flags & SceneLayer::FLAGS_REPEAT_Y)
+                        scrollLineY = 0;
                     parallaxIndex = &layer->ScrollIndexes[scrollLine];
                 }
                 else {
@@ -2397,7 +2405,8 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(SceneL
                 if (info->CanDeform)
                     scanLine->SrcX += *deformValues;
                 scanLine->SrcX <<= 16;
-                scanLine->SrcY = scrollLine << 16;
+                scanLine->SrcY = scrollLineY;
+                scrollLineY += 0x10000;
 
                 scanLine->DeltaX = 0x10000;
                 scanLine->DeltaY = 0x0000;
@@ -2411,6 +2420,8 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(SceneL
                 // If we've reach the last line of the layer, return to the first.
                 if (scrollLine == layerHeight) {
                     scrollLine = 0;
+                    if (layer->Flags & SceneLayer::FLAGS_REPEAT_Y)
+                        scrollLineY = 0;
                     parallaxIndex = &layer->ScrollIndexes[scrollLine];
                 }
                 else {
@@ -2423,7 +2434,7 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(SceneL
             break;
         }
         case DrawBehavior_CustomTileScanLines: {
-            Sint64 scrollOffset = Scene::Frame * layer->ConstantY;
+            Sint64 scrollOffset = scene->Frame * layer->ConstantY;
             Sint64 scrollPositionX = ((scrollOffset + (((int)currentView->X + layer->OffsetX) * layer->RelativeY)) >> 8);
                    scrollPositionX %= layer->Width * 16;
                    scrollPositionX <<= 16;
@@ -2447,7 +2458,7 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_InitTileScanLines(SceneL
     }
 }
 
-PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(SceneLayer* layer, View* currentView) {
+PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene* scene, SceneLayer* layer, View* currentView) {
     int dst_x1 = 0;
     int dst_y1 = 0;
     int dst_x2 = (int)Graphics::CurrentRenderTarget->Width;
@@ -2512,11 +2523,11 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene
     vector<Uint32> srcStrides;
     vector<Uint32*> tileSources;
     vector<Uint8> isPalettedSources;
-    srcStrides.resize(Scene::TileSpriteInfos.size());
-    tileSources.resize(Scene::TileSpriteInfos.size());
-    isPalettedSources.resize(Scene::TileSpriteInfos.size());
-    for (size_t i = 0; i < Scene::TileSpriteInfos.size(); i++) {
-        TileSpriteInfo info = Scene::TileSpriteInfos[i];
+    srcStrides.resize(scene->TileSpriteInfos.size());
+    tileSources.resize(scene->TileSpriteInfos.size());
+    isPalettedSources.resize(scene->TileSpriteInfos.size());
+    for (size_t i = 0; i < scene->TileSpriteInfos.size(); i++) {
+        TileSpriteInfo info = scene->TileSpriteInfos[i];
         AnimFrame frameStr = info.Sprite->Animations[info.AnimationIndex].Frames[info.FrameIndex];
         Texture* texture = info.Sprite->Spritesheets[frameStr.SheetNumber];
         srcStrides[i] = srcStride = texture->Width;
@@ -2527,10 +2538,10 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene
     Uint32 DRAW_COLLISION = 0;
     int c_pixelsOfTileRemaining, tileFlipOffset;
     TileConfig* baseTileCfg = NULL;
-    if (Scene::TileCfg.size()) {
+    if (scene->TileCfg.size()) {
         size_t collisionPlane = Scene::ShowTileCollisionFlag - 1;
-        if (collisionPlane < Scene::TileCfg.size())
-            baseTileCfg = Scene::TileCfg[collisionPlane];
+        if (collisionPlane < scene->TileCfg.size())
+            baseTileCfg = scene->TileCfg[collisionPlane];
     }
 
     void (*pixelFunction)(Uint32*, Uint32*, BlendState&, int*, int*) = NULL;
@@ -2547,7 +2558,7 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene
         dstPxLine = dstPx + dst_strideY;
 
         bool isInLayer = tScanLine->SrcX >= 0 && tScanLine->SrcX < layerWidthInPixels;
-        if (!isInLayer && layer->Repeat) {
+        if (!isInLayer && (layer->Flags & SceneLayer::FLAGS_REPEAT_X)) {
             if (tScanLine->SrcX < 0)
                 tScanLine->SrcX += layerWidthInPixels;
             else if (tScanLine->SrcX >= layerWidthInPixels)
@@ -2565,11 +2576,15 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene
         int srcTY = srcY & 15;
         sourceTileCellX = (srcX >> 4);
         sourceTileCellY = (srcY >> 4);
+
+        if (!(layer->Flags & SceneLayer::FLAGS_REPEAT_Y) && (sourceTileCellY < 0 || sourceTileCellY >= layer->Height))
+            continue;
+
         c_pixelsOfTileRemaining = srcTX;
         pixelsOfTileRemaining = 16 - srcTX;
         tile = &layer->Tiles[sourceTileCellX + (sourceTileCellY << layerWidthInBits)];
 
-        if (isInLayer && (*tile & TILE_IDENT_MASK) != Scene::EmptyTile) {
+        if (isInLayer && (*tile & TILE_IDENT_MASK) != scene->EmptyTile) {
             tileID = *tile & TILE_IDENT_MASK;
             if (Scene::ShowTileCollisionFlag && baseTileCfg) {
                 c_dst_x = dst_x;
@@ -2637,7 +2652,7 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene
             if (canCollide && DRAW_COLLISION) {
                 tileFlipOffset = (
                     ( (!!(*tile & TILE_FLIPY_MASK)) << 1 ) | (!!(*tile & TILE_FLIPX_MASK))
-                ) * Scene::TileCount;
+                ) * scene->TileCount;
 
                 bool flipY = !!(*tile & TILE_FLIPY_MASK);
                 bool isCeiling = !!baseTileCfg[tileID].IsCeiling;
@@ -2664,7 +2679,7 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene
                 continue;
             }
             else if (sourceTileCellX >= layerWidth) {
-                if (layer->Repeat) {
+                if (layer->Flags & SceneLayer::FLAGS_REPEAT_X) {
                     sourceTileCellX -= layerWidth;
                     tile -= layerWidth;
                 }
@@ -2688,7 +2703,7 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene
 
             int srcTYb = srcTY;
             tileID = *tile & TILE_IDENT_MASK;
-            if (tileID != Scene::EmptyTile) {
+            if (tileID != scene->EmptyTile) {
                 // If y-flipped
                 if ((*tile & TILE_FLIPY_MASK))
                     srcTYb ^= 15;
@@ -2784,7 +2799,7 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene
                 if (canCollide && DRAW_COLLISION) {
                     tileFlipOffset = (
                         ( (!!(*tile & TILE_FLIPY_MASK)) << 1 ) | (!!(*tile & TILE_FLIPX_MASK))
-                    ) * Scene::TileCount;
+                    ) * scene->TileCount;
 
                     bool flipY = !!(*tile & TILE_FLIPY_MASK);
                     bool isCeiling = !!baseTileCfg[tileID].IsCeiling;
@@ -2805,10 +2820,10 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_HorizontalParallax(Scene
         dst_strideY += dstStride;
     }
 }
-PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_VerticalParallax(SceneLayer* layer, View* currentView) {
+PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_VerticalParallax(Scene* scene, SceneLayer* layer, View* currentView) {
 
 }
-PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_CustomTileScanLines(SceneLayer* layer, View* currentView) {
+PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_CustomTileScanLines(Scene* scene, SceneLayer* layer, View* currentView) {
     int dst_x1 = 0;
     int dst_y1 = 0;
     int dst_x2 = (int)Graphics::CurrentRenderTarget->Width;
@@ -2854,11 +2869,11 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_CustomTileScanLines(Scen
     vector<Uint32> srcStrides;
     vector<Uint32*> tileSources;
     vector<Uint8> isPalettedSources;
-    srcStrides.resize(Scene::TileSpriteInfos.size());
-    tileSources.resize(Scene::TileSpriteInfos.size());
-    isPalettedSources.resize(Scene::TileSpriteInfos.size());
-    for (size_t i = 0; i < Scene::TileSpriteInfos.size(); i++) {
-        info = Scene::TileSpriteInfos[i];
+    srcStrides.resize(scene->TileSpriteInfos.size());
+    tileSources.resize(scene->TileSpriteInfos.size());
+    isPalettedSources.resize(scene->TileSpriteInfos.size());
+    for (size_t i = 0; i < scene->TileSpriteInfos.size(); i++) {
+        info = scene->TileSpriteInfos[i];
         frameStr = info.Sprite->Animations[info.AnimationIndex].Frames[info.FrameIndex];
         texture = info.Sprite->Spritesheets[frameStr.SheetNumber];
         srcStrides[i] = srcStride = texture->Width;
@@ -2925,7 +2940,7 @@ PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer_CustomTileScanLines(Scen
 
             tile = layer->Tiles[sourceTileCellX + (sourceTileCellY << layerWidthInBits)];
 
-            if ((tile & TILE_IDENT_MASK) != Scene::EmptyTile) {
+            if ((tile & TILE_IDENT_MASK) != scene->EmptyTile) {
                 int tileID = tile & TILE_IDENT_MASK;
 
                 // If y-flipped
@@ -2954,24 +2969,24 @@ scanlineDone:
         dst_strideY += dstStride;
     }
 }
-PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer(SceneLayer* layer, View* currentView) {
+PUBLIC STATIC void     SoftwareRenderer::DrawSceneLayer(Scene* scene, SceneLayer* layer, View* currentView) {
     if (layer->UsingCustomScanlineFunction && layer->DrawBehavior == DrawBehavior_CustomTileScanLines) {
         BytecodeObjectManager::Threads[0].RunFunction(&layer->CustomScanlineFunction, 0);
     }
     else {
-        SoftwareRenderer::DrawSceneLayer_InitTileScanLines(layer, currentView);
+        SoftwareRenderer::DrawSceneLayer_InitTileScanLines(scene, layer, currentView);
     }
 
     switch (layer->DrawBehavior) {
         case DrawBehavior_PGZ1_BG:
 		case DrawBehavior_HorizontalParallax:
-			SoftwareRenderer::DrawSceneLayer_HorizontalParallax(layer, currentView);
+			SoftwareRenderer::DrawSceneLayer_HorizontalParallax(scene, layer, currentView);
 			break;
 		case DrawBehavior_VerticalParallax:
-			SoftwareRenderer::DrawSceneLayer_VerticalParallax(layer, currentView);
+			SoftwareRenderer::DrawSceneLayer_VerticalParallax(scene, layer, currentView);
 			break;
 		case DrawBehavior_CustomTileScanLines:
-			SoftwareRenderer::DrawSceneLayer_CustomTileScanLines(layer, currentView);
+			SoftwareRenderer::DrawSceneLayer_CustomTileScanLines(scene, layer, currentView);
 			break;
 	}
 }
