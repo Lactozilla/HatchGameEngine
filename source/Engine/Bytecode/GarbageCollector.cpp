@@ -47,6 +47,9 @@ PUBLIC STATIC void GarbageCollector::Init() {
 }
 
 PRIVATE STATIC void GarbageCollector::CollectScene(Scene *scene) {
+    if (!scene || !scene->Loaded)
+        return;
+
     // Mark static objects
     for (Entity* ent = scene->StaticObjectFirst, *next; ent; ent = next) {
         next = ent->NextEntity;
@@ -100,9 +103,8 @@ PUBLIC STATIC void GarbageCollector::Collect() {
     GrayHashMap(BytecodeObjectManager::Constants);
 
     // Mark scene
-    for (Scene* scene : Scene::List) {
-        if (scene)
-            CollectScene(scene);
+    for (size_t i = 0; i < Scene::List.size(); i++) {
+        CollectScene(Scene::List[i]);
     }
 
     // Mark functions

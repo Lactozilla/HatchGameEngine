@@ -243,21 +243,19 @@ PUBLIC STATIC Scene* Scene::New() {
     StringUtils::Copy(scene->CurrentID, InitialID, sizeof(scene->CurrentID));
     StringUtils::Copy(scene->CurrentSpriteFolder, InitialSpriteFolder, sizeof(scene->CurrentSpriteFolder));
 
-    size_t i = 0;
+    // Find an empty slot to insert this scene
     size_t listSz = List.size();
 
-    for (; i < listSz; i++) {
-        if (!List[i]) {
+    for (size_t i = 0; i < listSz; i++) {
+        if (List[i] == nullptr) {
             scene->ID = i;
             List[i] = scene;
-            break;
+            return scene;
         }
     }
 
-    if (i == listSz) {
-        scene->ID = List.size();
-        List.push_back(scene);
-    }
+    scene->ID = List.size();
+    List.push_back(scene);
 
     return scene;
 }
@@ -684,7 +682,8 @@ PUBLIC STATIC void Scene::Init() {
     Scene::SetFirstSubscene();
 }
 PUBLIC STATIC void Scene::SetFirstSubscene() {
-    for (Scene* scene : Scene::List) {
+    for (size_t i = 0; i < Scene::List.size(); i++) {
+        Scene* scene = Scene::List[i];
         if (scene) {
             Scene::Current = scene;
             return;
@@ -1241,6 +1240,10 @@ PUBLIC void Scene::AfterScene() {
     }
 }
 
+PUBLIC void Scene::SetNextScene(const char* filename) {
+    StringUtils::Copy(NextScene, filename, sizeof(NextScene));
+}
+
 PRIVATE STATIC void Scene::Iterate(Entity* first, std::function<void(Entity* e)> func) {
     for (Entity* ent = first, *next; ent; ent = next) {
         next = ent->NextEntity;
@@ -1264,6 +1267,7 @@ PRIVATE int Scene::GetPersistenceScopeForObjectDeletion() {
 }
 
 PUBLIC void Scene::Restart() {
+    // TODO: Remove this
     Scene::ViewCurrent = 0;
 
     View* currentView = &Scene::Views[Scene::ViewCurrent];
@@ -2392,7 +2396,8 @@ PUBLIC STATIC void Scene::DisposeInScope(Uint32 scope, size_t sceneID) {
     }
 }
 PUBLIC STATIC void Scene::Dispose() {
-    for (Scene* scene : Scene::List) {
+    for (size_t i = 0; i < Scene::List.size(); i++) {
+        Scene* scene = Scene::List[i];
         if (scene)
             scene->Delete();
     }

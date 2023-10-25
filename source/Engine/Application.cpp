@@ -717,8 +717,9 @@ PRIVATE STATIC void Application::PollEvents() {
 
                         InputManager::ControllerStopRumble();
 
-                        for (Scene* scene : Scene::List) {
-                            if (scene)
+                        for (size_t i = 0; i < Scene::List.size(); i++) {
+                            Scene* scene = Scene::List[i];
+                            if (scene && scene->Loaded)
                                 scene->Restart();
                         }
                         Application::UpdateWindowTitle();
@@ -796,15 +797,18 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
     MetricEventTime = Clock::GetTicks() - MetricEventTime;
 
     MetricAfterSceneTime = Clock::GetTicks();
-    for (Scene* scene : Scene::List) {
-        if (scene) {
-            Scene::Current = scene;
-            // BUG: Having Stepper on prevents the first
-            //   frame of a new scene from Updating, but still rendering.
-            if (*scene->NextScene)
-                Step = true;
-            scene->AfterScene();
-        }
+    for (size_t i = 0; i < Scene::List.size(); i++) {
+        Scene* scene = Scene::List[i];
+        if (!scene)
+            continue;
+
+        // BUG: Having Stepper on prevents the first
+        //   frame of a new scene from Updating, but still rendering.
+        if (*scene->NextScene)
+            Step = true;
+
+        Scene::Current = scene;
+        scene->AfterScene();
     }
     MetricAfterSceneTime = Clock::GetTicks() - MetricAfterSceneTime;
 
@@ -812,8 +816,9 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
 
     // Update
     for (int m = 0; m < UpdatesPerFrame; m++) {
-        for (Scene* scene : Scene::List) {
-            if (scene)
+        for (size_t i = 0; i < Scene::List.size(); i++) {
+            Scene* scene = Scene::List[i];
+            if (scene && scene->Loaded)
                 scene->ResetPerf();
         }
         MetricPollTime = 0.0;
@@ -826,13 +831,17 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
 
             // Update scene
             MetricUpdateTime = Clock::GetTicks();
-            for (Scene* scene : Scene::List) {
-                if (scene) {
-                    Scene::Current = scene;
-                    scene->Update();
-                    if (UpdatesPerFrame != 1 && (*scene->NextScene || scene->DoRestart))
-                        m = UpdatesPerFrame;
-                }
+            for (size_t i = 0; i < Scene::List.size(); i++) {
+                Scene* scene = Scene::List[i];
+                if (!scene || !scene->Loaded)
+                    continue;
+
+                Scene::Current = scene;
+                scene->Update();
+
+                // If fast-forwarding and restarting or changing scene, then stop fast-forwarding
+                if (UpdatesPerFrame != 1 && (*scene->NextScene || scene->DoRestart))
+                    m = UpdatesPerFrame;
             }
             MetricUpdateTime = Clock::GetTicks() - MetricUpdateTime;
         }

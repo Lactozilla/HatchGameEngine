@@ -7837,7 +7837,8 @@ bool    GetResourceListSpace(vector<ResourceType*>* list, ResourceType* resource
             }
             continue;
         }
-        if ((*list)[i]->FilenameHash == resource->FilenameHash) {
+        if ((*list)[i]->FilenameHash == resource->FilenameHash
+        && (*list)[i]->SceneID == resource->SceneID) {
             *index = i;
             delete resource;
             return true;
@@ -8186,8 +8187,7 @@ VMValue Scene_Load(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     char* filename = GET_ARG(0, GetString);
 
-    strcpy(Scene::Current->NextScene, filename);
-    Scene::Current->NextScene[strlen(filename)] = 0;
+    Scene::Current->SetNextScene(filename);
     Scene::Current->NoPersistency = false;
 
     return NULL_VAL;
@@ -8202,8 +8202,7 @@ VMValue Scene_LoadNoPersistency(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     char* filename = GET_ARG(0, GetString);
 
-    strcpy(Scene::Current->NextScene, filename);
-    Scene::Current->NextScene[strlen(filename)] = 0;
+    Scene::Current->SetNextScene(filename);
     Scene::Current->NoPersistency = true;
 
     return NULL_VAL;
@@ -12187,6 +12186,25 @@ VMValue String_ParseDecimal(int argCount, VMValue* args, Uint32 threadID) {
 }
 // #endregion
 
+// #region Subscene
+/***
+ * Subscene.New
+ * \desc Loads a subscene from the specified resource file.
+ * \param filename (String): Filename of scene.
+ * \return Returns the subscene number.
+ * \ns Scene
+ */
+VMValue Subscene_New(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    char* filename = GET_ARG(0, GetString);
+
+    Scene* scene = Scene::New();
+    scene->SetNextScene(filename);
+
+    return INTEGER_VAL((int)scene->ID);
+}
+// #endregion
+
 // #region Texture
 bool GetTextureListSpace(size_t* out) {
     for (size_t i = 0, listSz = Scene::TextureList.size(); i < listSz; i++) {
@@ -15537,6 +15555,11 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(String, LastIndexOf);
     DEF_NATIVE(String, ParseInteger);
     DEF_NATIVE(String, ParseDecimal);
+    // #endregion
+
+    // #region Subscene
+    INIT_CLASS(Subscene);
+    DEF_NATIVE(Subscene, New);
     // #endregion
 
     // #region Texture
