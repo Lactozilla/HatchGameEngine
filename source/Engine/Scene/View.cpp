@@ -29,6 +29,6 @@ public:
     Texture*   DrawTarget = NULL;
     Matrix4x4* ProjectionMatrix = NULL;
     Matrix4x4* BaseProjectionMatrix = NULL;
-    Scene*     ScenePtr = NULL;
+    unsigned   SceneID = 0;
 };
 #endif

@@ -27,7 +27,7 @@ need_t Entity;
 
 class Scene {
 public:
-    size_t                           ID;
+    unsigned                         ID;
 
     vector<SceneLayer>               Layers;
 
@@ -71,6 +71,8 @@ public:
     int                              TileAnimationEnabled;
 
     bool                             DoRestart;
+    bool                             DoRemove;
+
     bool                             NoPersistency;
     bool                             AnyLayerTileChange;
 
@@ -669,7 +671,7 @@ PUBLIC STATIC void Scene::Init() {
         Scene::Views[i].UseDrawTarget = true;
         Scene::Views[i].ProjectionMatrix = Matrix4x4::Create();
         Scene::Views[i].BaseProjectionMatrix = Matrix4x4::Create();
-        Scene::Views[i].ScenePtr = Scene::Current;
+        Scene::Views[i].SceneID = 0;
     }
     Scene::Views[0].Active = true;
     Scene::ViewsActive = 1;
@@ -682,7 +684,7 @@ PUBLIC STATIC void Scene::Init() {
     Scene::SetFirstSubscene();
 }
 PUBLIC STATIC void Scene::SetFirstSubscene() {
-    for (size_t i = 0; i < Scene::List.size(); i++) {
+    for (unsigned i = 0; i < Scene::List.size(); i++) {
         Scene* scene = Scene::List[i];
         if (scene) {
             Scene::Current = scene;
@@ -1132,8 +1134,12 @@ PUBLIC STATIC void Scene::Render() {
         int viewIndex = ViewRenderList[i];
         View* currentView = &Scene::Views[viewIndex];
 
-        Scene* scene = currentView->ScenePtr;
-        if (!scene->PriorityLists)
+        unsigned sceneID = currentView->SceneID;
+        if (sceneID >= Scene::List.size())
+            continue;
+
+        Scene* scene = Scene::List[sceneID];
+        if (!scene || !scene->PriorityLists)
             continue;
 
         Perf_ViewRender* viewPerf = &scene->PERF_ViewRender[viewIndex];
@@ -1218,6 +1224,11 @@ PUBLIC void Scene::AfterScene() {
     BytecodeObjectManager::ResetStack();
     BytecodeObjectManager::RequestGarbageCollection();
 
+    if (DoRemove) {
+        Delete();
+        return;
+    }
+
     if (NextScene[0]) {
         BytecodeObjectManager::ForceGarbageCollection();
 
@@ -1263,7 +1274,7 @@ PRIVATE int Scene::GetPersistenceScopeForObjectDeletion() {
 PUBLIC void Scene::Restart() {
     for (int i = 0; i < MAX_SCENE_VIEWS; i++) {
         View* view = &Scene::Views[i];
-        if (view->ScenePtr == this)
+        if (view->SceneID == ID)
             Scene::ResetView(view);
     }
 
@@ -2386,7 +2397,7 @@ PUBLIC STATIC void Scene::DisposeInScope(Uint32 scope, size_t sceneID) {
     }
 }
 PUBLIC STATIC void Scene::Dispose() {
-    for (size_t i = 0; i < Scene::List.size(); i++) {
+    for (unsigned i = 0; i < Scene::List.size(); i++) {
         Scene* scene = Scene::List[i];
         if (scene)
             scene->Delete();
@@ -2507,6 +2518,8 @@ PUBLIC void Scene::Delete() {
     Properties = NULL;
 
     DisposeInScope(SCOPE_SCENE, ID);
+
+    Scene::List[ID] = nullptr;
 
     delete this;
 }

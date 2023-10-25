@@ -423,9 +423,13 @@ VMValue ReturnString(char* str) {
 
 #define OUT_OF_RANGE_ERROR(eType, eIdx, eMin, eMax) BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, eType " %d out of range. (%d - %d)", eIdx, eMin, eMax)
 
-#define CHECK_SCENE_INDEX() \
-    if (scene_index < 0 || scene_index >= Scene::List.size()) { \
-        OUT_OF_RANGE_ERROR("Subscene index", scene_index, 0, Scene::List.size()); \
+#define CHECK_SCENE_INDEX(idx) \
+    if (idx < 0 || idx >= Scene::List.size()) { \
+        OUT_OF_RANGE_ERROR("Subscene index", idx, 0, Scene::List.size()); \
+        return NULL_VAL; \
+    } \
+    if (Scene::List[idx] == nullptr) { \
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Invalid subscene index %d.", idx); \
         return NULL_VAL; \
     }
 
@@ -8214,7 +8218,7 @@ VMValue Scene_LoadNoPersistency(int argCount, VMValue* args, Uint32 threadID) {
  * \ns Scene
  */
 VMValue Scene_LoadPosition(int argCount, VMValue* args, Uint32 threadID) {
-    bool noPersistency = GET_ARG_OPT(0, GetInteger, true);
+    bool noPersistency = GET_ARG_OPT(0, GetInteger, false);
     Scene::Current->LoadPosition(noPersistency);
     return NULL_VAL;
 }
@@ -12189,10 +12193,10 @@ VMValue String_ParseDecimal(int argCount, VMValue* args, Uint32 threadID) {
 // #region Subscene
 /***
  * Subscene.New
- * \desc Loads a subscene from the specified resource file.
+ * \desc Loads a new subscene from the specified resource file.
  * \param filename (String): Filename of scene.
- * \return Returns the subscene number.
- * \ns Scene
+ * \return Returns the new subscene number.
+ * \ns Subscene
  */
 VMValue Subscene_New(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
@@ -12202,6 +12206,42 @@ VMValue Subscene_New(int argCount, VMValue* args, Uint32 threadID) {
     scene->SetNextScene(filename);
 
     return INTEGER_VAL((int)scene->ID);
+}
+/***
+ * Subscene.Change
+ * \desc Changes a subscene's loaded scene to the one from the specified resource file.
+ * \param subsceneIndex (Index): Index of subscene.
+ * \param filename (String): Filename of scene.
+ * \paramOpt persistency (Boolean): Whether or not the scene should load with persistency.
+ * \ns Subscene
+ */
+VMValue Subscene_Change(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(2);
+    int subsceneIndex = GET_ARG(0, GetInteger);
+    char* filename = GET_ARG(1, GetString);
+    bool noPersistency = GET_ARG_OPT(2, GetInteger, false);
+
+    CHECK_SCENE_INDEX(subsceneIndex);
+
+    Scene::List[subsceneIndex]->SetNextScene(filename);
+    Scene::List[subsceneIndex]->NoPersistency = noPersistency;
+
+    return NULL_VAL;
+}
+/***
+ * Subscene.Remove
+ * \desc Removes a subscene.
+ * \param subsceneIndex (Index): Index of subscene.
+ * \ns Subscene
+ */
+VMValue Subscene_Remove(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int subsceneIndex = GET_ARG(0, GetInteger);
+    CHECK_SCENE_INDEX(subsceneIndex);
+
+    Scene::List[subsceneIndex]->DoRemove = true;
+
+    return NULL_VAL;
 }
 // #endregion
 
@@ -13658,10 +13698,10 @@ VMValue View_CheckPosOnScreen(int argCount, VMValue* args, Uint32 threadID) {
 VMValue View_SetScene(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     int view_index = GET_ARG(0, GetInteger);
-    int scene_index = GET_ARG(1, GetInteger);
+    int subsceneIndex = GET_ARG(1, GetInteger);
     CHECK_VIEW_INDEX();
-    CHECK_SCENE_INDEX();
-    Scene::Views[view_index].ScenePtr = Scene::List[scene_index];
+    CHECK_SCENE_INDEX(subsceneIndex);
+    Scene::Views[view_index].SceneID = subsceneIndex;
     return NULL_VAL;
 }
 // #endregion
@@ -15560,6 +15600,8 @@ PUBLIC STATIC void StandardLibrary::Link() {
     // #region Subscene
     INIT_CLASS(Subscene);
     DEF_NATIVE(Subscene, New);
+    DEF_NATIVE(Subscene, Change);
+    DEF_NATIVE(Subscene, Remove);
     // #endregion
 
     // #region Texture

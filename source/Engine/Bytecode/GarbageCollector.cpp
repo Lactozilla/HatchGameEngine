@@ -103,7 +103,7 @@ PUBLIC STATIC void GarbageCollector::Collect() {
     GrayHashMap(BytecodeObjectManager::Constants);
 
     // Mark scene
-    for (size_t i = 0; i < Scene::List.size(); i++) {
+    for (unsigned i = 0; i < Scene::List.size(); i++) {
         CollectScene(Scene::List[i]);
     }
 

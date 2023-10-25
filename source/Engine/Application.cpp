@@ -717,7 +717,7 @@ PRIVATE STATIC void Application::PollEvents() {
 
                         InputManager::ControllerStopRumble();
 
-                        for (size_t i = 0; i < Scene::List.size(); i++) {
+                        for (unsigned i = 0; i < Scene::List.size(); i++) {
                             Scene* scene = Scene::List[i];
                             if (scene && scene->Loaded)
                                 scene->Restart();
@@ -797,7 +797,7 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
     MetricEventTime = Clock::GetTicks() - MetricEventTime;
 
     MetricAfterSceneTime = Clock::GetTicks();
-    for (size_t i = 0; i < Scene::List.size(); i++) {
+    for (unsigned i = 0; i < Scene::List.size(); i++) {
         Scene* scene = Scene::List[i];
         if (!scene)
             continue;
@@ -816,7 +816,7 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
 
     // Update
     for (int m = 0; m < UpdatesPerFrame; m++) {
-        for (size_t i = 0; i < Scene::List.size(); i++) {
+        for (unsigned i = 0; i < Scene::List.size(); i++) {
             Scene* scene = Scene::List[i];
             if (scene && scene->Loaded)
                 scene->ResetPerf();
@@ -831,7 +831,7 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
 
             // Update scene
             MetricUpdateTime = Clock::GetTicks();
-            for (size_t i = 0; i < Scene::List.size(); i++) {
+            for (unsigned i = 0; i < Scene::List.size(); i++) {
                 Scene* scene = Scene::List[i];
                 if (!scene || !scene->Loaded)
                     continue;

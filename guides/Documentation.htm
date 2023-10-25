@@ -80,6 +80,7 @@
             <li><a href="#Reference_Sprite">Sprite</a></li>
             <li><a href="#Reference_Stream">Stream</a></li>
             <li><a href="#Reference_String">String</a></li>
+            <li><a href="#Reference_Subscene">Subscene</a></li>
             <li><a href="#Reference_Texture">Texture</a></li>
             <li><a href="#Reference_Thread">Thread</a></li>
             <li><a href="#Reference_TileCollision">TileCollision</a></li>
@@ -867,7 +868,6 @@
                     <li><a href="#Reference_functions_Scene_CheckObjectCollisionPlatform">Scene.CheckObjectCollisionPlatform</a></li>
                     <li><a href="#Reference_functions_Scene_SetObjectViewRender">Scene.SetObjectViewRender</a></li>
                     <li><a href="#Reference_functions_Scene_SetTileViewRender">Scene.SetTileViewRender</a></li>
-                    <li><a href="#Reference_functions_Subscene_New">Subscene.New</a></li>
                 </ul>
             </p>
             <p id="Reference_Scene3D">
@@ -1052,6 +1052,15 @@
                     <li><a href="#Reference_functions_String_LastIndexOf">String.LastIndexOf</a></li>
                     <li><a href="#Reference_functions_String_ParseInteger">String.ParseInteger</a></li>
                     <li><a href="#Reference_functions_String_ParseDecimal">String.ParseDecimal</a></li>
+                </ul>
+            </p>
+            <p id="Reference_Subscene">
+                <h2>Subscene</h2>
+                <i>Class methods:</i>
+                <ul>
+                    <li><a href="#Reference_functions_Subscene_New">Subscene.New</a></li>
+                    <li><a href="#Reference_functions_Subscene_Change">Subscene.Change</a></li>
+                    <li><a href="#Reference_functions_Subscene_Remove">Subscene.Remove</a></li>
                 </ul>
             </p>
             <p id="Reference_Texture">
@@ -6602,17 +6611,6 @@
         <li>enableViewRender (Boolean):</li>
         </ul>
         </p>
-        <p id="Reference_functions_Subscene_New">
-        <h2 style="margin-bottom: 8px;">Subscene.New</h2>
-        <code>Subscene.New(filename)</code>
-        <div style="margin-top: 8px; font-size: 14px;">Loads a subscene from the specified resource file.</div>
-        <div style="font-weight: bold; margin-top: 8px;">Parameters:</div>
-        <ul style="margin-top: 0px; font-size: 14px;">
-        <li>filename (String): Filename of scene.</li>
-        </ul>
-        <div style="font-weight: bold; margin-top: 8px;">Returns:</div>
-        <div style="font-size: 14px;">Returns the subscene number.</div>
-        </p>
         <p id="Reference_functions_Scene3D_Create">
         <h2 style="margin-bottom: 8px;">Scene3D.Create</h2>
         <code>Scene3D.Create(unloadPolicy)</code>
@@ -7911,6 +7909,37 @@
         <div style="font-weight: bold; margin-top: 8px;">Returns:</div>
         <div style="font-size: 14px;">Returns the value as an Decimal.</div>
         </p>
+        <p id="Reference_functions_Subscene_New">
+        <h2 style="margin-bottom: 8px;">Subscene.New</h2>
+        <code>Subscene.New(filename)</code>
+        <div style="margin-top: 8px; font-size: 14px;">Loads a new subscene from the specified resource file.</div>
+        <div style="font-weight: bold; margin-top: 8px;">Parameters:</div>
+        <ul style="margin-top: 0px; font-size: 14px;">
+        <li>filename (String): Filename of scene.</li>
+        </ul>
+        <div style="font-weight: bold; margin-top: 8px;">Returns:</div>
+        <div style="font-size: 14px;">Returns the new subscene number.</div>
+        </p>
+        <p id="Reference_functions_Subscene_Change">
+        <h2 style="margin-bottom: 8px;">Subscene.Change</h2>
+        <code>Subscene.Change(subsceneIndex, filename[, persistency])</code>
+        <div style="margin-top: 8px; font-size: 14px;">Changes a subscene's loaded scene to the one from the specified resource file.</div>
+        <div style="font-weight: bold; margin-top: 8px;">Parameters:</div>
+        <ul style="margin-top: 0px; font-size: 14px;">
+        <li>subsceneIndex (Index): Index of subscene.</li>
+        <li>filename (String): Filename of scene.</li>
+        <li>persistency (Boolean): Whether or not the scene should load with persistency.</li>
+        </ul>
+        </p>
+        <p id="Reference_functions_Subscene_Remove">
+        <h2 style="margin-bottom: 8px;">Subscene.Remove</h2>
+        <code>Subscene.Remove(subsceneIndex)</code>
+        <div style="margin-top: 8px; font-size: 14px;">Removes a subscene.</div>
+        <div style="font-weight: bold; margin-top: 8px;">Parameters:</div>
+        <ul style="margin-top: 0px; font-size: 14px;">
+        <li>subsceneIndex (Index): Index of subscene.</li>
+        </ul>
+        </p>
         <p id="Reference_functions_Texture_Create">
         <h2 style="margin-bottom: 8px; color: red;">Texture.Create</h2>
         <code>Texture.Create()</code>
@@ -8711,7 +8740,7 @@
         <div style="font-weight: bold; margin-top: 8px;">Returns:</div>
         <div style="font-size: 14px;">Returns a Map value if the text can be decoded, otherwise returns <code>null</code>.</div>
         </p>
-        <p>641 out of 701 functions have descriptions. </p>
+        <p>643 out of 703 functions have descriptions. </p>
         <hr/>
         <h3>Instance methods</h3>
         <p id="Reference_methods_instance_SetAnimation">
