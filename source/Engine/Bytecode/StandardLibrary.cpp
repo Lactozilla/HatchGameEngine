@@ -464,6 +464,21 @@ VMValue Animator_Create(int argCount, VMValue* args, Uint32 threadID) {
     return INTEGER_VAL((int)index);
 }
 /***
+ * Animator.Remove
+ * \desc Removes an animator.
+ * \param animator (Integer): The index of the animator.
+ * \ns Animator
+ */
+VMValue Animator_Remove(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int animator = GET_ARG(0, GetInteger);
+    if (!Scene::AnimatorList[animator])
+        return NULL_VAL;
+    delete Scene::AnimatorList[animator];
+    Scene::AnimatorList[animator] = NULL;
+    return NULL_VAL;
+}
+/***
  * Animator.SetAnimation
  * \desc Sets the current animation and frame of an animator.
  * \param animator (Integer): The index of the animator.
@@ -8211,8 +8226,8 @@ VMValue Scene_ObjectTileCollision(int argCount, VMValue* args, Uint32 threadID) 
     int cLayers         = GET_ARG(1, GetInteger);
     int cMode           = GET_ARG(2, GetInteger);
     int cPlane          = GET_ARG(3, GetInteger);
-    int xOffset         = GET_ARG(4, GetDecimal);
-    int yOffset         = GET_ARG(5, GetDecimal);
+    int xOffset         = (int)GET_ARG(4, GetDecimal);
+    int yOffset         = (int)GET_ARG(5, GetDecimal);
     int setPos          = GET_ARG(6, GetInteger);
 
     auto ent = (Entity*)entity->EntityPtr;
@@ -8238,8 +8253,8 @@ VMValue Scene_ObjectTileGrip(int argCount, VMValue* args, Uint32 threadID) {
     int cLayers         = GET_ARG(1, GetInteger);
     int cMode           = GET_ARG(2, GetInteger);
     int cPlane          = GET_ARG(3, GetInteger);
-    float xOffset       = GET_ARG(4, GetDecimal);
-    float yOffset       = GET_ARG(5, GetDecimal);
+    int xOffset         = (int)GET_ARG(4, GetDecimal);
+    int yOffset         = (int)GET_ARG(5, GetDecimal);
     float tolerance     = GET_ARG(6, GetDecimal);
 
     auto ent = (Entity*)entity->EntityPtr;
@@ -13282,6 +13297,49 @@ VMValue View_SetZ(int argCount, VMValue* args, Uint32 threadID) {
     return NULL_VAL;
 }
 /***
+View.AdjustX
+* \desc Adjusts the x - axis position of the camera for the specified view by an amount.
+* \param viewIndex(Integer) : Index of the view.
+* \param x(Number) : Desired X adjust amount.
+* \ns View
+*/
+VMValue View_AdjustX(int argCount, VMValue * args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int view_index = GET_ARG(0, GetInteger);
+    CHECK_VIEW_INDEX();
+    Scene::Views[view_index].X += GET_ARG(1, GetDecimal);
+    return NULL_VAL;
+}
+/***
+* View.AdjustY
+* \desc Adjusts the y-axis position of the camera for the specified view by an amount.
+* \param viewIndex (Integer): Index of the view.
+* \param y (Number): Desired Y adjust amount.
+* \ns View
+*/
+VMValue View_AdjustY(int argCount, VMValue * args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int view_index = GET_ARG(0, GetInteger);
+    CHECK_VIEW_INDEX();
+    Scene::Views[view_index].Y += GET_ARG(1, GetDecimal);
+    return NULL_VAL;
+}
+/***
+* View.AdjustX
+* \desc Adjusts the z-axis position of the camera for the specified view by an amount.
+* \param viewIndex (Integer): Index of the view.
+* \param z (Number): Desired Z adjust amount.
+* \ns View
+*/
+VMValue View_AdjustZ(int argCount, VMValue * args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int view_index = GET_ARG(0, GetInteger);
+    CHECK_VIEW_INDEX();
+    Scene::Views[view_index].Z += GET_ARG(1, GetDecimal);
+    return NULL_VAL;
+}
+
+/***
  * View.SetPosition
  * \desc Sets the position of the camera for the specified view.
  * \param viewIndex (Integer): Index of the view.
@@ -14055,6 +14113,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     // #region Animator
     INIT_CLASS(Animator);
     DEF_NATIVE(Animator, Create);
+    DEF_NATIVE(Animator, Remove);
     DEF_NATIVE(Animator, SetAnimation);
     DEF_NATIVE(Animator, Animate);
     DEF_NATIVE(Animator, GetSprite);
@@ -15760,6 +15819,9 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(View, SetX);
     DEF_NATIVE(View, SetY);
     DEF_NATIVE(View, SetZ);
+    DEF_NATIVE(View, AdjustX);
+    DEF_NATIVE(View, AdjustY);
+    DEF_NATIVE(View, AdjustZ);
     DEF_NATIVE(View, SetPosition);
     DEF_NATIVE(View, SetAngle);
     DEF_NATIVE(View, SetSize);

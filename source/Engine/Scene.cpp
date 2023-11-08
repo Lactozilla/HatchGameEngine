@@ -3251,7 +3251,7 @@ PUBLIC STATIC bool Scene::CheckObjectCollisionPlatform(Entity* thisEntity, Colli
     return collided;
 }
 
-PUBLIC STATIC bool Scene::ObjectTileCollision(Entity* entity, int cLayers, int cMode, int cPlane, int xOffset, int yOffset, bool setPos) {
+PUBLIC STATIC bool Scene::ObjectTileCollision(Enxztity* entity, int cLayers, int cMode, int cPlane, int xOffset, int yOffset, bool setPos) {
     int layerID     = 1;
     bool collided   = false;
     int posX        = xOffset + entity->X;
@@ -3457,7 +3457,7 @@ PUBLIC STATIC bool Scene::ObjectTileCollision(Entity* entity, int cLayers, int c
     }
 }
 
-PUBLIC STATIC bool Scene::ObjectTileGrip(Entity* entity, int cLayers, int cMode, int cPlane, float xOffset, float yOffset, float tolerance) {
+PUBLIC STATIC bool Scene::ObjectTileGrip(Entity* entity, int cLayers, int cMode, int cPlane, int xOffset, int yOffset, float tolerance) {
     int layerID     = 1;
     bool collided   = false;
     int posX        = xOffset + entity->X;
