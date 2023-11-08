@@ -179,6 +179,7 @@ struct ObjFunction {
     struct Chunk Chunk;
     size_t       FunctionListOffset;
     ObjString*   Name;
+    ObjString*   ClassName;
     char         SourceFilename[256];
     Uint32       NameHash;
 };
@@ -272,6 +273,7 @@ struct WithIter {
     void* entityNext;
     int   index;
     void* registry;
+    Uint8 receiverSlot;
 };
 
 struct CallFrame {

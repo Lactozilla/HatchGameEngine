@@ -98,12 +98,21 @@ std::jmp_buf VMThread::JumpBuffer;
             VMThread::InstructionIgnoreMap[000000000] = true; \
             return ERROR_RES_CONTINUE; \
     }
-#define GET_FUNCTION_NAME(hash) \
-    std::string functionName(GetToken(hash)); \
-    if (functionName == "main") \
-        functionName = "top-level function"; \
-    else if (functionName != "<anonymous-fn>") \
-        functionName = "event " + functionName
+
+PRIVATE string VMThread::GetFunctionName(ObjFunction* function) {
+    std::string functionName(GetToken(function->NameHash));
+
+    if (functionName == "main")
+        return "top-level function";
+    else if (functionName != "<anonymous-fn>") {
+        if (function->ClassName)
+            return "method " + std::string(function->ClassName->Chars) + "::" + functionName;
+        else
+            return "function " + functionName;
+    }
+
+    return functionName;
+}
 
 PUBLIC STATIC char*   VMThread::GetToken(Uint32 hash) {
     static char GetTokenBuffer[256];
@@ -138,11 +147,11 @@ PRIVATE void    VMThread::PrintStackTrace(PrintBuffer* buffer, const char* error
             size_t bpos = (frame->IPLast - frame->IPStart);
             line = function->Chunk.Lines[bpos] & 0xFFFF;
 
-            GET_FUNCTION_NAME(function->NameHash);
+            std::string functionName = GetFunctionName(function);
             buffer_printf(buffer, "In %s of %s, line %d:\n\n    %s\n", functionName.c_str(), function->SourceFilename, line, errorString);
         }
         else {
-            buffer_printf(buffer, "In %d:\n    %s\n", (int)(frame->IP - frame->IPStart), errorString);
+            buffer_printf(buffer, "On line %d:\n    %s\n", (int)(frame->IP - frame->IPStart), errorString);
         }
     }
     else {
@@ -159,8 +168,8 @@ PRIVATE void    VMThread::PrintStackTrace(PrintBuffer* buffer, const char* error
             CallFrame* fr2 = &Frames[i - 1];
             line = fr2->Function->Chunk.Lines[fr2->IPLast - fr2->IPStart] & 0xFFFF;
         }
-        GET_FUNCTION_NAME(function->NameHash);
-        buffer_printf(buffer, "    called \"%s\" of \"%s\"", functionName.c_str(), source);
+        std::string functionName = GetFunctionName(function);
+        buffer_printf(buffer, "    called %s of %s", functionName.c_str(), source);
 
         if (line > 0) {
             buffer_printf(buffer, " on Line %d", line);
@@ -193,7 +202,7 @@ PUBLIC int     VMThread::ThrowRuntimeError(bool fatal, const char* errorMessage,
             }
 
             if (function) {
-                GET_FUNCTION_NAME(function->NameHash);
+                std::string functionName = GetFunctionName(function);
                 buffer_printf(&buffer, "While calling %s of %s:\n\n    %s\n", functionName.c_str(), function->SourceFilename, errorString);
             }
             else {
@@ -301,7 +310,7 @@ PUBLIC VMValue VMThread::ReadConstant(CallFrame* frame) {
 }
 
 PUBLIC int     VMThread::RunInstruction() {
-    // #define VM_DEBUG_INSTRUCTIONS 1
+    // #define VM_DEBUG_INSTRUCTIONS
 
     // NOTE: MSVC cannot take advantage of the dispatch table.
     #ifdef USING_VM_DISPATCH_TABLE
@@ -392,7 +401,6 @@ PUBLIC int     VMThread::RunInstruction() {
     frame->IPLast = frame->IP;
 
     #ifdef VM_DEBUG_INSTRUCTIONS
-        DebugInfo = false;
         if (DebugInfo) {
             #define PRINT_CASE(n) case n: Log::Print(Log::LOG_VERBOSE, #n); break;
 
@@ -1139,13 +1147,19 @@ PUBLIC int     VMThread::RunInstruction() {
                 WITH_STATE_INIT,
                 WITH_STATE_ITERATE,
                 WITH_STATE_FINISH,
+                WITH_STATE_INIT_SLOTTED,
             };
 
+            Uint8 receiverSlot = 0;
+
             int state = ReadByte(frame);
+            if (state == WITH_STATE_INIT_SLOTTED)
+                receiverSlot = ReadByte(frame);
             int offset = ReadSInt16(frame);
 
             switch (state) {
-                case WITH_STATE_INIT: {
+                case WITH_STATE_INIT:
+                case WITH_STATE_INIT_SLOTTED: {
                     VMValue receiver = Peek(0);
                     if (receiver.Type == VAL_NULL) {
                         frame->IP += offset;
@@ -1211,24 +1225,24 @@ PUBLIC int     VMThread::RunInstruction() {
 
                         // Add iterator
                         if (registry)
-                            *frame->WithIteratorStackTop = NEW_STRUCT_MACRO(WithIter) { NULL, NULL, startIndex, registry };
+                            *frame->WithIteratorStackTop = NEW_STRUCT_MACRO(WithIter) { NULL, NULL, startIndex, registry, receiverSlot };
                         else
-                            *frame->WithIteratorStackTop = NEW_STRUCT_MACRO(WithIter) { objectStart, objectStart->NextEntityInList, 0, NULL };
+                            *frame->WithIteratorStackTop = NEW_STRUCT_MACRO(WithIter) { objectStart, objectStart->NextEntityInList, 0, NULL, receiverSlot };
                         frame->WithIteratorStackTop++;
 
                         // Backup original receiver
-                        *frame->WithReceiverStackTop = frame->Slots[0];
+                        *frame->WithReceiverStackTop = frame->Slots[receiverSlot];
                         frame->WithReceiverStackTop++;
                         // Replace receiver
-                        frame->Slots[0] = OBJECT_VAL(objectStart->Instance);
+                        frame->Slots[receiverSlot] = OBJECT_VAL(objectStart->Instance);
                         break;
                     }
                     else if (IS_INSTANCE(receiver)) {
                         // Backup original receiver
-                        *frame->WithReceiverStackTop = frame->Slots[0];
+                        *frame->WithReceiverStackTop = frame->Slots[receiverSlot];
                         frame->WithReceiverStackTop++;
                         // Replace receiver
-                        frame->Slots[0] = receiver;
+                        frame->Slots[receiverSlot] = receiver;
 
                         Pop(); // pop receiver
 
@@ -1240,11 +1254,13 @@ PUBLIC int     VMThread::RunInstruction() {
                     break;
                 }
                 case WITH_STATE_ITERATE: {
+                    WithIter it = frame->WithIteratorStackTop[-1];
+
+                    receiverSlot = it.receiverSlot;
+
                     VMValue originalReceiver = frame->WithReceiverStackTop[-1];
                     // Restore original receiver
-                    frame->Slots[0] = originalReceiver;
-
-                    WithIter it = frame->WithIteratorStackTop[-1];
+                    frame->Slots[receiverSlot] = originalReceiver;
 
                     // If in list,
                     if (it.entity) {
@@ -1269,7 +1285,7 @@ PUBLIC int     VMThread::RunInstruction() {
                             frame->WithReceiverStackTop[-1] = originalReceiver;
                             // Replace receiver
                             BytecodeObject* object = (BytecodeObject*)it.entity;
-                            frame->Slots[0] = OBJECT_VAL(object->Instance);
+                            frame->Slots[receiverSlot] = OBJECT_VAL(object->Instance);
                         }
                     }
                     // Otherwise in registry,
@@ -1285,7 +1301,7 @@ PUBLIC int     VMThread::RunInstruction() {
                             frame->WithReceiverStackTop[-1] = originalReceiver;
                             // Replace receiver
                             BytecodeObject* object = (BytecodeObject*)registry->GetNth(it.index);
-                            frame->Slots[0] = OBJECT_VAL(object->Instance);
+                            frame->Slots[receiverSlot] = OBJECT_VAL(object->Instance);
                         }
                     }
                     else {
@@ -1296,10 +1312,12 @@ PUBLIC int     VMThread::RunInstruction() {
                     break;
                 }
                 case WITH_STATE_FINISH: {
+                    WithIter it = frame->WithIteratorStackTop[-1];
+
                     frame->WithReceiverStackTop--;
 
                     VMValue originalReceiver = *frame->WithReceiverStackTop;
-                    frame->Slots[0] = originalReceiver;
+                    frame->Slots[it.receiverSlot] = originalReceiver;
 
                     frame->WithIteratorStackTop--;
                     break;

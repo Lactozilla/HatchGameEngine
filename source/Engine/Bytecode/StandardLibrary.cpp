@@ -565,7 +565,7 @@ VMValue Animator_Animate(int argCount, VMValue* args, Uint32 threadID) {
     animator->AnimationTimer += animator->AnimationSpeed;
 
     // TODO: Animate Retro Model if Frames = AnimFrame* 1 (no size?), else:
-    while (animator->AnimationTimer > animator->Duration) {
+    while (animator->Duration && animator->AnimationTimer > animator->Duration) {
         ++animator->CurrentFrame;
 
         animator->AnimationTimer -= animator->Duration;
@@ -854,7 +854,7 @@ VMValue Application_GetFPS(int argCount, VMValue* args, Uint32 threadID) {
 /***
  * Application.GetKeyBind
  * \desc Gets a <linkto ref="KeyBind_*">keybind</linkto>.
- * \param keyBind (Integer): The <linkto ref="KeyBind_*">keybind</linkto>.
+ * \param keyBind (Enum): The <linkto ref="KeyBind_*">keybind</linkto>.
  * \return Returns the key ID of the keybind.
  * \ns Application
  */
@@ -866,7 +866,7 @@ VMValue Application_GetKeyBind(int argCount, VMValue* args, Uint32 threadID) {
 /***
  * Application.SetKeyBind
  * \desc Sets a <linkto ref="KeyBind_*">keybind</linkto>.
- * \param keyBind (Integer): The <linkto ref="KeyBind_*">keybind</linkto>.
+ * \param keyBind (Enum): The <linkto ref="KeyBind_*">keybind</linkto>.
  * \param keyID (Integer): The key ID.
  * \ns Application
  */
@@ -1259,8 +1259,8 @@ VMValue Array_Shift(int argCount, VMValue* args, Uint32 threadID) {
  * Array.SetAll
  * \desc Sets values in the array from startIndex to endIndex (includes the value at endIndex.)
  * \param array (Array): Array to set values to.
- * \param startIndex (Integer): Index of value to start setting. (-1 for first index)
- * \param endIndex (Integer): Index of value to end setting. (-1 for last index)
+ * \param startIndex (Integer): Index of value to start setting. (<code>-1</code> for first index)
+ * \param endIndex (Integer): Index of value to end setting. (<code>-1</code> for last index)
  * \param value (Value): Value to set to.
  * \ns Array
  */
@@ -1397,7 +1397,7 @@ CONTROLLER_GET_BOOL(HasPaddles)
  * Controller.GetButton
  * \desc Gets the <linkto ref="Button_*">button</linkto> value from the controller at the index.
  * \param controllerIndex (Integer): Index of the controller to check.
- * \param buttonIndex (Integer): Index of the <linkto ref="Button_*">button</linkto> to check.
+ * \param buttonIndex (Enum): Index of the <linkto ref="Button_*">button</linkto> to check.
  * \return Returns the button value from the controller at the index.
  * \ns Controller
  */
@@ -1416,7 +1416,7 @@ VMValue Controller_GetButton(int argCount, VMValue* args, Uint32 threadID) {
  * Controller.GetAxis
  * \desc Gets the <linkto ref="Axis_*">axis</linkto> value from the controller at the index.
  * \param controllerIndex (Integer): Index of the controller to check.
- * \param axisIndex (Integer): Index of the <linkto ref="Axis_*">axis</linkto> to check.
+ * \param axisIndex (Enum): Index of the <linkto ref="Axis_*">axis</linkto> to check.
  * \return Returns the axis value from the controller at the index.
  * \ns Controller
  */
@@ -2187,6 +2187,23 @@ VMValue Draw_ImagePartSized(int argCount, VMValue* args, Uint32 threadID) {
     float h = GET_ARG(8, GetDecimal);
 
     Graphics::DrawTexture(image->TexturePtr, sx, sy, sw, sh, x, y, w, h);
+    return NULL_VAL;
+}
+/***
+ * Draw.Layer
+ * \desc Draws a layer.
+ * \param layerIndex (Integer): Index of layer.
+ * \ns Draw
+ */
+VMValue Draw_Layer(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int index = GET_ARG(0, GetInteger);
+    if (index < 0 || index >= (int)Scene::Layers.size()) {
+        OUT_OF_RANGE_ERROR("Layer index", index, 0, (int)Scene::Layers.size() - 1);
+        return NULL_VAL;
+    }
+    if (Graphics::CurrentView)
+        Graphics::DrawSceneLayer(&Scene::Layers[index], Graphics::CurrentView, index, false);
     return NULL_VAL;
 }
 /***
@@ -4070,7 +4087,7 @@ VMValue Draw_SetTextureBlend(int argCount, VMValue* args, Uint32 threadID) {
 /***
  * Draw.SetBlendMode
  * \desc Sets the <linkto ref="BlendMode_*">blend mode</linkto> used for drawing.
- * \param blendMode (Integer): The desired <linkto ref="BlendMode_*">blend mode</linkto>.
+ * \param blendMode (Enum): The desired <linkto ref="BlendMode_*">blend mode</linkto>.
  * \return
  * \ns Draw
  */
@@ -4087,8 +4104,8 @@ VMValue Draw_SetBlendMode(int argCount, VMValue* args, Uint32 threadID) {
 /***
  * Draw.SetBlendFactor
  * \desc Sets the <linkto ref="BlendFactor_*">blend factors</linkto> used for drawing. (Only for hardware-rendering)
- * \param sourceFactor (Integer): <linkto ref="BlendFactor_*">Source factor</linkto> for blending.
- * \param destinationFactor (Integer): <linkto ref="BlendFactor_*">Destination factor</linkto> for blending.
+ * \param sourceFactor (Enum): <linkto ref="BlendFactor_*">Source factor</linkto> for blending.
+ * \param destinationFactor (Enum): <linkto ref="BlendFactor_*">Destination factor</linkto> for blending.
  * \return
  * \ns Draw
  */
@@ -4102,10 +4119,10 @@ VMValue Draw_SetBlendFactor(int argCount, VMValue* args, Uint32 threadID) {
 /***
  * Draw.SetBlendFactorExtended
  * \desc Sets all the <linkto ref="BlendFactor_*">blend factors</linkto> used for drawing. (Only for hardware-rendering)
- * \param sourceColorFactor (Integer): <linkto ref="BlendFactor_*">Source factor</linkto> for blending color.
- * \param destinationColorFactor (Integer): <linkto ref="BlendFactor_*">Destination factor</linkto> for blending color.
- * \param sourceAlphaFactor (Integer): <linkto ref="BlendFactor_*">Source factor</linkto> for blending alpha.
- * \param destinationAlphaFactor (Integer): <linkto ref="BlendFactor_*">Destination factor</linkto> for blending alpha.
+ * \param sourceColorFactor (Enum): <linkto ref="BlendFactor_*">Source factor</linkto> for blending color.
+ * \param destinationColorFactor (Enum): <linkto ref="BlendFactor_*">Destination factor</linkto> for blending color.
+ * \param sourceAlphaFactor (Enum): <linkto ref="BlendFactor_*">Source factor</linkto> for blending alpha.
+ * \param destinationAlphaFactor (Enum): <linkto ref="BlendFactor_*">Destination factor</linkto> for blending alpha.
  * \return
  * \ns Draw
  */
@@ -4156,7 +4173,7 @@ VMValue Draw_SetTintColor(int argCount, VMValue* args, Uint32 threadID) {
 /***
  * Draw.SetTintMode
  * \desc Sets the <linkto ref="TintMode_*">tint mode</linkto> used for drawing.
- * \param tintMode (Integer): The desired <linkto ref="TintMode_*">tint mode</linkto>.
+ * \param tintMode (Enum): The desired <linkto ref="TintMode_*">tint mode</linkto>.
  * \return
  * \ns Draw
  */
@@ -4185,7 +4202,7 @@ VMValue Draw_UseTinting(int argCount, VMValue* args, Uint32 threadID) {
 /***
  * Draw.SetFilter
  * \desc Sets a <linkto ref="Filter_*">filter type</linkto>.
- * \param filterType (Integer): The <linkto ref="Filter_*">filter type</linkto>.
+ * \param filterType (Enum): The <linkto ref="Filter_*">filter type</linkto>.
  * \ns Draw
  */
 VMValue Draw_SetFilter(int argCount, VMValue* args, Uint32 threadID) {
@@ -4196,6 +4213,154 @@ VMValue Draw_SetFilter(int argCount, VMValue* args, Uint32 threadID) {
         return NULL_VAL;
     }
     SoftwareRenderer::SetFilter(filterType);
+    return NULL_VAL;
+}
+/***
+ * Draw.UseStencil
+ * \desc Enables or disables stencil operations.
+ * \param enabled (Boolean): Whether to enable or disable stencil operations.
+ * \ns Draw
+ */
+VMValue Draw_UseStencil(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    Graphics::SetStencilEnabled(!!GET_ARG(0, GetInteger));
+    return NULL_VAL;
+}
+/***
+ * Draw.SetStencilTestFunction
+ * \desc Sets a <linkto ref="StencilTest_*">stencil test</linkto> function.
+ * \param stencilTest (Enum): One of the <linkto ref="StencilTest_*">stencil test</linkto> functions.
+ * \ns Draw
+ */
+VMValue Draw_SetStencilTestFunction(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int stencilTest = GET_ARG(0, GetInteger);
+    if (stencilTest < StencilTest_Never || stencilTest > StencilTest_GEqual) {
+        OUT_OF_RANGE_ERROR("Stencil test function", stencilTest, StencilTest_Never, StencilTest_GEqual);
+        return NULL_VAL;
+    }
+    Graphics::SetStencilTestFunc(stencilTest);
+    return NULL_VAL;
+}
+/***
+ * Draw.SetStencilPassOperation
+ * \desc Sets a <linkto ref="StencilTest_*">stencil operation</linkto> for when the stencil test passes.
+ * \param stencilOp (Enum): One of the <linkto ref="StencilTest_*">stencil operations</linkto>.
+ * \ns Draw
+ */
+VMValue Draw_SetStencilPassOperation(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int stencilOp = GET_ARG(0, GetInteger);
+    if (stencilOp < StencilOp_Keep || stencilOp > StencilOp_DecrWrap) {
+        OUT_OF_RANGE_ERROR("Stencil operation", stencilOp, StencilOp_Keep, StencilOp_DecrWrap);
+        return NULL_VAL;
+    }
+    Graphics::SetStencilPassFunc(stencilOp);
+    return NULL_VAL;
+}
+/***
+ * Draw.SetStencilFailOperation
+ * \desc Sets a <linkto ref="StencilTest_*">stencil operation</linkto> for when the stencil test fails.
+ * \param stencilOp (Enum): One of the <linkto ref="StencilTest_*">stencil operations</linkto>.
+ * \ns Draw
+ */
+VMValue Draw_SetStencilFailOperation(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int stencilOp = GET_ARG(0, GetInteger);
+    if (stencilOp < StencilOp_Keep || stencilOp > StencilOp_DecrWrap) {
+        OUT_OF_RANGE_ERROR("Stencil operation", stencilOp, StencilOp_Keep, StencilOp_DecrWrap);
+        return NULL_VAL;
+    }
+    Graphics::SetStencilFailFunc(stencilOp);
+    return NULL_VAL;
+}
+/***
+ * Draw.SetStencilValue
+ * \desc Sets the stencil value.
+ * \param value (Integer): The stencil value. This value is clamped by the stencil buffer's bit depth.
+ * \ns Draw
+ */
+VMValue Draw_SetStencilValue(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int value = GET_ARG(0, GetInteger);
+    Graphics::SetStencilValue(value);
+    return NULL_VAL;
+}
+/***
+ * Draw.SetStencilMask
+ * \desc Sets the mask used for all stencil tests.
+ * \param mask (Integer): The stencil mask. This value is clamped by the stencil buffer's bit depth.
+ * \ns Draw
+ */
+VMValue Draw_SetStencilMask(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int mask = GET_ARG(0, GetInteger);
+    Graphics::SetStencilMask(mask);
+    return NULL_VAL;
+}
+/***
+ * Draw.ClearStencil
+ * \desc Clears the stencil.
+ * \ns Draw
+ */
+VMValue Draw_ClearStencil(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    Graphics::ClearStencil();
+    return NULL_VAL;
+}
+/***
+ * Draw.SetDotMask
+ * \desc Sets the dot mask.
+ * \param mask (Integer): The mask.
+ * \ns Draw
+ */
+VMValue Draw_SetDotMask(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    SoftwareRenderer::SetDotMask(GET_ARG(0, GetInteger));
+    return NULL_VAL;
+}
+/***
+ * Draw.SetHorizontalDotMask
+ * \desc Sets the horizontal dot mask.
+ * \param mask (Integer): The mask.
+ * \ns Draw
+ */
+VMValue Draw_SetHorizontalDotMask(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    SoftwareRenderer::SetDotMaskH(GET_ARG(0, GetInteger));
+    return NULL_VAL;
+}
+/***
+ * Draw.SetVerticalDotMask
+ * \desc Sets the vertical dot mask.
+ * \param mask (Integer): The mask.
+ * \ns Draw
+ */
+VMValue Draw_SetVerticalDotMask(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    SoftwareRenderer::SetDotMaskV(GET_ARG(0, GetInteger));
+    return NULL_VAL;
+}
+/***
+ * Draw.SetHorizontalDotMaskOffset
+ * \desc Sets the offset of the horizontal dot mask.
+ * \param offsetH (Integer): The offset.
+ * \ns Draw
+ */
+VMValue Draw_SetHorizontalDotMaskOffset(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    SoftwareRenderer::SetDotMaskOffsetH(GET_ARG(0, GetInteger));
+    return NULL_VAL;
+}
+/***
+ * Draw.SetVerticalDotMaskOffset
+ * \desc Sets the offset of the vertical dot mask.
+ * \param offsetV (Integer): The offset.
+ * \ns Draw
+ */
+VMValue Draw_SetVerticalDotMaskOffset(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    SoftwareRenderer::SetDotMaskOffsetV(GET_ARG(0, GetInteger));
     return NULL_VAL;
 }
 /***
@@ -4544,15 +4709,10 @@ VMValue Draw_Clear(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Draw_ResetTextureTarget(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
-    Graphics::SetRenderTarget(!Scene::Views[Scene::ViewCurrent].UseDrawTarget ? NULL : Scene::Views[Scene::ViewCurrent].DrawTarget);
-    // Graphics::UpdateOrtho(Scene::Views[Scene::ViewCurrent].Width, Scene::Views[Scene::ViewCurrent].Height);
-
-    // View* currentView = &Scene::Views[Scene::ViewCurrent];
-    // Graphics::UpdatePerspective(45.0, currentView->Width / currentView->Height, 0.1, 1000.0);
-    // currentView->Z = 500.0;
-    // Matrix4x4::Scale(currentView->ProjectionMatrix, currentView->ProjectionMatrix, 1.0, -1.0, 1.0);
-    // Matrix4x4::Translate(currentView->ProjectionMatrix, currentView->ProjectionMatrix, -currentView->X - currentView->Width / 2, -currentView->Y - currentView->Height / 2, -currentView->Z);
-	Graphics::UpdateProjectionMatrix();
+    if (Graphics::CurrentView) {
+        Graphics::SetRenderTarget(!Graphics::CurrentView->UseDrawTarget ? NULL : Graphics::CurrentView->DrawTarget);
+        Graphics::UpdateProjectionMatrix();
+    }
     return NULL_VAL;
 }
 /***
@@ -5511,7 +5671,7 @@ VMValue Instance_GetBySlotID(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Instance_DisableAutoAnimate(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
-    BytecodeObjectManager::DisableAutoAnimate = !!GET_ARG(0, GetInteger);
+    BytecodeObject::DisableAutoAnimate = !!GET_ARG(0, GetInteger);
     return NULL_VAL;
 }
 // TODO: Finish these
@@ -6619,7 +6779,7 @@ VMValue Matrix_Rotate(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * Matrix.Create256
- * \desc Creates a 4x4 matrix based on the decimal 256.0. <br/>\
+ * \desc Creates a 4x4 matrix based on the decimal 256.0.
  * \return Returns the Matrix as an Array.
  * \ns Matrix
  */
@@ -7474,6 +7634,16 @@ VMValue Palette_EnablePaletteUsage(int argCount, VMValue* args, Uint32 threadID)
     Graphics::UsePalettes = usePalettes;
     return NULL_VAL;
 }
+#define CHECK_PALETTE_INDEX(index) \
+if (index < 0 || index >= MAX_PALETTE_COUNT) { \
+    OUT_OF_RANGE_ERROR("Palette index", index, 0, MAX_PALETTE_COUNT - 1); \
+    return NULL_VAL; \
+}
+#define CHECK_COLOR_INDEX(index) \
+if (index < 0 || index >= 0x100) { \
+    OUT_OF_RANGE_ERROR("Palette color index", index, 0, 255); \
+    return NULL_VAL; \
+}
 /***
  * Palette.LoadFromResource
  * \desc Loads palette from an .act, .col, .gif, .png, or .hpal resource.
@@ -7486,7 +7656,9 @@ VMValue Palette_LoadFromResource(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_AT_LEAST_ARGCOUNT(2);
     int palIndex        = GET_ARG(0, GetInteger);
     char* filename      = GET_ARG(1, GetString);
-    int disabledRows    = argCount > 2 ? GET_ARG(2, GetInteger) : 0x0000;
+    int disabledRows    = GET_ARG_OPT(2, GetInteger, 0);
+
+    CHECK_PALETTE_INDEX(palIndex);
 
     // RSDK StageConfig
     if (StringUtils::StrCaseStr(filename, "StageConfig.bin"))
@@ -7642,6 +7814,8 @@ VMValue Palette_LoadFromImage(int argCount, VMValue* args, Uint32 threadID) {
     Image* image = GET_ARG(1, GetImage);
     Texture* texture = image->TexturePtr;
 
+    CHECK_PALETTE_INDEX(palIndex);
+
     size_t x = 0;
 
     for (size_t y = 0; y < texture->Height; y++) {
@@ -7670,6 +7844,8 @@ VMValue Palette_GetColor(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     int palIndex = GET_ARG(0, GetInteger);
     int colorIndex = GET_ARG(1, GetInteger);
+    CHECK_PALETTE_INDEX(palIndex);
+    CHECK_COLOR_INDEX(colorIndex);
     Uint32 color = Graphics::PaletteColors[palIndex][colorIndex];
     Graphics::ConvertFromARGBtoNative(&color, 1);
     return INTEGER_VAL((int)(color & 0xFFFFFFU));
@@ -7686,6 +7862,8 @@ VMValue Palette_SetColor(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(3);
     int palIndex = GET_ARG(0, GetInteger);
     int colorIndex = GET_ARG(1, GetInteger);
+    CHECK_PALETTE_INDEX(palIndex);
+    CHECK_COLOR_INDEX(colorIndex);
     Uint32 hex = (Uint32)GET_ARG(2, GetInteger);
     Uint32* color = &Graphics::PaletteColors[palIndex][colorIndex];
     *color = (hex & 0xFFFFFFU) | 0xFF000000U;
@@ -7716,11 +7894,21 @@ VMValue Palette_MixPalettes(int argCount, VMValue* args, Uint32 threadID) {
     int palIndexDest = GET_ARG(0, GetInteger);
     int palIndex1 = GET_ARG(1, GetInteger);
     int palIndex2 = GET_ARG(2, GetInteger);
-    float mix = GET_ARG(3, GetDecimal);
+    float mixRatio = GET_ARG(3, GetDecimal);
     int colorIndexStart = GET_ARG(4, GetInteger);
     int colorCount = GET_ARG(5, GetInteger);
 
-    int percent = mix * 0x100;
+    CHECK_PALETTE_INDEX(palIndexDest);
+    CHECK_PALETTE_INDEX(palIndex1);
+    CHECK_PALETTE_INDEX(palIndex2);
+    CHECK_COLOR_INDEX(colorIndexStart);
+
+    if (colorCount > 0x100)
+        colorCount = 0x100;
+
+    mixRatio = Math::Clamp(mixRatio, 0.0f, 1.0f);
+
+    int percent = mixRatio * 0x100;
     for (int c = colorIndexStart; c < colorIndexStart + colorCount; c++)
         Graphics::PaletteColors[palIndexDest][c] = 0xFF000000U | PMP_ColorBlend(Graphics::PaletteColors[palIndex1][c], Graphics::PaletteColors[palIndex2][c], percent);
     Graphics::PaletteUpdated = true;
@@ -7739,6 +7927,9 @@ VMValue Palette_RotateColorsLeft(int argCount, VMValue* args, Uint32 threadID) {
     int palIndex = GET_ARG(0, GetInteger);
     int colorIndexStart = GET_ARG(1, GetInteger);
     int count = GET_ARG(2, GetInteger);
+
+    CHECK_PALETTE_INDEX(palIndex);
+    CHECK_COLOR_INDEX(colorIndexStart);
 
     if (count > 0x100 - colorIndexStart)
         count = 0x100 - colorIndexStart;
@@ -7763,6 +7954,9 @@ VMValue Palette_RotateColorsRight(int argCount, VMValue* args, Uint32 threadID) 
     int palIndex = GET_ARG(0, GetInteger);
     int colorIndexStart = GET_ARG(1, GetInteger);
     int count = GET_ARG(2, GetInteger);
+
+    CHECK_PALETTE_INDEX(palIndex);
+    CHECK_COLOR_INDEX(colorIndexStart);
 
     if (count > 0x100 - colorIndexStart)
         count = 0x100 - colorIndexStart;
@@ -7792,6 +7986,11 @@ VMValue Palette_CopyColors(int argCount, VMValue* args, Uint32 threadID) {
     int colorIndexStartTo = GET_ARG(3, GetInteger);
     int count = GET_ARG(4, GetInteger);
 
+    CHECK_PALETTE_INDEX(palIndexFrom);
+    CHECK_COLOR_INDEX(colorIndexStartFrom);
+    CHECK_PALETTE_INDEX(palIndexTo);
+    CHECK_COLOR_INDEX(colorIndexStartTo);
+
     if (count > 0x100 - colorIndexStartTo)
         count = 0x100 - colorIndexStartTo;
     if (count > 0x100 - colorIndexStartFrom)
@@ -7816,6 +8015,8 @@ VMValue Palette_SetPaletteIndexLines(int argCount, VMValue* args, Uint32 threadI
     Sint32 lineStart    = (int)GET_ARG(1, GetDecimal);
     Sint32 lineEnd      = (int)GET_ARG(2, GetDecimal);
 
+    CHECK_PALETTE_INDEX(palIndex);
+
     Sint32 lastLine = sizeof(Graphics::PaletteIndexLines) - 1;
     if (lineStart > lastLine)
         lineStart = lastLine;
@@ -7827,6 +8028,8 @@ VMValue Palette_SetPaletteIndexLines(int argCount, VMValue* args, Uint32 threadI
         Graphics::PaletteIndexLines[i] = (Uint8)palIndex;
     return NULL_VAL;
 }
+#undef CHECK_COLOR_INDEX
+#undef CHECK_PALETTE_INDEX
 // #endregion
 
 // #region Resources
@@ -9445,7 +9648,7 @@ VMValue Scene_SetTileAnimationEnabled(int argCount, VMValue* args, Uint32 thread
  * \desc Sets an animation sequence for a tile ID.
  * \param tileID (Integer): Which tile ID to add an animated sequence to.
  * \param tileIDs (Array): Tile ID list.
- * \param frameDurations (Array): Frame duration list.
+ * \paramOpt frameDurations (Array): Frame duration list.
  * \ns Scene
  */
 VMValue Scene_SetTileAnimSequence(int argCount, VMValue* args, Uint32 threadID) {
@@ -9458,7 +9661,7 @@ VMValue Scene_SetTileAnimSequence(int argCount, VMValue* args, Uint32 threadID) 
     std::vector<int> tileIDs;
     std::vector<int> frameDurations;
 
-    if (IS_ARRAY(args[1])) {
+    if (!IS_NULL(args[1])) {
         ObjArray* array = GET_ARG(1, GetArray);
 
         int otherTileID = 0;
@@ -9492,6 +9695,33 @@ VMValue Scene_SetTileAnimSequence(int argCount, VMValue* args, Uint32 threadID) 
     Tileset* tileset = Scene::GetTileset(tileID);
     if (tileset)
         tileset->AddTileAnimSequence(tileID, &Scene::TileSpriteInfos[tileID], tileIDs, frameDurations);
+
+    return NULL_VAL;
+}
+/***
+ * Scene.SetTileAnimSequenceFromSprite
+ * \desc Sets an animation sequence for a tile ID.
+ * \param tileID (Integer): Which tile ID to add an animated sequence to.
+ * \param spriteIndex (Integer): Sprite index. (<code>null</code> to disable)
+ * \param animationIndex (Integer): Animation index in sprite.
+ * \ns Scene
+ */
+VMValue Scene_SetTileAnimSequenceFromSprite(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(3);
+
+    int tileID = GET_ARG(0, GetInteger);
+    if (tileID < 0 || tileID >= (int)Scene::TileSpriteInfos.size())
+        return NULL_VAL;
+
+    ISprite* sprite = nullptr;
+    if (!IS_NULL(args[1]))
+        sprite = GET_ARG(1, GetSprite);
+
+    int animationIndex = GET_ARG(2, GetInteger);
+
+    Tileset* tileset = Scene::GetTileset(tileID);
+    if (tileset)
+        tileset->AddTileAnimSequence(tileID, &Scene::TileSpriteInfos[tileID], sprite, animationIndex);
 
     return NULL_VAL;
 }
@@ -9670,7 +9900,7 @@ VMValue Scene_SetLayerDrawGroup(int argCount, VMValue* args, Uint32 threadID) {
  * Scene.SetLayerDrawBehavior
  * \desc Sets the parallax direction of the layer. See <linkto ref="DrawBehavior_*"></linkto> for a list of accepted draw behaviors.
  * \param layerIndex (Integer): Index of layer.
- * \param drawBehavior (Integer): The <linkto ref="DrawBehavior_*">draw behavior</linkto>.
+ * \param drawBehavior (Enum): The <linkto ref="DrawBehavior_*">draw behavior</linkto>.
  * \ns Scene
  */
 VMValue Scene_SetLayerDrawBehavior(int argCount, VMValue* args, Uint32 threadID) {
@@ -9691,6 +9921,22 @@ VMValue Scene_SetLayerRepeat(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     int index = GET_ARG(0, GetInteger);
     Scene::Layers[index].Repeat = !!GET_ARG(1, GetInteger);
+    return NULL_VAL;
+}
+/***
+ * Scene.SetDrawGroupCount
+ * \desc Sets the amount of draw groups in the active scene.
+ * \param count (Integer): Draw group count.
+ * \ns Scene
+ */
+VMValue Scene_SetDrawGroupCount(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int count = GET_ARG(0, GetInteger);
+    if (count < 1) {
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Draw group count cannot be lower than 1.");
+        return NULL_VAL;
+    }
+    Scene::SetPriorityPerLayer(count);
     return NULL_VAL;
 }
 /***
@@ -9717,7 +9963,7 @@ VMValue Scene_SetDrawGroupEntityDepthSorting(int argCount, VMValue* args, Uint32
  * \desc Sets whether or not to use color and alpha blending on this layer. See <linkto ref="BlendMode_*"></linkto> for a list of accepted blend modes.
  * \param layerIndex (Integer): Index of layer.
  * \param doBlend (Boolean): Whether or not to use blending.
- * \paramOpt blendMode (Integer): The desired <linkto ref="BlendMode_*">blend mode</linkto>.
+ * \paramOpt blendMode (Enum): The desired <linkto ref="BlendMode_*">blend mode</linkto>.
  * \ns Scene
  */
 VMValue Scene_SetLayerBlend(int argCount, VMValue* args, Uint32 threadID) {
@@ -10020,6 +10266,26 @@ VMValue Scene_SetTileScanline(int argCount, VMValue* args, Uint32 threadID) {
     return NULL_VAL;
 }
 /***
+ * Scene.SetLayerCustomRenderFunction
+ * \desc Sets the function to be used for rendering a specific layer.
+ * \param layerIndex (Integer): Index of layer.
+ * \param function (Function): Function to call to render the layer. (Use <code>null</code> to reset functionality.)
+ * \ns Scene
+ */
+VMValue Scene_SetLayerCustomRenderFunction(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int index = GET_ARG(0, GetInteger);
+    if (args[0].Type == VAL_NULL) {
+        Scene::Layers[index].UsingCustomRenderFunction = false;
+    }
+    else {
+        ObjFunction* function = GET_ARG(1, GetFunction);
+        Scene::Layers[index].CustomRenderFunction = *function;
+        Scene::Layers[index].UsingCustomRenderFunction = true;
+    }
+    return NULL_VAL;
+}
+/***
  * Scene.SetObjectViewRender
  * \desc Sets whether or not objects can render on the specified view.
  * \param viewIndex (Integer): Index of the view.
@@ -10102,7 +10368,7 @@ VMValue Scene3D_Delete(int argCount, VMValue* args, Uint32 threadID) {
  * Scene3D.SetDrawMode
  * \desc Sets the <linkto ref="DrawMode_*">draw mode</linkto> of the 3D scene.
  * \param scene3DIndex (Integer): The index of the 3D scene.
- * \param drawMode (Integer): The type of drawing to use for the vertices in the 3D scene. See <linkto ref="DrawMode_*"></linkto> for a list of accepted draw modes.
+ * \param drawMode (Enum): The type of drawing to use for the vertices in the 3D scene. See <linkto ref="DrawMode_*"></linkto> for a list of accepted draw modes.
  * \return
  * \ns Scene3D
  */
@@ -10118,7 +10384,7 @@ VMValue Scene3D_SetDrawMode(int argCount, VMValue* args, Uint32 threadID) {
  * Scene3D.SetFaceCullMode
  * \desc Sets the <linkto ref="FaceCull_*">face culling mode</linkto> of the 3D scene. (hardware-renderer only)
  * \param scene3DIndex (Integer): The index of the 3D scene.
- * \param cullMode (Integer): The type of face culling to use for the vertices in the 3D scene. See <linkto ref="FaceCull_*"></linkto> for a list of accepted face cull modes.
+ * \param cullMode (Enum): The type of face culling to use for the vertices in the 3D scene. See <linkto ref="FaceCull_*"></linkto> for a list of accepted face cull modes.
  * \return
  * \ns Scene3D
  */
@@ -10303,7 +10569,7 @@ VMValue Scene3D_SetSpecularLighting(int argCount, VMValue* args, Uint32 threadID
  * Scene3D.SetFogEquation
  * \desc Sets the <linkto ref="FogEquation_*">fog equation</linkto> of the 3D scene. (software-renderer only) 
  * \param scene3DIndex (Integer): The index of the 3D scene.
- * \param fogEquation (Integer): The <linkto ref="FogEquation_*">fog equation</linkto> to use.
+ * \param fogEquation (Enum): The <linkto ref="FogEquation_*">fog equation</linkto> to use.
  * \return
  * \ns Scene3D
  */
@@ -11595,7 +11861,7 @@ VMValue Stream_FromResource(int argCount, VMValue* args, Uint32 threadID) {
  * Stream.FromFile
  * \desc Opens a stream from a file. See <linkto ref="FileStream_*"></linkto> for a list of accepted file access modes.
  * \param filename (String): Path of the file.
- * \param mode (Integer): <linkto ref="FileStream_*">File access mode</linkto>.
+ * \param mode (Enum): <linkto ref="FileStream_*">File access mode</linkto>.
  * \return Returns the newly opened stream.
  * \ns Stream
  */
@@ -12115,22 +12381,27 @@ VMValue Stream_WriteString(int argCount, VMValue* args, Uint32 threadID) {
 // #region String
 /***
  * String.Split
- * \desc
- * \return
+ * \desc Splits a string by a delimiter.
+ * \param string (String): The string to split.
+ * \param delimiter (Integer): The delimiter string.
+ * \return Returns an array of strings.
  * \ns String
  */
 VMValue String_Split(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
-    // char* string = GET_ARG(0, GetString);
-    // char* delimt = GET_ARG(1, GetString);
+    char* string = GET_ARG(0, GetString);
+    char* delimt = GET_ARG(1, GetString);
 
     if (BytecodeObjectManager::Lock()) {
         ObjArray* array = NewArray();
-        int       length = 1;
-        for (int i = 0; i < length; i++) {
-            ObjString* part = AllocString(16);
-            array->Values->push_back(OBJECT_VAL(part));
+
+        char* input = StringUtils::Duplicate(string);
+        char* tok = strtok(input, delimt);
+        while (tok != NULL) {
+            array->Values->push_back(OBJECT_VAL(CopyString(tok)));
+            tok = strtok(NULL, delimt);
         }
+        Memory::Free(input);
 
         BytecodeObjectManager::Unlock();
         return OBJECT_VAL(array);
@@ -12312,20 +12583,30 @@ VMValue String_LastIndexOf(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * String.ParseInteger
- * \desc Convert a String value to an Integer value if possible.
- * \param string (String):
+ * \desc Converts a String value to an Integer value, if possible.
+ * \param string (String): The string to parse.
+ * \paramOpt radix (Integer): The numerical base, or radix. If <code>0</code>, the radix is detected by the value of <code>string</code>: <br/>\
+If <code>string</code> begins with <code>0x</code>, it is a hexadecimal number (base 16);<br/>\
+Else, if <code>string</code> begins with <code>0</code>, it is an octal number (base 8);<br/>\
+Else, if <code>string</code> begins with <code>0b</code>, it is a binary number (base 2);<br/>\
+Else, the number is assumed to be in base 10.
  * \return Returns the value as an Integer.
  * \ns String
  */
 VMValue String_ParseInteger(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
+    CHECK_AT_LEAST_ARGCOUNT(1);
     char* string = GET_ARG(0, GetString);
-    return INTEGER_VAL((int)strtol(string, NULL, 10));
+    int radix = GET_ARG_OPT(1, GetInteger, 10);
+    if (radix < 0 || radix > 36) {
+        BytecodeObjectManager::Threads[threadID].ThrowRuntimeError(false, "Invalid radix of %d. (0 - 36)", radix);
+        return NULL_VAL;
+    }
+    return INTEGER_VAL((int)strtol(string, NULL, radix));
 }
 /***
  * String.ParseDecimal
  * \desc Convert a String value to an Decimal value if possible.
- * \param string (String):
+ * \param string (String): The string to parse.
  * \return Returns the value as an Decimal.
  * \ns String
  */
@@ -12574,9 +12855,9 @@ VMValue TileCollision_Line(int argCount, VMValue* args, Uint32 threadID) {
  * TileInfo.SetSpriteInfo
  * \desc Sets the sprite, animation, and frame to use for specified tile.
  * \param tileID (Integer): ID of tile to check.
- * \param spriteIndex (Integer): Sprite index. (-1 for default tile sprite)
+ * \param spriteIndex (Integer): Sprite index. (<code>-1</code> for default tile sprite)
  * \param animationIndex (Integer): Animation index.
- * \param frameIndex (Integer): Frame index. (-1 for default tile frame)
+ * \param frameIndex (Integer): Frame index. (<code>-1</code> for default tile frame)
  * \ns TileInfo
  */
 VMValue TileInfo_SetSpriteInfo(int argCount, VMValue* args, Uint32 threadID) {
@@ -13391,9 +13672,7 @@ VMValue View_SetSize(int argCount, VMValue* args, Uint32 threadID) {
     float view_w = GET_ARG(1, GetDecimal);
     float view_h = GET_ARG(2, GetDecimal);
     CHECK_VIEW_INDEX();
-    Scene::Views[view_index].Width = view_w;
-    Scene::Views[view_index].Height = view_h;
-    Scene::Views[view_index].Stride = Math::CeilPOT(view_w);
+    Scene::Views[view_index].SetSize(view_w, view_h);
     return NULL_VAL;
 }
 /***
@@ -14597,6 +14876,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Draw, ImagePart);
     DEF_NATIVE(Draw, ImageSized);
     DEF_NATIVE(Draw, ImagePartSized);
+    DEF_NATIVE(Draw, Layer);
     DEF_NATIVE(Draw, View);
     DEF_NATIVE(Draw, ViewPart);
     DEF_NATIVE(Draw, ViewSized);
@@ -14663,6 +14943,18 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Draw, SetTintMode);
     DEF_NATIVE(Draw, UseTinting);
     DEF_NATIVE(Draw, SetFilter);
+    DEF_NATIVE(Draw, UseStencil);
+    DEF_NATIVE(Draw, SetStencilTestFunction);
+    DEF_NATIVE(Draw, SetStencilPassOperation);
+    DEF_NATIVE(Draw, SetStencilFailOperation);
+    DEF_NATIVE(Draw, SetStencilValue);
+    DEF_NATIVE(Draw, SetStencilMask);
+    DEF_NATIVE(Draw, ClearStencil);
+    DEF_NATIVE(Draw, SetDotMask);
+    DEF_NATIVE(Draw, SetHorizontalDotMask);
+    DEF_NATIVE(Draw, SetVerticalDotMask);
+    DEF_NATIVE(Draw, SetHorizontalDotMaskOffset);
+    DEF_NATIVE(Draw, SetVerticalDotMaskOffset);
     DEF_NATIVE(Draw, Line);
     DEF_NATIVE(Draw, Circle);
     DEF_NATIVE(Draw, Ellipse);
@@ -14850,6 +15142,88 @@ PUBLIC STATIC void StandardLibrary::Link() {
     * \desc Invert filter.
     */
     DEF_ENUM(Filter_INVERT);
+
+    /***
+    * \enum StencilTest_Never
+    * \desc Always fails.
+    */
+    DEF_ENUM(StencilTest_Never);
+    /***
+    * \enum StencilTest_Always
+    * \desc Always passes.
+    */
+    DEF_ENUM(StencilTest_Always);
+    /***
+    * \enum StencilTest_Equal
+    * \desc Does an "equals" operation.
+    */
+    DEF_ENUM(StencilTest_Equal);
+    /***
+    * \enum StencilTest_NotEqual
+    * \desc Does a "not equal" operation.
+    */
+    DEF_ENUM(StencilTest_NotEqual);
+    /***
+    * \enum StencilTest_Less
+    * \desc Does a "less than" operation.
+    */
+    DEF_ENUM(StencilTest_Less);
+    /***
+    * \enum StencilTest_Greater
+    * \desc Does a "greater than" operation.
+    */
+    DEF_ENUM(StencilTest_Greater);
+    /***
+    * \enum StencilTest_LEqual
+    * \desc Does a "less than or equal to" operation.
+    */
+    DEF_ENUM(StencilTest_LEqual);
+    /***
+    * \enum StencilTest_GEqual
+    * \desc Does a "greater than or equal to" operation.
+    */
+    DEF_ENUM(StencilTest_GEqual);
+
+    /***
+    * \enum StencilOp_Keep
+    * \desc Doesn't modify the stencil buffer value (keeps it the same.)
+    */
+    DEF_ENUM(StencilOp_Keep);
+    /***
+    * \enum StencilOp_Zero
+    * \desc Sets the stencil buffer value to zero.
+    */
+    DEF_ENUM(StencilOp_Zero);
+    /***
+    * \enum StencilOp_Incr
+    * \desc Increases the stencil buffer value, saturating it if it would wrap around (the value is set to a specific maximum.)
+    */
+    DEF_ENUM(StencilOp_Incr);
+    /***
+    * \enum StencilOp_Decr
+    * \desc Increases the stencil buffer value, setting it to zero if it would wrap around.
+    */
+    DEF_ENUM(StencilOp_Decr);
+    /***
+    * \enum StencilOp_Invert
+    * \desc Inverts the bits of the stencil buffer value.
+    */
+    DEF_ENUM(StencilOp_Invert);
+    /***
+    * \enum StencilOp_Replace
+    * \desc Replaces the bits of the stencil buffer value with the masked value.
+    */
+    DEF_ENUM(StencilOp_Replace);
+    /***
+    * \enum StencilOp_IncrWrap
+    * \desc Increases the stencil buffer value, letting it wrap around.
+    */
+    DEF_ENUM(StencilOp_IncrWrap);
+    /***
+    * \enum StencilOp_DecrWrap
+    * \desc Increases the stencil buffer value, letting it wrap around.
+    */
+    DEF_ENUM(StencilOp_DecrWrap);
 
     /***
     * \enum BlendFactor_ZERO
@@ -15463,6 +15837,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, SetPaused);
     DEF_NATIVE(Scene, SetTileAnimationEnabled);
     DEF_NATIVE(Scene, SetTileAnimSequence);
+    DEF_NATIVE(Scene, SetTileAnimSequenceFromSprite);
     DEF_NATIVE(Scene, SetTileAnimSequencePaused);
     DEF_NATIVE(Scene, SetTileAnimSequenceSpeed);
     DEF_NATIVE(Scene, SetTileAnimSequenceFrame);
@@ -15475,6 +15850,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, SetLayerDrawGroup);
     DEF_NATIVE(Scene, SetLayerDrawBehavior);
     DEF_NATIVE(Scene, SetLayerRepeat);
+    DEF_NATIVE(Scene, SetDrawGroupCount);
     DEF_NATIVE(Scene, SetDrawGroupEntityDepthSorting);
     DEF_NATIVE(Scene, SetLayerBlend);
     DEF_NATIVE(Scene, SetLayerOpacity);
@@ -15489,6 +15865,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, SetLayerDeformOffsetB);
     DEF_NATIVE(Scene, SetLayerCustomScanlineFunction);
     DEF_NATIVE(Scene, SetTileScanline);
+    DEF_NATIVE(Scene, SetLayerCustomRenderFunction);
     DEF_NATIVE(Scene, SetObjectViewRender);
     DEF_NATIVE(Scene, SetTileViewRender);
 
