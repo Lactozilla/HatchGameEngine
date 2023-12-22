@@ -9,9 +9,6 @@ public:
     static ParseRule*           Rules;
     static vector<ObjFunction*> Functions;
     static HashMap<Token>*      TokenMap;
-    static const char*          Magic;
-    static vector<const char*>  FunctionNames;
-    static bool                 PrettyPrint;
     static bool                 ShowWarnings;
     static bool                 WriteDebugInfo;
     static bool                 WriteSourceFilename;
@@ -36,8 +33,10 @@ public:
 
 #include <Engine/Diagnostics/Log.h>
 #include <Engine/Bytecode/Compiler.h>
+#include <Engine/Bytecode/Bytecode.h>
 #include <Engine/Bytecode/GarbageCollector.h>
-#include <Engine/Bytecode/BytecodeObjectManager.h>
+#include <Engine/Bytecode/ScriptManager.h>
+#include <Engine/Bytecode/Values.h>
 #include <Engine/IO/FileStream.h>
 
 #include <Engine/Application.h>
@@ -47,9 +46,7 @@ Scanner              Compiler::scanner;
 ParseRule*           Compiler::Rules = NULL;
 vector<ObjFunction*> Compiler::Functions;
 HashMap<Token>*      Compiler::TokenMap = NULL;
-const char*          Compiler::Magic = "HTVM";
-vector<const char*>  Compiler::FunctionNames{ "<anonymous-fn>", "main" };
-bool                 Compiler::PrettyPrint = true;
+
 bool                 Compiler::ShowWarnings = false;
 bool                 Compiler::WriteDebugInfo = false;
 bool                 Compiler::WriteSourceFilename = false;
@@ -93,6 +90,7 @@ enum TokenTYPE {
     // Precedence 10
     TOKEN_EQUALS,
     TOKEN_NOT_EQUALS,
+    TOKEN_HAS,
     // Precedence 11
     TOKEN_BITWISE_AND,
     TOKEN_BITWISE_XOR,
@@ -138,6 +136,7 @@ enum TokenTYPE {
     TOKEN_OR,
     TOKEN_AND,
     TOKEN_FOR,
+    TOKEN_FOREACH,
     TOKEN_CASE,
     TOKEN_ELSE,
     TOKEN_THIS,
@@ -145,6 +144,7 @@ enum TokenTYPE {
     TOKEN_SUPER,
     TOKEN_BREAK,
     TOKEN_CLASS,
+    TOKEN_ENUM,
     TOKEN_WHILE,
     TOKEN_REPEAT,
     TOKEN_RETURN,
@@ -153,6 +153,8 @@ enum TokenTYPE {
     TOKEN_CONTINUE,
     TOKEN_IMPORT,
     TOKEN_AS,
+    TOKEN_IN,
+    TOKEN_FROM,
 
     TOKEN_PRINT,
 
@@ -335,6 +337,7 @@ PUBLIC VIRTUAL int   Compiler::GetKeywordType() {
             if (scanner.Current - scanner.Start > 1) {
                 switch (*(scanner.Start + 1)) {
                     case 'l': return CheckKeyword(2, 2, "se", TOKEN_ELSE);
+                    case 'n': return CheckKeyword(2, 2, "um", TOKEN_ENUM);
                     case 'v': return CheckKeyword(2, 3, "ent", TOKEN_EVENT);
                 }
             }
@@ -343,14 +346,30 @@ PUBLIC VIRTUAL int   Compiler::GetKeywordType() {
             if (scanner.Current - scanner.Start > 1) {
                 switch (*(scanner.Start + 1)) {
                     case 'a': return CheckKeyword(2, 3, "lse", TOKEN_FALSE);
-                    case 'o': return CheckKeyword(2, 1, "r", TOKEN_FOR);
+                    case 'o':
+                        if (scanner.Current - scanner.Start > 2) {
+                            switch (*(scanner.Start + 2)) {
+                                case 'r':
+                                    if (scanner.Current - scanner.Start > 3) {
+                                        switch (*(scanner.Start + 3)) {
+                                            case 'e': return CheckKeyword(4, 3, "ach", TOKEN_FOREACH);
+                                        }
+                                    }
+                                    return CheckKeyword(3, 0, NULL, TOKEN_FOR);
+                            }
+                        }
+                        break;
+                    case 'r': return CheckKeyword(2, 2, "om", TOKEN_FROM);
                 }
             }
             break;
+        case 'h':
+            return CheckKeyword(1, 2, "as", TOKEN_HAS);
         case 'i':
             if (scanner.Current - scanner.Start > 1) {
                 switch (*(scanner.Start + 1)) {
                     case 'f': return CheckKeyword(2, 0, NULL, TOKEN_IF);
+                    case 'n': return CheckKeyword(2, 0, NULL, TOKEN_IN);
                     case 'm': return CheckKeyword(2, 4, "port", TOKEN_IMPORT);
                 }
             }
@@ -915,6 +934,17 @@ PUBLIC void  Compiler::EmitCopy(Uint8 count) {
     EmitByte(count);
 }
 
+PUBLIC void  Compiler::EmitCall(const char *name, int argCount, bool isSuper) {
+    EmitBytes(OP_INVOKE, argCount);
+    EmitStringHash(name);
+    EmitByte(isSuper ? 1 : 0);
+}
+PUBLIC void  Compiler::EmitCall(Token name, int argCount, bool isSuper) {
+    EmitBytes(OP_INVOKE, argCount);
+    EmitStringHash(name);
+    EmitByte(isSuper ? 1 : 0);
+}
+
 PUBLIC void  Compiler::NamedVariable(Token name, bool canAssign) {
     Uint8 getOp, setOp;
     int arg = ResolveLocal(&name);
@@ -966,20 +996,38 @@ PUBLIC void  Compiler::ScopeEnd() {
     ClearToScope(ScopeDepth);
 }
 PUBLIC void  Compiler::ClearToScope(int depth) {
+    int popCount = 0;
     while (LocalCount > 0 && Locals[LocalCount - 1].Depth > depth) {
         if (!Locals[LocalCount - 1].Resolved)
             UnusedVariables->push_back(Locals[LocalCount - 1]);
 
-        EmitByte(OP_POP); // pop locals
+        popCount++; // pop locals
 
         LocalCount--;
     }
+    PopMultiple(popCount);
 }
 PUBLIC void  Compiler::PopToScope(int depth) {
     int lcl = LocalCount;
+    int popCount = 0;
     while (lcl > 0 && Locals[lcl - 1].Depth > depth) {
-        EmitByte(OP_POP); // pop locals
+        popCount++; // pop locals
         lcl--;
+    }
+    PopMultiple(popCount);
+}
+PUBLIC void  Compiler::PopMultiple(int count) {
+    if (count == 1) {
+        EmitByte(OP_POP);
+        return;
+    }
+
+    while (count > 0) {
+        int max = count;
+        if (max > 0xFF)
+            max = 0xFF;
+        EmitBytes(OP_POPN, max);
+        count -= max;
     }
 }
 PUBLIC int   Compiler::AddLocal(Token name) {
@@ -1003,6 +1051,12 @@ PUBLIC int   Compiler::AddLocal(const char* name, size_t len) {
     local->Resolved = false;
     RenameLocal(local, name, len);
     return LocalCount - 1;
+}
+PUBLIC int   Compiler::AddHiddenLocal(const char* name, size_t len) {
+    int local = AddLocal(name, len);
+    Locals[local].Resolved = true;
+    MarkInitialized();
+    return local;
 }
 PUBLIC void  Compiler::RenameLocal(Local* local, const char* name, size_t len) {
     local->Name.Start = (char*)name;
@@ -1098,12 +1152,8 @@ PUBLIC void  Compiler::GetDot(bool canAssign) {
     }
     else if (MatchToken(TOKEN_LEFT_PAREN)) {
         uint8_t argCount = GetArgumentList();
-        EmitBytes(OP_INVOKE, argCount);
 
-        // EmitByte(name);
-        EmitStringHash(nameToken);
-        // For supers
-        EmitByte((instanceToken.Type == TOKEN_SUPER));
+        EmitCall(nameToken, argCount, instanceToken.Type == TOKEN_SUPER);
     }
     else {
         EmitGetOperation(OP_GET_PROPERTY, -1, nameToken);
@@ -1405,7 +1455,6 @@ PUBLIC void Compiler::GetNew(bool canAssign) {
     EmitBytes(OP_NEW, argCount);
 }
 PUBLIC void Compiler::GetBinary(bool canAssign) {
-    // printf("GetBinary()\n");
     Token operato = parser.Previous;
     int operatorType = operato.Type;
 
@@ -1439,6 +1488,11 @@ PUBLIC void Compiler::GetBinary(bool canAssign) {
             ErrorAt(&operato, "Unknown binary operator.", true);
             return; // Unreachable.
     }
+}
+PUBLIC void Compiler::GetHas(bool canAssign) {
+    ConsumeToken(TOKEN_IDENTIFIER, "Expect property name.");
+    EmitByte(OP_HAS_PROPERTY);
+    EmitStringHash(parser.Previous);
 }
 PUBLIC void Compiler::GetSuffix(bool canAssign) {
 
@@ -1620,13 +1674,12 @@ PUBLIC void Compiler::GetSwitchStatement() {
         EmitCopy(1);
 
         for (int i = 0; i < case_info.CodeLength; i++)
-            ChunkWrite(chunk, case_info.CodeBlock[i], case_info.LineBlock[i]);
+            chunk->Write(case_info.CodeBlock[i], case_info.LineBlock[i]);
 
         EmitByte(OP_EQUAL);
         int jumpToPatch = EmitJump(OP_JUMP_IF_FALSE);
 
-        EmitByte(OP_POP);
-        EmitByte(OP_POP);
+        PopMultiple(2);
 
         case_info.JumpPosition = EmitJump(OP_JUMP);
 
@@ -1645,7 +1698,7 @@ PUBLIC void Compiler::GetSwitchStatement() {
     int new_block_pos = CodePointer();
     // We do this here so that if an allocation is needed, it happens.
     for (int i = 0; i < code_block_length; i++) {
-        ChunkWrite(chunk, code_block_copy[i], line_block_copy[i]);
+        chunk->Write(code_block_copy[i], line_block_copy[i]);
     }
     free(code_block_copy);
     free(line_block_copy);
@@ -1803,9 +1856,7 @@ PUBLIC void Compiler::GetWithStatement() {
     EmitByte(OP_NULL);
 
     // Add "other"
-    int otherSlot = AddLocal("other", 5);
-    Locals[otherSlot].Resolved = true;
-    MarkInitialized();
+    int otherSlot = AddHiddenLocal("other", 5);
 
     // If the function has "this", make a copy of "this" (which is at the first slot) into "other"
     if (hasThis) {
@@ -1970,6 +2021,92 @@ PUBLIC void Compiler::GetForStatement() {
     // End new scope
     ScopeEnd();
 }
+PUBLIC void Compiler::GetForEachStatement() {
+    // Start new scope
+    ScopeBegin();
+
+    ConsumeToken(TOKEN_LEFT_PAREN, "Expect '(' after 'foreach'.");
+
+    // Variable name
+    ConsumeToken(TOKEN_IDENTIFIER, "Expect variable name.");
+
+    Token variableToken = parser.Previous;
+
+    ConsumeToken(TOKEN_IN, "Expect 'in' after variable name.");
+
+    // Iterator after 'in'
+    GetExpression();
+
+    // Add a local for the object to be iterated
+    // The programmer cannot refer to it by name, so it begins with a dollar sign.
+    // The value in it is what GetExpression() left on the top of the stack
+    int iterObj = AddHiddenLocal("$iterObj", 8);
+
+    // Add a local for the iteration state
+    // Its initial value is null
+    EmitByte(OP_NULL);
+
+    int iterValue = AddHiddenLocal("$iterValue", 10);
+
+    ConsumeToken(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
+
+    int exitJump = -1;
+    int loopStart = CurrentChunk()->Count;
+
+    // Call $iterObj.$iterate($iterValue)
+    // $iterValue is initially null, which signals that the iteration just began.
+    EmitBytes(OP_GET_LOCAL, iterObj);
+    EmitBytes(OP_GET_LOCAL, iterValue);
+    EmitCall("iterate", 1, false);
+
+    // Set the result to iterValue, updating the iteration state
+    EmitBytes(OP_SET_LOCAL, iterValue);
+
+    // If it returns null, the iteration ends
+    EmitBytes(OP_NULL, OP_EQUAL_NOT);
+    exitJump = EmitJump(OP_JUMP_IF_FALSE);
+    EmitByte(OP_POP);
+
+    // Call $iterObj.$iteratorValue($iterValue)
+    EmitBytes(OP_GET_LOCAL, iterObj);
+    EmitBytes(OP_GET_LOCAL, iterValue);
+    EmitCall("iteratorValue", 1, false);
+
+    // Push new jump list on break stack
+    StartBreakJumpList();
+
+    // Push new jump list on continue stack
+    StartContinueJumpList();
+
+    // Begin a new scope
+    ScopeBegin();
+
+    // Make the variable name visible
+    AddLocal(variableToken);
+    MarkInitialized();
+
+    // Execute code block
+    GetStatement();
+
+    // End that new scope
+    ScopeEnd();
+
+    // Pop jump list off continue stack, patch all continue to this code point
+    EndContinueJumpList();
+
+    // After block, return to evaluation of condition.
+    EmitLoop(loopStart);
+    PatchJump(exitJump);
+
+    // We land here if $iterate returns null, so we need to pop the value left on the stack
+    EmitByte(OP_POP);
+
+    // Pop jump list off break stack, patch all break to this code point
+    EndBreakJumpList();
+
+    // End new scope
+    ScopeEnd();
+}
 PUBLIC void Compiler::GetIfStatement() {
     ConsumeToken(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
     GetExpression();
@@ -2021,6 +2158,9 @@ PUBLIC void Compiler::GetStatement() {
     }
     else if (MatchToken(TOKEN_FOR)) {
         GetForStatement();
+    }
+    else if (MatchToken(TOKEN_FOREACH)) {
+        GetForEachStatement();
     }
     else if (MatchToken(TOKEN_DO)) {
         GetDoWhileStatement();
@@ -2131,6 +2271,8 @@ PUBLIC void Compiler::GetPropertyDeclaration(Token propertyName) {
         }
 
         EmitSetOperation(OP_SET_PROPERTY, -1, token);
+
+        EmitByte(OP_POP);
     }
     while (MatchToken(TOKEN_COMMA));
 
@@ -2149,11 +2291,11 @@ PUBLIC void Compiler::GetClassDeclaration() {
 
     // Check for class extension
     if (MatchToken(TOKEN_PLUS)) {
-        EmitByte(true);
+        EmitByte(CLASS_TYPE_EXTENDED);
         ClassExtendedList.push_back(1);
     }
     else {
-        EmitByte(false);
+        EmitByte(CLASS_TYPE_NORMAL);
         ClassExtendedList.push_back(0);
     }
 
@@ -2185,14 +2327,79 @@ PUBLIC void Compiler::GetClassDeclaration() {
 
     ConsumeToken(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
 }
+PUBLIC void Compiler::GetEnumDeclaration() {
+    Token enumName;
+    bool isNamed = false;
+
+    if (MatchToken(TOKEN_IDENTIFIER)) {
+        enumName = parser.Previous;
+        DeclareVariable(&enumName);
+
+        EmitByte(OP_NEW_ENUM);
+        EmitStringHash(enumName);
+
+        DefineVariableToken(enumName);
+
+        isNamed = true;
+    }
+
+    ConsumeToken(TOKEN_LEFT_BRACE, "Expect '{' before enum body.");
+
+    while (!CheckToken(TOKEN_RIGHT_BRACE) && !CheckToken(TOKEN_EOF)) {
+        bool didStart = false;
+        do {
+            if (CheckToken(TOKEN_RIGHT_BRACE))
+                break;
+
+            ParseVariable("Expected constant name.");
+
+            Token token = parser.Previous;
+
+            // Push the enum class to the stack
+            if (isNamed)
+                NamedVariable(enumName, false);
+
+            if (MatchToken(TOKEN_ASSIGNMENT)) {
+                GetExpression();
+                EmitCopy(1);
+                EmitByte(OP_SAVE_VALUE);
+            }
+            else {
+                if (didStart) {
+                    EmitByte(OP_LOAD_VALUE);
+                    EmitConstant(INTEGER_VAL(1));
+                    EmitByte(OP_ENUM_NEXT);
+                }
+                else {
+                    EmitConstant(INTEGER_VAL(0));
+                }
+                EmitCopy(1);
+                EmitByte(OP_SAVE_VALUE);
+            }
+
+            didStart = true;
+
+            if (isNamed) {
+                EmitByte(OP_ADD_ENUM);
+                EmitStringHash(token);
+            }
+            else
+                DefineVariableToken(token);
+        } while (MatchToken(TOKEN_COMMA));
+    }
+
+    ConsumeToken(TOKEN_RIGHT_BRACE, "Expect '}' after enum body.");
+}
 PUBLIC void Compiler::GetImportDeclaration() {
+    bool importModules = MatchToken(TOKEN_FROM);
+
     do {
         ConsumeToken(TOKEN_STRING, "Expect string after 'import'.");
 
         Token className = parser.Previous;
         VMValue value = OBJECT_VAL(Compiler::MakeString(className));
 
-        EmitByte(OP_IMPORT);
+        EmitByte(importModules ? OP_IMPORT_MODULE : OP_IMPORT);
         EmitUint32(GetConstantIndex(value));
     }
     while (MatchToken(TOKEN_COMMA));
@@ -2224,6 +2431,8 @@ PUBLIC void Compiler::GetEventDeclaration() {
 PUBLIC void Compiler::GetDeclaration() {
     if (MatchToken(TOKEN_CLASS))
         GetClassDeclaration();
+    else if (MatchToken(TOKEN_ENUM))
+        GetEnumDeclaration();
     else if (MatchToken(TOKEN_IMPORT))
         GetImportDeclaration();
     else if (MatchToken(TOKEN_VAR))
@@ -2271,6 +2480,7 @@ PUBLIC STATIC void   Compiler::MakeRules() {
     Rules[TOKEN_NEW] = ParseRule { &Compiler::GetNew, NULL, NULL, PREC_UNARY };
     Rules[TOKEN_NOT_EQUALS] = ParseRule { NULL, &Compiler::GetBinary, NULL, PREC_EQUALITY };
     Rules[TOKEN_EQUALS] = ParseRule { NULL, &Compiler::GetBinary, NULL, PREC_EQUALITY };
+    Rules[TOKEN_HAS] = ParseRule { NULL, &Compiler::GetHas, NULL, PREC_EQUALITY };
     Rules[TOKEN_GREATER] = ParseRule { NULL, &Compiler::GetBinary, NULL, PREC_COMPARISON };
     Rules[TOKEN_GREATER_EQUAL] = ParseRule { NULL, &Compiler::GetBinary, NULL, PREC_COMPARISON };
     Rules[TOKEN_LESS] = ParseRule { NULL, &Compiler::GetBinary, NULL, PREC_COMPARISON };
@@ -2340,8 +2550,7 @@ PUBLIC int           Compiler::CodePointer() {
     return CurrentChunk()->Count;
 }
 PUBLIC void          Compiler::EmitByte(Uint8 byte) {
-    // ChunkWrite(CurrentChunk(), byte, parser.Previous.Line);
-    ChunkWrite(CurrentChunk(), byte, (int)((parser.Previous.Pos & 0xFFFF) << 16 | (parser.Previous.Line & 0xFFFF)));
+    CurrentChunk()->Write(byte, (int)((parser.Previous.Pos & 0xFFFF) << 16 | (parser.Previous.Line & 0xFFFF)));
 }
 PUBLIC void          Compiler::EmitBytes(Uint8 byte1, Uint8 byte2) {
     EmitByte(byte1);
@@ -2407,8 +2616,15 @@ PUBLIC void          Compiler::PatchJump(int offset) {
     int jump = GetJump(offset);
     PatchJump(offset, jump);
 }
-PUBLIC void          Compiler::EmitStringHash(char* string) {
-    EmitUint32(GetHash(string));
+PUBLIC void          Compiler::EmitStringHash(const char* string) {
+    Uint32 hash = GetHash((char*)string);
+    if (!TokenMap->Exists(hash)) {
+        Token tk;
+        tk.Start = (char*)string;
+        tk.Length = strlen(string);
+        TokenMap->Put(hash, tk);
+    }
+    EmitUint32(hash);
 }
 PUBLIC void          Compiler::EmitStringHash(Token token) {
     if (!TokenMap->Exists(GetHash(token)))
@@ -2479,7 +2695,7 @@ PUBLIC int           Compiler::FindConstant(VMValue value) {
     return -1;
 }
 PUBLIC int           Compiler::MakeConstant(VMValue value) {
-    int constant = ChunkAddConstant(CurrentChunk(), value);
+    int constant = CurrentChunk()->AddConstant(value);
     // if (constant > UINT8_MAX) {
     //     Error("Too many constants in one chunk.");
     //     return 0;
@@ -2506,166 +2722,6 @@ PUBLIC void          Compiler::SetReceiverName(Token name) {
     local->Name = name;
 }
 
-int  justin_print(char** buffer, int* buf_start, const char *format, ...) {
-    va_list args;
-    va_list argsCopy;
-    va_start(args, format);
-    va_copy(argsCopy, args);
-
-    if (!buffer) {
-        vprintf(format, args);
-        return 0;
-    }
-
-    int count = vsnprintf(NULL, 0, format, argsCopy);
-
-    // printf("pos %04d | adding %04d | size %04d\n", buf_start[0], count, buf_start[1]);
-
-    while (buf_start[0] + count >= buf_start[1]) {
-        buf_start[1] *= 2;
-
-        // printf("\x1b[1;93m#%d buffer increased from %d -> %d (pos: %d + %d = %d)\x1b[m\n", i++, buf_start[1] / 2, buf_start[1], buf_start[0], count, buf_start[0] + count);
-        *buffer = (char*)realloc(*buffer, buf_start[1]);
-        if (!*buffer) {
-            Log::Print(Log::LOG_ERROR, "Could not realloc for justin_print!");
-            exit(-1);
-        }
-    }
-
-    buf_start[0] += vsnprintf(*buffer + buf_start[0], buf_start[1] - buf_start[0], format, args);
-    va_end(args);
-    va_end(argsCopy);
-    return 0;
-}
-PUBLIC STATIC void   Compiler::PrintValue(VMValue value) {
-    Compiler::PrintValue(NULL, NULL, value);
-}
-PUBLIC STATIC void   Compiler::PrintValue(char** buffer, int* buf_start, VMValue value) {
-    Compiler::PrintValue(buffer, buf_start, value, 0);
-}
-PUBLIC STATIC void   Compiler::PrintValue(char** buffer, int* buf_start, VMValue value, int indent) {
-    switch (value.Type) {
-        case VAL_NULL:
-            justin_print(buffer, buf_start, "null");
-            break;
-        case VAL_INTEGER:
-        case VAL_LINKED_INTEGER:
-            justin_print(buffer, buf_start, "%d", AS_INTEGER(value));
-            break;
-        case VAL_DECIMAL:
-        case VAL_LINKED_DECIMAL:
-            justin_print(buffer, buf_start, "%f", AS_DECIMAL(value));
-            break;
-        case VAL_OBJECT:
-            PrintObject(buffer, buf_start, value, indent);
-            break;
-        default:
-            justin_print(buffer, buf_start, "UNKNOWN VALUE TYPE");
-    }
-}
-PUBLIC STATIC void   Compiler::PrintObject(char** buffer, int* buf_start, VMValue value, int indent) {
-    switch (OBJECT_TYPE(value)) {
-        case OBJ_CLASS:
-            justin_print(buffer, buf_start, "<class %s>", AS_CLASS(value)->Name ? AS_CLASS(value)->Name->Chars : "(null)");
-            break;
-        case OBJ_BOUND_METHOD:
-            justin_print(buffer, buf_start, "<bound method %s>", AS_BOUND_METHOD(value)->Method->Name ? AS_BOUND_METHOD(value)->Method->Name->Chars : "(null)");
-            break;
-        case OBJ_CLOSURE:
-            justin_print(buffer, buf_start, "<clsr %s>", AS_CLOSURE(value)->Function->Name ? AS_CLOSURE(value)->Function->Name->Chars : "(null)");
-            break;
-        case OBJ_FUNCTION:
-            justin_print(buffer, buf_start, "<fn %s>", AS_FUNCTION(value)->Name ? AS_FUNCTION(value)->Name->Chars : "(null)");
-            break;
-        case OBJ_INSTANCE:
-            justin_print(buffer, buf_start, "<class %s> instance", AS_INSTANCE(value)->Object.Class->Name ? AS_INSTANCE(value)->Object.Class->Name->Chars : "(null)");
-            break;
-        case OBJ_NATIVE:
-            justin_print(buffer, buf_start, "<native fn>");
-            break;
-        case OBJ_STREAM:
-            justin_print(buffer, buf_start, "<stream>");
-            break;
-        case OBJ_STRING:
-            justin_print(buffer, buf_start, "\"%s\"", AS_CSTRING(value));
-            break;
-        case OBJ_UPVALUE:
-            justin_print(buffer, buf_start, "<upvalue>");
-            break;
-        case OBJ_ARRAY: {
-            ObjArray* array = (ObjArray*)AS_OBJECT(value);
-
-            justin_print(buffer, buf_start, "[", (int)array->Values->size());
-            if (PrettyPrint)
-                justin_print(buffer, buf_start, "\n");
-            for (size_t i = 0; i < array->Values->size(); i++) {
-                if (i > 0) {
-                    justin_print(buffer, buf_start, ",");
-                    if (PrettyPrint)
-                        justin_print(buffer, buf_start, "\n");
-                }
-
-                for (int k = 0; k < indent + 1 && PrettyPrint; k++)
-                    justin_print(buffer, buf_start, "    ");
-
-                PrintValue(buffer, buf_start, (*array->Values)[i], indent + 1);
-            }
-
-            if (PrettyPrint)
-                justin_print(buffer, buf_start, "\n");
-
-            for (int i = 0; i < indent && PrettyPrint; i++)
-                justin_print(buffer, buf_start, "    ");
-
-            justin_print(buffer, buf_start, "]");
-            break;
-        }
-        case OBJ_MAP: {
-            ObjMap* map = (ObjMap*)AS_OBJECT(value);
-
-            Uint32 hash;
-            VMValue value;
-            justin_print(buffer, buf_start, "{");
-            if (PrettyPrint)
-                justin_print(buffer, buf_start, "\n");
-
-            bool first = false;
-            for (int i = 0; i < map->Values->Capacity; i++) {
-                if (map->Values->Data[i].Used) {
-                    if (!first) {
-                        first = true;
-                    }
-                    else {
-                        justin_print(buffer, buf_start, ",");
-                        if (PrettyPrint)
-                            justin_print(buffer, buf_start, "\n");
-                    }
-
-                    for (int k = 0; k < indent + 1 && PrettyPrint; k++)
-                        justin_print(buffer, buf_start, "    ");
-
-                    hash = map->Values->Data[i].Key;
-                    value = map->Values->Data[i].Data;
-                    if (map->Keys && map->Keys->Exists(hash))
-                        justin_print(buffer, buf_start, "\"%s\": ", map->Keys->Get(hash));
-                    else
-                        justin_print(buffer, buf_start, "0x%08X: ", hash);
-                    PrintValue(buffer, buf_start, value, indent + 1);
-                }
-            }
-            if (PrettyPrint)
-                justin_print(buffer, buf_start, "\n");
-            for (int k = 0; k < indent && PrettyPrint; k++)
-                justin_print(buffer, buf_start, "    ");
-
-            justin_print(buffer, buf_start, "}");
-            break;
-        }
-        default:
-            justin_print(buffer, buf_start, "UNKNOWN OBJECT TYPE %d", OBJECT_TYPE(value));
-    }
-}
-
 // Debugging functions
 PUBLIC STATIC int    Compiler::HashInstruction(const char* name, Chunk* chunk, int offset) {
     uint32_t hash = *(uint32_t*)&chunk->Code[offset + 1];
@@ -2680,7 +2736,7 @@ PUBLIC STATIC int    Compiler::HashInstruction(const char* name, Chunk* chunk, i
 PUBLIC STATIC int    Compiler::ConstantInstruction(const char* name, Chunk* chunk, int offset) {
     int constant = *(int*)&chunk->Code[offset + 1];
     printf("%-16s %9d '", name, constant);
-    PrintValue(NULL, NULL, (*chunk->Constants)[constant]);
+    Values::PrintValue(NULL, (*chunk->Constants)[constant]);
     printf("'\n");
     return offset + 5;
 }
@@ -2705,7 +2761,7 @@ PUBLIC STATIC int    Compiler::MethodInstruction(const char* name, Chunk* chunk,
     uint8_t slot = chunk->Code[offset + 1];
     uint32_t hash = *(uint32_t*)&chunk->Code[offset + 2];
     printf("%-13s %2d", name, slot);
-    // PrintValue(NULL, NULL, (*chunk->Constants)[constant]);
+    // Values::PrintValue(NULL, (*chunk->Constants)[constant]);
     printf(" #%08X", hash);
     if (TokenMap->Exists(hash)) {
         Token t = TokenMap->Get(hash);
@@ -2861,7 +2917,7 @@ PUBLIC STATIC int    Compiler::DebugInstruction(Chunk* chunk, int offset) {
             offset++;
             uint8_t constant = chunk->Code[offset++];
             printf("%-16s %4d ", "OP_PRINT_STACK", constant);
-            PrintValue(NULL, NULL, (*chunk->Constants)[constant]);
+            Values::PrintValue(NULL, (*chunk->Constants)[constant]);
             printf("\n");
 
             ObjFunction* function = AS_FUNCTION((*chunk->Constants)[constant]);
@@ -2880,6 +2936,8 @@ PUBLIC STATIC int    Compiler::DebugInstruction(Chunk* chunk, int offset) {
             return WithInstruction("OP_WITH", chunk, offset);
         case OP_CLASS:
             return ClassInstruction("OP_CLASS", chunk, offset);
+        case OP_NEW_ENUM:
+            return ClassInstruction("OP_NEW_ENUM", chunk, offset);
         case OP_INHERIT:
             return SimpleInstruction("OP_INHERIT", offset);
         case OP_METHOD:
@@ -2899,7 +2957,7 @@ PUBLIC STATIC void   Compiler::DebugChunk(Chunk* chunk, const char* name, int ar
     printf("\nConstants: (%d count)\n", (int)(*chunk->Constants).size());
     for (size_t i = 0; i < (*chunk->Constants).size(); i++) {
         printf(" %2d '", (int)i);
-        PrintValue(NULL, NULL, (*chunk->Constants)[i]);
+        Values::PrintValue(NULL, (*chunk->Constants)[i]);
         printf("'\n");
     }
 }
@@ -2950,6 +3008,20 @@ PUBLIC void          Compiler::Initialize(Compiler* enclosing, int scope, int ty
         SetReceiverName("");
     }
 }
+PRIVATE void         Compiler::WriteBytecode(Stream* stream, const char* filename) {
+    Bytecode* bytecode = new Bytecode();
+
+    for (size_t i = 0; i < Compiler::Functions.size(); i++)
+        bytecode->Functions.push_back(Compiler::Functions[i]);
+
+    bytecode->HasDebugInfo = Compiler::WriteDebugInfo;
+    bytecode->Write(stream, Compiler::WriteSourceFilename ? filename : nullptr, TokenMap);
+
+    delete bytecode;
+
+    if (TokenMap)
+        TokenMap->Clear();
+}
 PUBLIC bool          Compiler::Compile(const char* filename, const char* source, const char* output) {
     scanner.Line = 1;
     scanner.Start = (char*)source;
@@ -2983,73 +3055,7 @@ PUBLIC bool          Compiler::Compile(const char* filename, const char* source,
     Stream* stream = FileStream::New(output, FileStream::WRITE_ACCESS);
     if (!stream) return false;
 
-    bool doLineNumbers = Compiler::WriteDebugInfo;
-    bool hasSourceFilename = Compiler::WriteSourceFilename;
-
-    stream->WriteBytes((char*)Compiler::Magic, 4);
-    stream->WriteByte(0x00);
-    stream->WriteByte((hasSourceFilename << 1) | doLineNumbers);
-    stream->WriteByte(0x00);
-    stream->WriteByte(0x00);
-
-    int chunkCount = (int)Compiler::Functions.size();
-
-    stream->WriteUInt32(chunkCount);
-    for (int c = 0; c < chunkCount; c++) {
-        int    arity = Compiler::Functions[c]->Arity;
-        Chunk* chunk = &Compiler::Functions[c]->Chunk;
-
-        stream->WriteUInt32(chunk->Count);
-        stream->WriteUInt32(arity);
-        stream->WriteUInt32(Murmur::EncryptString(Compiler::Functions[c]->Name->Chars));
-
-        stream->WriteBytes(chunk->Code, chunk->Count);
-        if (doLineNumbers) {
-            stream->WriteBytes(chunk->Lines, chunk->Count * sizeof(int));
-        }
-
-        int constSize = (int)chunk->Constants->size();
-        stream->WriteUInt32(constSize);
-        for (int i = 0; i < constSize; i++) {
-            VMValue constt = (*chunk->Constants)[i];
-            Uint8 type = (Uint8)constt.Type;
-            stream->WriteByte(type);
-
-            switch (type) {
-                case VAL_INTEGER:
-                    stream->WriteBytes(&AS_INTEGER(constt), sizeof(int));
-                    break;
-                case VAL_DECIMAL:
-                    stream->WriteBytes(&AS_DECIMAL(constt), sizeof(float));
-                    break;
-                case VAL_OBJECT:
-                    if (OBJECT_TYPE(constt) == OBJ_STRING) {
-                        ObjString* str = AS_STRING(constt);
-                        stream->WriteBytes(str->Chars, str->Length + 1);
-                    }
-                    else {
-                        printf("Unsupported object type...Chief.\n");
-                    }
-                    break;
-            }
-        }
-    }
-
-    // Add tokens
-    if (doLineNumbers && TokenMap) {
-        stream->WriteUInt32(TokenMap->Count + Compiler::FunctionNames.size());
-        std::for_each(Compiler::FunctionNames.begin(), Compiler::FunctionNames.end(), [stream](const char* name) {
-            stream->WriteBytes((void*)name, strlen(name) + 1);
-        });
-        TokenMap->WithAll([stream](Uint32, Token t) -> void {
-            stream->WriteBytes(t.Start, t.Length);
-            stream->WriteByte(0); // NULL terminate
-        });
-        TokenMap->Clear();
-    }
-
-    if (hasSourceFilename)
-        stream->WriteBytes((void*)filename, strlen(filename) + 1);
+    WriteBytecode(stream, filename);
 
     stream->Close();
 

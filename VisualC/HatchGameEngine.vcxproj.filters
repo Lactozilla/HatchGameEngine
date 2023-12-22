@@ -27,16 +27,28 @@
     <ClCompile Include="..\source\engine\audio\AudioPlayback.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\source\engine\bytecode\BytecodeObject.cpp">
+    <ClCompile Include="..\source\engine\bytecode\TypeImpl\ArrayImpl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\source\engine\bytecode\BytecodeObjectManager.cpp">
+    <ClCompile Include="..\source\engine\bytecode\TypeImpl\FunctionImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\engine\bytecode\TypeImpl\MapImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\engine\bytecode\Bytecode.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\source\engine\bytecode\Compiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\source\engine\bytecode\GarbageCollector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\engine\bytecode\ScriptEntity.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\engine\bytecode\ScriptManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\source\engine\bytecode\SourceFileMap.cpp">

@@ -11,8 +11,8 @@ public:
 #include <Engine/ResourceTypes/SceneFormats/RSDKSceneReader.h>
 
 #include <Engine/IO/MemoryStream.h>
-#include <Engine/Bytecode/BytecodeObjectManager.h>
-#include <Engine/Bytecode/BytecodeObject.h>
+#include <Engine/Bytecode/ScriptManager.h>
+#include <Engine/Bytecode/ScriptEntity.h>
 #include <Engine/Bytecode/Compiler.h>
 #include <Engine/Diagnostics/Clock.h>
 #include <Engine/Diagnostics/Log.h>
@@ -381,10 +381,14 @@ PUBLIC STATIC bool RSDKSceneReader::ReadObjectDefinition(Stream* r, Entity** obj
             doAdd = false;
         }
 
+        Entity* obj = nullptr;
         Uint32 X = r->ReadUInt32();
         Uint32 Y = r->ReadUInt32();
 
-        if (objectList->SpawnFunction) {
+        if (objectList->SpawnFunction)
+            obj = objectList->Spawn();
+
+        if (obj != nullptr) {
             Entity* obj = objectList->Spawn();
             obj->X = (X / 65536.f);
             obj->Y = (Y / 65536.f);
@@ -434,7 +438,7 @@ PUBLIC STATIC bool RSDKSceneReader::ReadObjectDefinition(Stream* r, Entity** obj
                 }
 
                 if (PropertyHashes->Exists(argumentHashes[a])) {
-                    ((BytecodeObject*)obj)->Properties->Put(PropertyHashes->Get(argumentHashes[a]), val);
+                    ((ScriptEntity*)obj)->Properties->Put(PropertyHashes->Get(argumentHashes[a]), val);
                 }
             }
         }
@@ -589,7 +593,6 @@ PRIVATE STATIC void RSDKSceneReader::LoadTileset(const char* parentFolder) {
                 for (int p = 0; p < 256; p++)
                     Graphics::PaletteColors[0][p] = gif->Colors[p];
                 Graphics::PaletteUpdated = true;
-                Memory::Free(gif->Colors);
             }
             delete gif;
         }
