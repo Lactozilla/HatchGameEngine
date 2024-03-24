@@ -46,7 +46,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-
     - uses: libsdl-org/setup-sdl@main
         id: sdl
         with:
