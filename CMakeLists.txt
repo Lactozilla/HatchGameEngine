@@ -145,7 +145,7 @@ else()
   if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     set(SDL2_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/meta/win/include/SDL2/")
     if(USING_OPENGL)
-      set(OPENGL_LIBRARIES "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/glew32s.lib")
+      set(OPENGL_LIBRARIES "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/msvc/x64/glew32s.lib")
     endif()
   else()
     if(USE_OPEN_ASSET_IMPORT_LIBRARY)
@@ -190,7 +190,7 @@ endif()
 # Add libraries
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    target_link_libraries(${PROJECT_NAME} "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/SDL2.lib")
+    target_link_libraries(${PROJECT_NAME} "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/msvc/x64/SDL2.lib")
   else()
     target_link_libraries(${PROJECT_NAME}
       "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/mingw/${TOOLCHAIN_PREFIX}/libSDL2.a"
