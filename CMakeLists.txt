@@ -6,7 +6,12 @@ project(HatchGameEngine VERSION 1.1.0)
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -march=nocona")
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  set(CMAKE_CXX_FLAGS "/wd4244 /wd4267 /wd4305")
+else()
+  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -march=nocona")
+endif()
 
 # Set up CMake modules path
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
@@ -43,6 +48,10 @@ endif()
 
 option(USE_OPEN_ASSET_IMPORT_LIBRARY "Use Open Asset Import Library" ON)
 option(USE_FREETYPE_LIBRARY "Use FreeType" OFF)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  set(USE_OPEN_ASSET_IMPORT_LIBRARY OFF)
+endif()
 
 # Renderers
 option(USING_OPENGL "Use OpenGL" ON)
@@ -133,12 +142,19 @@ if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   endif()
 else()
   set(SDL2_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/meta/win/include/SDL2/")
-  if(USE_OPEN_ASSET_IMPORT_LIBRARY)
-    set(ASSIMP_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/meta/win/include/assimp/")
-    set(ASSIMP_LIBRARIES "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/mingw/${TOOLCHAIN_PREFIX}/libassimp.a;${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/mingw/${TOOLCHAIN_PREFIX}/libzlibstatic.a")
-  endif()
-  if(USING_OPENGL)
-    set(OPENGL_LIBRARIES "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/mingw/${TOOLCHAIN_PREFIX}/libglew32.a;-lgdi32;-lopengl32")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    set(SDL2_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/meta/win/include/SDL2/")
+    if(USING_OPENGL)
+      set(OPENGL_LIBRARIES "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/glew32s.lib")
+    endif()
+  else()
+    if(USE_OPEN_ASSET_IMPORT_LIBRARY)
+      set(ASSIMP_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/meta/win/include/assimp/")
+      set(ASSIMP_LIBRARIES "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/mingw/${TOOLCHAIN_PREFIX}/libassimp.a;${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/mingw/${TOOLCHAIN_PREFIX}/libzlibstatic.a")
+    endif()
+    if(USING_OPENGL)
+      set(OPENGL_LIBRARIES "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/mingw/${TOOLCHAIN_PREFIX}/libglew32.a;-lgdi32;-lopengl32")
+    endif()
   endif()
 endif()
 
@@ -173,11 +189,15 @@ endif()
 
 # Add libraries
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-  target_link_libraries(${PROJECT_NAME}
-    "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/mingw/${TOOLCHAIN_PREFIX}/libSDL2.a"
-    -static -mwindows -lmingw32 -lm -ldinput8 -ldxguid -ldxerr8
-    -luser32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32
-    -lversion -luuid -lhid -lsetupapi -lws2_32)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    target_link_libraries(${PROJECT_NAME} "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/SDL2.lib")
+  else()
+    target_link_libraries(${PROJECT_NAME}
+      "${CMAKE_CURRENT_LIST_DIR}/meta/win/lib/mingw/${TOOLCHAIN_PREFIX}/libSDL2.a"
+      -static -mwindows -lmingw32 -lm -ldinput8 -ldxguid -ldxerr8
+      -luser32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32
+      -lversion -luuid -lhid -lsetupapi -lws2_32)
+  endif()
   add_definitions(-DSDL_MAIN_HANDLED)
 else()
   target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARIES})
