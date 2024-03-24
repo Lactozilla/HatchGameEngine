@@ -76,6 +76,8 @@ extern "C" {
 #endif
 
 #ifdef MSYS
+    #define _CRT_SECURE_NO_WARNINGS
+
     #include <windows.h>
 #endif
 
@@ -969,7 +971,7 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
 
             if (Application::Platform == Platforms::Android || true) {
                 // Draw bar
-                float total = 0.0001;
+                double total = 0.0001;
                 for (int i = 0; i < typeCount; i++) {
                     if (types[i] < 0.0)
                         types[i] = 0.0;
@@ -982,7 +984,7 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
                     Graphics::FillRectangle(0.0, 0.0f, infoW - infoPadding * 2, 30.0);
                 Graphics::Restore();
 
-                float rectx = 0.0;
+                double rectx = 0.0;
                 for (int i = 0; i < typeCount; i++) {
                     Graphics::Save();
                     Graphics::Translate(infoPadding, 50.0, 0.0);
@@ -998,7 +1000,7 @@ PRIVATE STATIC void Application::RunFrame(void* p) {
 
                 // Draw list
                 float listY = 90.0;
-                float totalFrameCount = 0.0f;
+                double totalFrameCount = 0.0f;
                 infoPadding += infoPadding;
                 for (int i = 0; i < typeCount; i++) {
                     Graphics::Save();
