@@ -3899,7 +3899,7 @@ PUBLIC STATIC void Scene::ProcessPathGrip() {
                 }
 
                 if (Sensors[0].Angle < 0xDE && Sensors[0].Angle > 0x80)
-                    CollisionEntity->CollisionMode == CMODE_LWALL;
+                    CollisionEntity->CollisionMode = CMODE_LWALL;
                 if (Sensors[0].Angle > 0x22 && Sensors[0].Angle < 0x80)
                     CollisionEntity->CollisionMode = CMODE_RWALL;
                 break;

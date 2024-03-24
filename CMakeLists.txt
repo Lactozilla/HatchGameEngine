@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-  set(CMAKE_CXX_FLAGS "/wd4244 /wd4267 /wd4305 /EHsc")
+  set(CMAKE_CXX_FLAGS "/wd4244 /wd4267 /wd4305 /wd4717 /EHsc")
 else()
   set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -march=nocona")
 endif()

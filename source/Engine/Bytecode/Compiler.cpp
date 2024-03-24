@@ -869,7 +869,7 @@ PRIVATE void Compiler::WarnVariablesUnused() {
 
     for (int i = numUnused - 1; i >= 0; i--) {
         Local& local = (*UnusedVariables)[i];
-        snprintf(temp, sizeof(temp), "Variable '%.*s' is unused. (Declared on line %d)", local.Name.Length, local.Name.Start, local.Name.Line);
+        snprintf(temp, sizeof(temp), "Variable '%.*s' is unused. (Declared on line %d)", (int)local.Name.Length, local.Name.Start, local.Name.Line);
         message += std::string(temp);
         if (i != 0)
             message += "\n    ";
