@@ -1,4 +1,4 @@
-name: CMake (Ubuntu and Windows)
+name: CMake (Linux and Windows)
 
 on:
   push:
@@ -59,11 +59,18 @@ jobs:
     - name: Build
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
-    - name: Upload build
+    - name: Upload Linux build
+      if: startsWith(matrix.os, 'ubuntu')
       uses: actions/upload-artifact@v3
       with:
-        name: HatchGameEngine-${{ matrix.build_type }}-${{ github.sha }}-${{ matrix.os }}
-        path: |
-          build/HatchGameEngine-${{ matrix.build_type }}
-          build/${{ matrix.build_type }}/HatchGameEngine-${{ matrix.build_type }}.exe
+        name: HatchGameEngine-Linux-${{ matrix.build_type }}-${{ github.sha }}-${{ matrix.c_compiler }}
+        path: build/HatchGameEngine-${{ matrix.build_type }}
+        retention-days: 7
+
+    - name: Upload Windows build
+      if: startsWith(matrix.os, 'windows')
+      uses: actions/upload-artifact@v3
+      with:
+        name: HatchGameEngine-Windows-${{ matrix.build_type }}-${{ github.sha }}
+        path: build/${{ matrix.build_type }}/HatchGameEngine-${{ matrix.build_type }}.exe
         retention-days: 7
