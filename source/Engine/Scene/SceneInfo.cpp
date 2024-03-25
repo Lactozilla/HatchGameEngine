@@ -229,7 +229,7 @@ PUBLIC STATIC bool SceneInfo::Load(XMLNode* node) {
             if (listElement->attributes.Exists("name"))
                 category.Name = XMLParser::TokenToString(listElement->attributes.Get("name"));
             else {
-                char buf[29];
+                char buf[32];
                 snprintf(buf, sizeof(buf), "Unknown category #%d", ((int)i) + 1);
                 category.Name = StringUtils::Duplicate(buf);
             }
@@ -259,7 +259,7 @@ PUBLIC STATIC bool SceneInfo::Load(XMLNode* node) {
                     if (stgElement->attributes.Exists("id"))
                         entry.ID = XMLParser::TokenToString(stgElement->attributes.Get("id"));
                     else {
-                        char buf[11];
+                        char buf[16];
                         snprintf(buf, sizeof(buf), "%d", ((int)s) + 1);
                         entry.ID = StringUtils::Duplicate(buf);
                     }
