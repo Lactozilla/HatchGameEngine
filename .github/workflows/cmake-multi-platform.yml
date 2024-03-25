@@ -46,12 +46,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - uses: libsdl-org/setup-sdl@main
-      id: sdl
-      with:
-        install-linux-dependencies: true
-        version: 2-latest
-        version-sdl-image: 2-latest
     - uses: actions/upload-artifact@v4
       with:
         name: build
@@ -73,6 +67,11 @@ jobs:
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -S ${{ github.workspace }}
+
+    - name: Setup SDL
+      if: startsWith(matrix.os, 'ubuntu')
+      run: >
+        sudo apt-get install libsdl2-dev
 
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
