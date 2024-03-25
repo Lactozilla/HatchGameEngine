@@ -75,6 +75,8 @@ if(NOT ENABLE_SCRIPT_COMPILING)
   add_definitions(-DNO_SCRIPT_COMPILING)
 endif()
 
+add_definitions(-DMINIZ_NO_ARCHIVE_APIS -DMINIZ_NO_ARCHIVE_WRITING_APIS -DMINIZ_NO_TIME )
+
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set(MAKEHEADERS_BINARY makeheaders.exe)
 else()
