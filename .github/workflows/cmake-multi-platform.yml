@@ -69,6 +69,8 @@ jobs:
     - name: Upload build
       uses: actions/upload-artifact@v3
       with:
-        name: HatchGameEngine-${{ matrix.os }}
-        path: build/HatchGameEngine-*
+        name: HatchGameEngine-${{ matrix.os }}-${{ matrix.build_type }}-${{ matrix.c_compiler }}
+        path: |
+          build/HatchGameEngine-${{ matrix.build_type }}
+          build/${{ matrix.build_type }}/HatchGameEngine-${{ matrix.build_type }}.exe
         retention-days: 7
