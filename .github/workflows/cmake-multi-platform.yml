@@ -1,6 +1,6 @@
 # This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
 # See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
-name: CMake on multiple platforms
+name: CMake (Ubuntu and Windows)
 
 on:
   push:
@@ -54,7 +54,7 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-    - name: Setup SDL
+    - name: Setup libraries
       if: startsWith(matrix.os, 'ubuntu')
       run: sudo apt-get install libsdl2-dev libassimp5 libglew2.2
 
