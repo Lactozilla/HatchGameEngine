@@ -700,10 +700,14 @@ static void StencilOpReplace(Uint8* buf, Uint8 value) {
     *buf = value;
 }
 static void StencilOpIncrWrap(Uint8* buf, Uint8 value) {
-    *buf++;
+    value = *buf;
+    value++;
+    *buf = value;
 }
 static void StencilOpDecrWrap(Uint8* buf, Uint8 value) {
-    *buf--;
+    value = *buf;
+    value--;
+    *buf = value;
 }
 
 // Stencil buffer funcs
