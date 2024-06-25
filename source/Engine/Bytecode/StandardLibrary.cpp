@@ -1105,93 +1105,6 @@ VMValue Application_GetCursorVisible(int argCount, VMValue* args, Uint32 threadI
 }
 // #endregion
 
-// #region Audio
-/***
- * Audio.GetMasterVolume
- * \desc Gets the master volume of the audio mixer.
- * \return The master volume, from 0 to 100.
- * \ns Audio
- */
-VMValue Audio_GetMasterVolume(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    return INTEGER_VAL(Application::MasterVolume);
-}
-/***
- * Audio.GetMusicVolume
- * \desc Gets the music volume of the audio mixer.
- * \return The music volume, from 0 to 100.
- * \ns Audio
- */
-VMValue Audio_GetMusicVolume(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    return INTEGER_VAL(Application::MusicVolume);
-}
-/***
- * Audio.GetSoundVolume
- * \desc Gets the sound effect volume of the audio mixer.
- * \return The sound effect volume, from 0 to 100.
- * \ns Audio
- */
-VMValue Audio_GetSoundVolume(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    return INTEGER_VAL(Application::SoundVolume);
-}
-/***
- * Audio.SetMasterVolume
- * \desc Sets the master volume of the audio mixer.
- * \param volume (Integer): The master volume, from 0 to 100.
- * \ns Audio
- */
-VMValue Audio_SetMasterVolume(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
-    int volume = GET_ARG(0, GetInteger);
-    if (volume < 0) {
-        THROW_ERROR("Volume cannot be lower than 0.");
-    } else if (volume > 100) {
-        THROW_ERROR("Volume cannot be higher than 100.");
-    } else
-        Application::SetMasterVolume(volume);
-
-    return NULL_VAL;
-}
-/***
- * Audio.SetMusicVolume
- * \desc Sets the music volume of the audio mixer.
- * \param volume (Integer): The music volume, from 0 to 100.
- * \ns Audio
- */
-VMValue Audio_SetMusicVolume(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
-    int volume = GET_ARG(0, GetInteger);
-    if (volume < 0) {
-        THROW_ERROR("Volume cannot be lower than 0.");
-    } else if (volume > 100) {
-        THROW_ERROR("Volume cannot be higher than 100.");
-    } else
-        Application::SetMusicVolume(volume);
-
-    return NULL_VAL;
-}
-/***
- * Audio.SetSoundVolume
- * \desc Sets the sound effect volume of the audio mixer.
- * \param volume (Integer): The sound effect volume, from 0 to 100.
- * \ns Audio
- */
-VMValue Audio_SetSoundVolume(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
-    int volume = GET_ARG(0, GetInteger);
-    if (volume < 0) {
-        THROW_ERROR("Volume cannot be lower than 0.");
-    } else if (volume > 100) {
-        THROW_ERROR("Volume cannot be higher than 100.");
-    } else
-        Application::SetSoundVolume(volume);
-
-    return NULL_VAL;
-}
-// #endregion
-
 // #region Array
 /***
  * Array.Create
@@ -1455,8 +1368,9 @@ VMValue Array_Sort(int argCount, VMValue* args, Uint32 threadID) {
                     return AS_INTEGER(result) == 1;
 
                 return false;
-            });
-        } else {
+                });
+        }
+        else {
             std::stable_sort(array->Values->begin(), array->Values->end(), [array](const VMValue& a, const VMValue& b) {
                 if (IS_NOT_NUMBER(a) || IS_NOT_NUMBER(b)) {
                     return false;
@@ -1467,12 +1381,322 @@ VMValue Array_Sort(int argCount, VMValue* args, Uint32 threadID) {
                 else {
                     return AS_INTEGER(a) < AS_INTEGER(b);
                 }
-            });
+                });
         }
 
         ScriptManager::Unlock();
     }
     return NULL_VAL;
+}
+// #endregion
+
+// #region Audio
+/***
+ * Audio.GetMasterVolume
+ * \desc Gets the master volume of the audio mixer.
+ * \return The master volume, from 0 to 100.
+ * \ns Audio
+ */
+VMValue Audio_GetMasterVolume(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return INTEGER_VAL(Application::MasterVolume);
+}
+/***
+ * Audio.GetMusicVolume
+ * \desc Gets the music volume of the audio mixer.
+ * \return The music volume, from 0 to 100.
+ * \ns Audio
+ */
+VMValue Audio_GetMusicVolume(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return INTEGER_VAL(Application::MusicVolume);
+}
+/***
+ * Audio.GetSoundVolume
+ * \desc Gets the sound effect volume of the audio mixer.
+ * \return The sound effect volume, from 0 to 100.
+ * \ns Audio
+ */
+VMValue Audio_GetSoundVolume(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return INTEGER_VAL(Application::SoundVolume);
+}
+/***
+ * Audio.SetMasterVolume
+ * \desc Sets the master volume of the audio mixer.
+ * \param volume (Integer): The master volume, from 0 to 100.
+ * \ns Audio
+ */
+VMValue Audio_SetMasterVolume(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int volume = GET_ARG(0, GetInteger);
+    if (volume < 0) {
+        THROW_ERROR("Volume cannot be lower than 0.");
+    } else if (volume > 100) {
+        THROW_ERROR("Volume cannot be higher than 100.");
+    } else
+        Application::SetMasterVolume(volume);
+
+    return NULL_VAL;
+}
+/***
+ * Audio.SetMusicVolume
+ * \desc Sets the music volume of the audio mixer.
+ * \param volume (Integer): The music volume, from 0 to 100.
+ * \ns Audio
+ */
+VMValue Audio_SetMusicVolume(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int volume = GET_ARG(0, GetInteger);
+    if (volume < 0) {
+        THROW_ERROR("Volume cannot be lower than 0.");
+    } else if (volume > 100) {
+        THROW_ERROR("Volume cannot be higher than 100.");
+    } else
+        Application::SetMusicVolume(volume);
+
+    return NULL_VAL;
+}
+/***
+ * Audio.SetSoundVolume
+ * \desc Sets the sound effect volume of the audio mixer.
+ * \param volume (Integer): The sound effect volume, from 0 to 100.
+ * \ns Audio
+ */
+VMValue Audio_SetSoundVolume(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int volume = GET_ARG(0, GetInteger);
+    if (volume < 0) {
+        THROW_ERROR("Volume cannot be lower than 0.");
+    } else if (volume > 100) {
+        THROW_ERROR("Volume cannot be higher than 100.");
+    } else
+        Application::SetSoundVolume(volume);
+
+    return NULL_VAL;
+}
+// #endregion
+
+// #region Collision
+/***
+ * Collision.ProcessObjectMovement
+ * \desc Processes movement of an instance with an outer hitbox and an inner hitbox.
+ * \param entity (Instance): The instance to move.
+ * \param outer (Array): Array containing the outer hitbox.
+ * \param inner (Array): Array containing the inner hitbox.
+ * \ns Collision
+ */
+VMValue Collision_ProcessObjectMovement(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(3);
+    ObjInstance* entity = GET_ARG(0, GetInstance);
+    ObjArray* outer = GET_ARG(1, GetArray);
+    ObjArray* inner = GET_ARG(2, GetArray);
+
+    CollisionBox outerBox;
+    CollisionBox innerBox;
+
+    if (entity && outer && inner) {
+        auto ent = (Entity*)entity->EntityPtr;
+
+        outerBox.Left = AS_INTEGER(ScriptManager::CastValueAsInteger((*outer->Values)[0]));
+        outerBox.Top = AS_INTEGER(ScriptManager::CastValueAsInteger((*outer->Values)[1]));
+        outerBox.Right = AS_INTEGER(ScriptManager::CastValueAsInteger((*outer->Values)[2]));
+        outerBox.Bottom = AS_INTEGER(ScriptManager::CastValueAsInteger((*outer->Values)[3]));
+
+        innerBox.Left = AS_INTEGER(ScriptManager::CastValueAsInteger((*inner->Values)[0]));
+        innerBox.Top = AS_INTEGER(ScriptManager::CastValueAsInteger((*inner->Values)[1]));
+        innerBox.Right = AS_INTEGER(ScriptManager::CastValueAsInteger((*inner->Values)[2]));
+        innerBox.Bottom = AS_INTEGER(ScriptManager::CastValueAsInteger((*inner->Values)[3]));
+
+        Scene::ProcessObjectMovement(ent, &outerBox, &innerBox);
+    }
+    return NULL_VAL;
+}
+/***
+ * Collision.ObjectTileCollision
+ * \desc Checks tile collision based on where an instance should check.
+ * \param entity (Instance): The instance to base the values on.
+ * \param cLayers (Bitfield): Which layers the entity can collide with.
+ * \param cMode (Integer): Collision mode of the entity (floor, left wall, roof, right wall).
+ * \param cPlane (Integer): Collision plane to get the collision of (A or B).
+ * \param xOffset (Number): How far from the entity's X value to start from.
+ * \param yOffset (Number): How far from the entity's Y value to start from.
+ * \param setPos (Boolean): Whether to set the entity's position if collision is found.
+ * \return Returns whether the instance has collided with a tile.
+ * \ns Collision
+ */
+VMValue Collision_ObjectTileCollision(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(7);
+    ObjInstance* entity = GET_ARG(0, GetInstance);
+    int cLayers = GET_ARG(1, GetInteger);
+    int cMode = GET_ARG(2, GetInteger);
+    int cPlane = GET_ARG(3, GetInteger);
+    int xOffset = (int)GET_ARG(4, GetDecimal);
+    int yOffset = (int)GET_ARG(5, GetDecimal);
+    int setPos = GET_ARG(6, GetInteger);
+
+    auto ent = (Entity*)entity->EntityPtr;
+
+    return INTEGER_VAL(Scene::ObjectTileCollision(ent, cLayers, cMode, cPlane, xOffset, yOffset, setPos));
+}
+/***
+ * Collision.ObjectTileGrip
+ * \desc Keeps an instance gripped to tile collision based on where an instance should check.
+ * \param entity (Instance): The instance to move.
+ * \param cLayers (Bitfield): Which layers the entity can collide with.
+ * \param cMode (Integer): Collision mode of the entity (floor, left wall, roof, right wall).
+ * \param cPlane (Integer): Collision plane to get the collision of (A or B).
+ * \param xOffset (Decimal): How far from the entity's X value to start from.
+ * \param yOffset (Decimal): How far from the entity's Y value to start from.
+ * \param tolerance (Decimal): How far of a tolerance the entity should check for.
+ * \return Returns whether to grip the instance.
+ * \ns Collision
+ */
+VMValue Collision_ObjectTileGrip(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(7);
+    ObjInstance* entity = GET_ARG(0, GetInstance);
+    int cLayers = GET_ARG(1, GetInteger);
+    int cMode = GET_ARG(2, GetInteger);
+    int cPlane = GET_ARG(3, GetInteger);
+    int xOffset = (int)GET_ARG(4, GetDecimal);
+    int yOffset = (int)GET_ARG(5, GetDecimal);
+    float tolerance = GET_ARG(6, GetDecimal);
+
+    auto ent = (Entity*)entity->EntityPtr;
+
+    return INTEGER_VAL(Scene::ObjectTileGrip(ent, cLayers, cMode, cPlane, xOffset, yOffset, tolerance));
+}
+/***
+ * Collision.CheckObjectCollisionTouch
+ * \desc Checks if an instance is touching another instance with their respective hitboxes.
+ * \param thisEntity (Instance): The first instance to check.
+ * \param thisHitbox (Array): Array containing the first entity's hitbox.
+ * \param otherEntity (Instance): The other instance to check.
+ * \param otherHitbox (Array): Array containing the other entity's hitbox.
+ * \return Returns a Boolean value whether the entities are touching.
+ * \ns Collision
+ */
+VMValue Collision_CheckObjectCollisionTouch(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(4);
+    ObjInstance* thisEntity = GET_ARG(0, GetInstance);
+    ObjArray* thisHitbox = GET_ARG(1, GetArray);
+    ObjInstance* otherEntity = GET_ARG(2, GetInstance);
+    ObjArray* otherHitbox = GET_ARG(3, GetArray);
+
+    auto thisEnt = (Entity*)thisEntity->EntityPtr;
+    auto otherEnt = (Entity*)otherEntity->EntityPtr;
+
+    CollisionBox thisBox;
+    CollisionBox otherBox;
+
+    thisBox.Left = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[0]));
+    thisBox.Top = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[1]));
+    thisBox.Right = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[2]));
+    thisBox.Bottom = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[3]));
+
+    otherBox.Left = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[0]));
+    otherBox.Top = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[1]));
+    otherBox.Right = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[2]));
+    otherBox.Bottom = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[3]));
+
+
+    return INTEGER_VAL(!!Scene::CheckObjectCollisionTouch(thisEnt, &thisBox, otherEnt, &otherBox));
+}
+/***
+ * Collision.CheckObjectCollisionCircle
+ * \desc Checks if an instance is touching another instance with within their respective radii.
+ * \param thisEnity (Instance): The first instance to check.
+ * \param thisRadius (Decimal): Radius of the first entity to check.
+ * \param otherEntity (Instance): The other instance to check.
+ * \param otherRadius (Array): Radius of the other entity to check.
+ * \return Returns a Boolean value whether the entities have collided.
+ * \ns Collision
+ */
+VMValue Collision_CheckObjectCollisionCircle(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(4);
+    ObjInstance* thisEntity = GET_ARG(0, GetInstance);
+    float thisRadius = GET_ARG(1, GetDecimal);
+    ObjInstance* otherEntity = GET_ARG(2, GetInstance);
+    float otherRadius = GET_ARG(3, GetDecimal);
+
+    auto thisEnt = (Entity*)thisEntity->EntityPtr;
+    auto otherEnt = (Entity*)otherEntity->EntityPtr;
+
+    return INTEGER_VAL(!!Scene::CheckObjectCollisionCircle(thisEnt, thisRadius, otherEnt, otherRadius));
+}
+/***
+ * Collision.CheckObjectCollisionBox
+ * \desc Checks if an instance is touching another instance with their respective hitboxes and sets the values of the other instance if specified.
+ * \param thisEnity (Instance): The first instance to check.
+ * \param thisHitbox (Array): Array containing the first entity's hitbox.
+ * \param otherEntity (Instance): The other instance to check.
+ * \param otherHitbox (Array): Array containing the other entity's hitbox.
+ * \param setValues (Boolean): Whether to set the values of the other entity.
+ * \return Returns the side the entities are colliding on.
+ * \ns Collision
+ */
+VMValue Collision_CheckObjectCollisionBox(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(5);
+    ObjInstance* thisEntity = GET_ARG(0, GetInstance);
+    ObjArray* thisHitbox = GET_ARG(1, GetArray);
+    ObjInstance* otherEntity = GET_ARG(2, GetInstance);
+    ObjArray* otherHitbox = GET_ARG(3, GetArray);
+    bool setValues = !!GET_ARG(4, GetInteger);
+
+    auto thisEnt = (Entity*)thisEntity->EntityPtr;
+    auto otherEnt = (Entity*)otherEntity->EntityPtr;
+
+    CollisionBox thisBox;
+    CollisionBox otherBox;
+
+    thisBox.Left = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[0]));
+    thisBox.Top = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[1]));
+    thisBox.Right = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[2]));
+    thisBox.Bottom = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[3]));
+
+    otherBox.Left = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[0]));
+    otherBox.Top = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[1]));
+    otherBox.Right = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[2]));
+    otherBox.Bottom = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[3]));
+
+    return INTEGER_VAL(Scene::CheckObjectCollisionBox(thisEnt, &thisBox, otherEnt, &otherBox, setValues));
+}
+/***
+ * Collision.CheckObjectCollisionPlatform
+ * \desc Checks if an instance is touching the top of another instance with their respective hitboxes and sets the values of the other instance if specified.
+ * \param thisEnity (Instance): The first instance to check.
+ * \param thisHitbox (Array): Array containing the first entity's hitbox.
+ * \param otherEntity (Instance): The other instance to check whether it is on top of the first instance.
+ * \param otherHitbox (Array): Array containing the other entity's hitbox.
+ * \param setValues (Boolean): Whether to set the values of the other entity.
+ * \return Returns a Boolean value whether the entities have collided.
+ * \ns Collision
+ */
+VMValue Collision_CheckObjectCollisionPlatform(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(5);
+    ObjInstance* thisEntity = GET_ARG(0, GetInstance);
+    ObjArray* thisHitbox = GET_ARG(1, GetArray);
+    ObjInstance* otherEntity = GET_ARG(2, GetInstance);
+    ObjArray* otherHitbox = GET_ARG(3, GetArray);
+    bool setValues = !!GET_ARG(4, GetInteger);
+
+    auto thisEnt = (Entity*)thisEntity->EntityPtr;
+    auto otherEnt = (Entity*)otherEntity->EntityPtr;
+
+    CollisionBox thisBox;
+    CollisionBox otherBox;
+
+    thisBox.Left = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[0]));
+    thisBox.Top = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[1]));
+    thisBox.Right = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[2]));
+    thisBox.Bottom = AS_INTEGER(ScriptManager::CastValueAsInteger((*thisHitbox->Values)[3]));
+
+    otherBox.Left = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[0]));
+    otherBox.Top = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[1]));
+    otherBox.Right = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[2]));
+    otherBox.Bottom = AS_INTEGER(ScriptManager::CastValueAsInteger((*otherHitbox->Values)[3]));
+
+    return INTEGER_VAL(!!Scene::CheckObjectCollisionPlatform(thisEnt, &thisBox, otherEnt, &otherBox, setValues));
 }
 // #endregion
 
@@ -3821,7 +4045,8 @@ VMValue Draw_UseStrokeSmoothing(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Draw_SetClip(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(4);
-    Graphics::SetClip((int)GET_ARG(0, GetDecimal), (int)GET_ARG(1, GetDecimal), (int)GET_ARG(2, GetDecimal), (int)GET_ARG(3, GetDecimal));
+    if (GET_ARG(2, GetDecimal) > 0.0 && GET_ARG(3, GetDecimal) > 0.0)
+        Graphics::SetClip((int)GET_ARG(0, GetDecimal), (int)GET_ARG(1, GetDecimal), (int)GET_ARG(2, GetDecimal), (int)GET_ARG(3, GetDecimal));
     return NULL_VAL;
 }
 /***
@@ -3833,6 +4058,46 @@ VMValue Draw_ClearClip(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
     Graphics::ClearClip();
     return NULL_VAL;
+}
+/***
+ * Draw.GetClipX
+ * \desc Gets the X position in which drawing starts to occur.
+ * \return The X position if clipping is enabled, else 0.
+ * \ns Draw
+ */
+VMValue Draw_GetClipX(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return Graphics::CurrentClip.Enabled ? INTEGER_VAL((int)Graphics::CurrentClip.X) : INTEGER_VAL(0);
+}
+/***
+ * Draw.GetClipY
+ * \desc Gets the Y position in which drawing starts to occur.
+ * \return The Y position if clipping is enabled, else 0.
+ * \ns Draw
+ */
+VMValue Draw_GetClipY(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return Graphics::CurrentClip.Enabled ? INTEGER_VAL((int)Graphics::CurrentClip.Y) : INTEGER_VAL(0);
+}
+/***
+ * Draw.GetClipWidth
+ * \desc Gets the width in which drawing occurs.
+ * \return The width if clipping is enabled, else 0.
+ * \ns Draw
+ */
+VMValue Draw_GetClipWidth(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return Graphics::CurrentClip.Enabled ? INTEGER_VAL((int)Graphics::CurrentClip.Width) : INTEGER_VAL(0);
+}
+/***
+ * Draw.GetClipHeight
+ * \desc Gets the height in which drawing occurs.
+ * \return The height if clipping is enabled, else 0.
+ * \ns Draw
+ */
+VMValue Draw_GetClipHeight(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return Graphics::CurrentClip.Enabled ? INTEGER_VAL((int)Graphics::CurrentClip.Height) : INTEGER_VAL(0);
 }
 
 /***
@@ -6410,7 +6675,7 @@ VMValue Math_Direction(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Math_Abs(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
-    return DECIMAL_VAL(Math::Abs(GET_ARG(0, GetDecimal)));
+    return IS_INTEGER(args[0]) ? INTEGER_VAL((int)Math::Abs(GET_ARG(0, GetDecimal))) : DECIMAL_VAL(Math::Abs(GET_ARG(0, GetDecimal)));
 }
 /***
  * Math.Min
@@ -6422,8 +6687,10 @@ VMValue Math_Abs(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Math_Min(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
-    // respect the type of number
-    return DECIMAL_VAL(Math::Min(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal)));
+    if (IS_INTEGER(args[0]) && IS_INTEGER(args[1]))
+        return INTEGER_VAL((int)Math::Min(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal)));
+    else
+        return DECIMAL_VAL(Math::Min(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal)));
 }
 /***
  * Math.Max
@@ -6435,7 +6702,10 @@ VMValue Math_Min(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Math_Max(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
-    return DECIMAL_VAL(Math::Max(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal)));
+    if (IS_INTEGER(args[0]) && IS_INTEGER(args[1]))
+        return INTEGER_VAL((int)Math::Max(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal)));
+    else
+        return DECIMAL_VAL(Math::Max(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal)));
 }
 /***
  * Math.Clamp
@@ -6448,7 +6718,32 @@ VMValue Math_Max(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Math_Clamp(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(3);
-    return DECIMAL_VAL(Math::Clamp(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal), GET_ARG(2, GetDecimal)));
+    if (IS_INTEGER(args[0]) && IS_INTEGER(args[1]) && IS_INTEGER(args[2]))
+        return INTEGER_VAL((int)Math::Clamp(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal), GET_ARG(2, GetDecimal)));
+    else
+        return DECIMAL_VAL(Math::Clamp(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal), GET_ARG(2, GetDecimal)));
+}
+/***
+ * Math.ToFixed
+ * \desc Converts a decimal number to its fixed-point equivalent.
+ * \param n (Number): Number value.
+ * \return Returns the converted fixed-point Number value.
+ * \ns Math
+ */
+VMValue Math_ToFixed(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    return INTEGER_VAL((int)(GET_ARG(0, GetDecimal) * 65536.0f));
+}
+/***
+ * Math.FromFixed
+ * \desc Converts a fixed-point number to its decimal equivalent.
+ * \param n (Number): Number value.
+ * \return Returns the converted decimal Number value.
+ * \ns Math
+ */
+VMValue Math_FromFixed(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    return DECIMAL_VAL((float)GET_ARG(0, GetInteger) / 65536.0f);
 }
 /***
  * Math.Sign
@@ -6798,6 +7093,18 @@ VMValue Math_ACos256(int argCount, VMValue* args, Uint32 threadID) {
     return INTEGER_VAL(Math::ACos256(GET_ARG(0, GetInteger)));
 }
 /***
+ * RSDK.Math.ATan2
+ * \desc Returns the arc tangent of a position.
+ * \param x (Decimal): X value of the position.
+ * \param y (Decimal): Y value of the position.
+ * \return The arc tangent of the position.
+ * \ns RSDK.Math
+ */
+VMValue Math_ATan2(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    return INTEGER_VAL((int)Math::ArcTanLookup((int)(GET_ARG(0, GetDecimal) * 65536.0f), (int)(GET_ARG(1, GetDecimal) * 65536.0f)));
+}
+/***
  * RSDK.Math.RadianToInteger
  * \desc Gets the integer conversion of a radian, based on 256.
  * \param radian (Decimal): Radian value to convert.
@@ -6810,7 +7117,7 @@ VMValue Math_RadianToInteger(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * RSDK.Math.IntegerToRadian
- * \desc Gets the radia Decimal conversion of an integer, based on 256.
+ * \desc Gets the radian Decimal conversion of an integer, based on 256.
  * \param integer (Integer): Integer value to convert.
  * \return A radia Decimal value of the converted integer.
  * \ns RSDK.Math
@@ -7899,7 +8206,7 @@ VMValue Number_AsDecimal(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Object_Loaded(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
 
-    char* objectName    = GET_ARG(0, GetString);
+    char* objectName = GET_ARG(0, GetString);
 
     return INTEGER_VAL(!!Scene::ObjectLists->Exists(Scene::ObjectLists->HashFunction(objectName, strlen(objectName))));
 }
@@ -8482,6 +8789,41 @@ VMValue Resources_LoadSprite(int argCount, VMValue* args, Uint32 threadID) {
     return INTEGER_VAL((int)index);
 }
 /***
+ * Resources.LoadDynamicSprite
+ * \desc Loads a Sprite resource via the current Scene's resource folder if a scene list is loaded (else a fallback folder).
+ * \param fallbackFolder (String): Folder to check if the sprite does not exist in the current Scene's resource folder.
+ * \param name (String): Name of the animation file within the resource folder.
+ * \param unloadPolicy (Integer): Whether to unload the resource at the end of the current Scene, or the game end.
+ * \return Returns the index of the Resource.
+ * \ns Resources
+ */
+VMValue Resources_LoadDynamicSprite(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(3);
+
+    char filename[4096];
+    snprintf(filename, sizeof(filename), "Sprites/%s/%s.bin", Scene::CurrentResourceFolder, GET_ARG(1, GetString));
+    if (!ResourceManager::ResourceExists(filename))
+        snprintf(filename, sizeof(filename), "Sprites/%s/%s.bin", GET_ARG(0, GetString), GET_ARG(1, GetString));
+
+    ResourceType* resource = new (std::nothrow) ResourceType();
+    resource->FilenameHash = CRC32::EncryptString(filename);
+    resource->UnloadPolicy = GET_ARG(2, GetInteger);
+
+    size_t index = 0;
+    vector<ResourceType*>* list = &Scene::SpriteList;
+    if (Scene::GetResource(list, resource, index))
+        return INTEGER_VAL((int)index);
+
+    resource->AsSprite = new (std::nothrow) ISprite(filename);
+    if (resource->AsSprite->LoadFailed) {
+        delete resource->AsSprite;
+        delete resource;
+        (*list)[index] = NULL;
+        return INTEGER_VAL(-1);
+    }
+    return INTEGER_VAL((int)index);
+}
+/***
  * Resources.LoadImage
  * \desc Loads an Image resource, returning its Image index.
  * \param filename (String): Filename of the resource.
@@ -8783,269 +9125,6 @@ VMValue Resources_ReadAllText(int argCount, VMValue* args, Uint32 threadID) {
 #define CHECK_TILE_LAYER_POS_BOUNDS() if (layer < 0 || layer >= (int)Scene::Layers.size() || x < 0 || y < 0 || x >= Scene::Layers[layer].Width || y >= Scene::Layers[layer].Height) return NULL_VAL;
 
 /***
- * Scene.ProcessObjectMovement
- * \desc Processes movement of an instance with an outer hitbox and an inner hitboxe.
- * \param entity (Instance): The instance to move.
- * \param outer (Array): Array containing the outer hitbox.
- * \param inner (Array): Array containing the inner hitbox.
- * \ns Scene
- */
-VMValue Scene_ProcessObjectMovement(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(3);
-    ObjInstance* entity = GET_ARG(0, GetInstance);
-    ObjArray* outer     = GET_ARG(1, GetArray);
-    ObjArray* inner     = GET_ARG(2, GetArray);
-
-    CollisionBox outerBox;
-    CollisionBox innerBox;
-
-    if (entity && outer && inner) {
-        auto ent = (Entity*)entity->EntityPtr;
-
-        outerBox.Left      = (int)AS_DECIMAL((*outer->Values)[0]);
-        outerBox.Top       = (int)AS_DECIMAL((*outer->Values)[1]);
-        outerBox.Right     = (int)AS_DECIMAL((*outer->Values)[2]);
-        outerBox.Bottom    = (int)AS_DECIMAL((*outer->Values)[3]);
-
-        innerBox.Left      = (int)AS_DECIMAL((*inner->Values)[0]);
-        innerBox.Top       = (int)AS_DECIMAL((*inner->Values)[1]);
-        innerBox.Right     = (int)AS_DECIMAL((*inner->Values)[2]);
-        innerBox.Bottom    = (int)AS_DECIMAL((*inner->Values)[3]);
-        Scene::ProcessObjectMovement(ent, &outerBox, &innerBox);
-    }
-    return NULL_VAL;
-}
-/***
- * Scene.ObjectTileCollision
- * \desc Checks tile collision based on where an instance should check.
- * \param entity (Instance): The instance to base the values on.
- * \param cLayers (Bitfield): Which layers the entity can collide with.
- * \param cMode (Integer): Collision mode of the entity (floor, left wall, roof, right wall).
- * \param cPlane (Integer): Collision plane to get the collision of (A or B).
- * \param xOffset (Number): How far from the entity's X value to start from.
- * \param yOffset (Number): How far from the entity's Y value to start from.
- * \param setPos (Boolean): Whether to set the entity's position if collision is found.
- * \return Returns whether the instance has collided with a tile.
- * \ns Scene
- */
-VMValue Scene_ObjectTileCollision(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(7);
-    ObjInstance* entity = GET_ARG(0, GetInstance);
-    int cLayers         = GET_ARG(1, GetInteger);
-    int cMode           = GET_ARG(2, GetInteger);
-    int cPlane          = GET_ARG(3, GetInteger);
-    int xOffset         = GET_ARG(4, GetDecimal);
-    int yOffset         = GET_ARG(5, GetDecimal);
-    int setPos          = GET_ARG(6, GetInteger);
-
-    auto ent = (Entity*)entity->EntityPtr;
-
-    return INTEGER_VAL(Scene::ObjectTileCollision(ent, cLayers, cMode, cPlane, xOffset, yOffset, setPos));
-}
-/***
- * Scene.ObjectTileGrip
- * \desc Keeps an instance gripped to tile collision based on where an instance should check.
- * \param entity (Instance): The instance to move.
- * \param cLayers (Bitfield): Which layers the entity can collide with.
- * \param cMode (Integer): Collision mode of the entity (floor, left wall, roof, right wall).
- * \param cPlane (Integer): Collision plane to get the collision of (A or B).
- * \param xOffset (Decimal): How far from the entity's X value to start from.
- * \param yOffset (Decimal): How far from the entity's Y value to start from.
- * \param tolerance (Decimal): How far of a tolerance the entity should check for.
- * \return Returns whether to grip the instance.
- * \ns Scene
- */
-VMValue Scene_ObjectTileGrip(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(7);
-    ObjInstance* entity = GET_ARG(0, GetInstance);
-    int cLayers         = GET_ARG(1, GetInteger);
-    int cMode           = GET_ARG(2, GetInteger);
-    int cPlane          = GET_ARG(3, GetInteger);
-    float xOffset       = GET_ARG(4, GetDecimal);
-    float yOffset       = GET_ARG(5, GetDecimal);
-    float tolerance     = GET_ARG(6, GetDecimal);
-
-    auto ent = (Entity*)entity->EntityPtr;
-
-    return INTEGER_VAL(Scene::ObjectTileGrip(ent, cLayers, cMode, cPlane, xOffset, yOffset, tolerance));
-}
-/***
- * Scene.CheckObjectCollisionTouch
- * \desc Checks if an instance is touching another instance with their respective hitboxes.
- * \param thisEntity (Instance): The first instance to check.
- * \param thisHitbox (Array): Array containing the first entity's hitbox.
- * \param otherEntity (Instance): The other instance to check.
- * \param otherHitbox (Array): Array containing the other entity's hitbox.
- * \return Returns a Boolean value whether the entities are touching.
- * \ns Scene
- */
-VMValue Scene_CheckObjectCollisionTouch(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(4);
-    ObjInstance* thisEntity     = GET_ARG(0, GetInstance);
-    ObjArray* thisHitbox        = GET_ARG(1, GetArray);
-    ObjInstance* otherEntity    = GET_ARG(2, GetInstance);
-    ObjArray* otherHitbox       = GET_ARG(3, GetArray);
-
-    auto thisEnt = (Entity*)thisEntity->EntityPtr;
-    auto otherEnt = (Entity*)otherEntity->EntityPtr;
-
-    CollisionBox thisBox;
-    CollisionBox otherBox;
-
-    if (IS_INTEGER((*thisHitbox->Values)[0])) {
-        thisBox.Left    = AS_INTEGER((*thisHitbox->Values)[0]);
-        thisBox.Top     = AS_INTEGER((*thisHitbox->Values)[1]);
-        thisBox.Right   = AS_INTEGER((*thisHitbox->Values)[2]);
-        thisBox.Bottom  = AS_INTEGER((*thisHitbox->Values)[3]);
-    }
-    else {
-        thisBox.Left    = (int)AS_DECIMAL((*thisHitbox->Values)[0]);
-        thisBox.Top     = (int)AS_DECIMAL((*thisHitbox->Values)[1]);
-        thisBox.Right   = (int)AS_DECIMAL((*thisHitbox->Values)[2]);
-        thisBox.Bottom  = (int)AS_DECIMAL((*thisHitbox->Values)[3]);
-    }
-
-    if (IS_INTEGER((*otherHitbox->Values)[0])) {
-        otherBox.Left   = AS_INTEGER((*otherHitbox->Values)[0]);
-        otherBox.Top    = AS_INTEGER((*otherHitbox->Values)[1]);
-        otherBox.Right  = AS_INTEGER((*otherHitbox->Values)[2]);
-        otherBox.Bottom = AS_INTEGER((*otherHitbox->Values)[3]);
-    }
-    else {
-        otherBox.Left   = (int)AS_DECIMAL((*otherHitbox->Values)[0]);
-        otherBox.Top    = (int)AS_DECIMAL((*otherHitbox->Values)[1]);
-        otherBox.Right  = (int)AS_DECIMAL((*otherHitbox->Values)[2]);
-        otherBox.Bottom = (int)AS_DECIMAL((*otherHitbox->Values)[3]);
-    }
-    return INTEGER_VAL(!!Scene::CheckObjectCollisionTouch(thisEnt, &thisBox, otherEnt, &otherBox));
-}
-/***
- * Scene.CheckObjectCollisionCircle
- * \desc Checks if an instance is touching another instance with within their respective radii.
- * \param thisEnity (Instance): The first instance to check.
- * \param thisRadius (Decimal): Radius of the first entity to check.
- * \param otherEntity (Instance): The other instance to check.
- * \param otherRadius (Array): Radius of the other entity to check.
- * \return Returns a Boolean value whether the entities have collided.
- * \ns Scene
- */
-VMValue Scene_CheckObjectCollisionCircle(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(4);
-    ObjInstance* thisEntity     = GET_ARG(0, GetInstance);
-    float thisRadius            = GET_ARG(1, GetDecimal);
-    ObjInstance* otherEntity    = GET_ARG(2, GetInstance);
-    float otherRadius           = GET_ARG(3, GetDecimal);
-
-    auto thisEnt    = (Entity*)thisEntity->EntityPtr;
-    auto otherEnt   = (Entity*)otherEntity->EntityPtr;
-
-    return INTEGER_VAL(!!Scene::CheckObjectCollisionCircle(thisEnt, thisRadius, otherEnt, otherRadius));
-}
-/***
- * Scene.CheckObjectCollisionBox
- * \desc Checks if an instance is touching another instance with their respective hitboxes and sets the values of the other instance if specified.
- * \param thisEnity (Instance): The first instance to check.
- * \param thisHitbox (Array): Array containing the first entity's hitbox.
- * \param otherEntity (Instance): The other instance to check.
- * \param otherHitbox (Array): Array containing the other entity's hitbox.
- * \param setValues (Boolean): Whether to set the values of the other entity.
- * \return Returns the side the entities are colliding on.
- * \ns Scene
- */
-VMValue Scene_CheckObjectCollisionBox(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(5);
-    ObjInstance* thisEntity     = GET_ARG(0, GetInstance);
-    ObjArray* thisHitbox        = GET_ARG(1, GetArray);
-    ObjInstance* otherEntity    = GET_ARG(2, GetInstance);
-    ObjArray* otherHitbox       = GET_ARG(3, GetArray);
-    bool setValues              = !!GET_ARG(4, GetInteger);
-
-    auto thisEnt    = (Entity*)thisEntity->EntityPtr;
-    auto otherEnt   = (Entity*)otherEntity->EntityPtr;
-
-    CollisionBox thisBox;
-    CollisionBox otherBox;
-
-    if (IS_INTEGER((*thisHitbox->Values)[0])) {
-        thisBox.Left    = AS_INTEGER((*thisHitbox->Values)[0]);
-        thisBox.Top     = AS_INTEGER((*thisHitbox->Values)[1]);
-        thisBox.Right   = AS_INTEGER((*thisHitbox->Values)[2]);
-        thisBox.Bottom  = AS_INTEGER((*thisHitbox->Values)[3]);
-    }
-    else {
-        thisBox.Left    = (int)AS_DECIMAL((*thisHitbox->Values)[0]);
-        thisBox.Top     = (int)AS_DECIMAL((*thisHitbox->Values)[1]);
-        thisBox.Right   = (int)AS_DECIMAL((*thisHitbox->Values)[2]);
-        thisBox.Bottom  = (int)AS_DECIMAL((*thisHitbox->Values)[3]);
-    }
-
-    if (IS_INTEGER((*otherHitbox->Values)[0])) {
-        otherBox.Left   = AS_INTEGER((*otherHitbox->Values)[0]);
-        otherBox.Top    = AS_INTEGER((*otherHitbox->Values)[1]);
-        otherBox.Right  = AS_INTEGER((*otherHitbox->Values)[2]);
-        otherBox.Bottom = AS_INTEGER((*otherHitbox->Values)[3]);
-    }
-    else {
-        otherBox.Left   = (int)AS_DECIMAL((*otherHitbox->Values)[0]);
-        otherBox.Top    = (int)AS_DECIMAL((*otherHitbox->Values)[1]);
-        otherBox.Right  = (int)AS_DECIMAL((*otherHitbox->Values)[2]);
-        otherBox.Bottom = (int)AS_DECIMAL((*otherHitbox->Values)[3]);
-    }
-    return INTEGER_VAL(Scene::CheckObjectCollisionBox(thisEnt, &thisBox, otherEnt, &otherBox, setValues));
-}
-/***
- * Scene.CheckObjectCollisionPlatform
- * \desc Checks if an instance is touching the top of another instance with their respective hitboxes and sets the values of the other instance if specified.
- * \param thisEnity (Instance): The first instance to check.
- * \param thisHitbox (Array): Array containing the first entity's hitbox.
- * \param otherEntity (Instance): The other instance to check whether it is on top of the first instance.
- * \param otherHitbox (Array): Array containing the other entity's hitbox.
- * \param setValues (Boolean): Whether to set the values of the other entity.
- * \return Returns a Boolean value whether the entities have collided.
- * \ns Scene
- */
-VMValue Scene_CheckObjectCollisionPlatform(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(5);
-    ObjInstance* thisEntity     = GET_ARG(0, GetInstance);
-    ObjArray* thisHitbox        = GET_ARG(1, GetArray);
-    ObjInstance* otherEntity    = GET_ARG(2, GetInstance);
-    ObjArray* otherHitbox       = GET_ARG(3, GetArray);
-    bool setValues              = !!GET_ARG(4, GetInteger);
-
-    auto thisEnt    = (Entity*)thisEntity->EntityPtr;
-    auto otherEnt   = (Entity*)otherEntity->EntityPtr;
-
-    CollisionBox thisBox;
-    CollisionBox otherBox;
-
-    if (IS_INTEGER((*thisHitbox->Values)[0])) {
-        thisBox.Left    = AS_INTEGER((*thisHitbox->Values)[0]);
-        thisBox.Top     = AS_INTEGER((*thisHitbox->Values)[1]);
-        thisBox.Right   = AS_INTEGER((*thisHitbox->Values)[2]);
-        thisBox.Bottom  = AS_INTEGER((*thisHitbox->Values)[3]);
-    }
-    else {
-        thisBox.Left    = (int)AS_DECIMAL((*thisHitbox->Values)[0]);
-        thisBox.Top     = (int)AS_DECIMAL((*thisHitbox->Values)[1]);
-        thisBox.Right   = (int)AS_DECIMAL((*thisHitbox->Values)[2]);
-        thisBox.Bottom  = (int)AS_DECIMAL((*thisHitbox->Values)[3]);
-    }
-
-    if (IS_INTEGER((*otherHitbox->Values)[0])) {
-        otherBox.Left   = AS_INTEGER((*otherHitbox->Values)[0]);
-        otherBox.Top    = AS_INTEGER((*otherHitbox->Values)[1]);
-        otherBox.Right  = AS_INTEGER((*otherHitbox->Values)[2]);
-        otherBox.Bottom = AS_INTEGER((*otherHitbox->Values)[3]);
-    }
-    else {
-        otherBox.Left   = (int)AS_DECIMAL((*otherHitbox->Values)[0]);
-        otherBox.Top    = (int)AS_DECIMAL((*otherHitbox->Values)[1]);
-        otherBox.Right  = (int)AS_DECIMAL((*otherHitbox->Values)[2]);
-        otherBox.Bottom = (int)AS_DECIMAL((*otherHitbox->Values)[3]);
-    }
-    return INTEGER_VAL(!!Scene::CheckObjectCollisionPlatform(thisEnt, &thisBox, otherEnt, &otherBox, setValues));
-}
-/***
  * Scene.Load
  * \desc Changes the active scene. If a path to a resource is provided, the active scene is changed to the one in the specified resource file. Otherwise, the active scene is changed to the currently set entry in the scene list, if it exists (see <linkto ref="SceneList"></linkto>.)
  * \paramOpt filename (String): Filename of scene.
@@ -9088,40 +9167,6 @@ VMValue Scene_Load(int argCount, VMValue* args, Uint32 threadID) {
     }
 
     Scene::NoPersistency = noPersistency;
-
-    return NULL_VAL;
-}
-/***
- * Scene.LoadNoPersistency
- * \desc Changes active scene to the one in the specified resource file, without keeping any persistent objects. (Deprecated; use <linkto ref="Scene.Load"></linkto> instead.)
- * \param filename (String): Filename of scene.
- * \ns Scene
- */
-VMValue Scene_LoadNoPersistency(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
-    char* filename = GET_ARG(0, GetString);
-
-    strcpy(Scene::NextScene, filename);
-    Scene::NextScene[strlen(filename)] = 0;
-    Scene::NoPersistency = true;
-
-    return NULL_VAL;
-}
-/***
- * Scene.LoadPosition
- * \desc Loads the scene located in the scene list's position slot, if a scene list is loaded. (Deprecated; use <linkto ref="Scene.Load"></linkto> instead.)
- * \paramOpt persistency (Boolean): Whether or not the scene should load with persistency.
- * \ns Scene
- */
-VMValue Scene_LoadPosition(int argCount, VMValue* args, Uint32 threadID) {
-    if (!SceneInfo::IsEntryValid(Scene::CurrentSceneInList))
-        return NULL_VAL;
-
-    std::string path = SceneInfo::GetFilename(Scene::CurrentSceneInList);
-
-    StringUtils::Copy(Scene::NextScene, path.c_str(), sizeof(Scene::NextScene));
-
-    Scene::NoPersistency = !!GET_ARG_OPT(1, GetInteger, false);
 
     return NULL_VAL;
 }
@@ -9696,16 +9741,6 @@ VMValue Scene_GetDrawGroupEntityDepthSorting(int argCount, VMValue* args, Uint32
     return INTEGER_VAL(!!Scene::PriorityLists[drawg].EntityDepthSortingEnabled);
 }
 /***
- * Scene.GetListPos
- * \desc Gets the current list position of the scene. (Deprecated; use <linkto ref="Scene_ListPos"></linkto> instead.)
- * \return Returns an Integer value.
- * \ns Scene
- */
-VMValue Scene_GetListPos(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    return INTEGER_VAL(Scene::CurrentSceneInList);
-}
-/***
  * Scene.GetCurrentFolder
  * \desc Gets the current folder of the scene.
  * \return Returns a String value.
@@ -9736,16 +9771,6 @@ VMValue Scene_GetCurrentResourceFolder(int argCount, VMValue* args, Uint32 threa
     return ReturnString(Scene::CurrentResourceFolder);
 }
 /***
- * Scene.GetCurrentSpriteFolder
- * \desc Gets the current sprite folder of the scene. (Deprecated; use <linkto ref="Scene.GetCurrentResourceFolder"></linkto> instead.)
- * \return Returns a String value.
- * \ns Scene
- */
-VMValue Scene_GetCurrentSpriteFolder(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    return ReturnString(Scene::CurrentResourceFolder);
-}
-/***
  * Scene.GetCurrentCategory
  * \desc Gets the current category name of the scene.
  * \return Returns a String value.
@@ -9754,36 +9779,6 @@ VMValue Scene_GetCurrentSpriteFolder(int argCount, VMValue* args, Uint32 threadI
 VMValue Scene_GetCurrentCategory(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
     return ReturnString(Scene::CurrentCategory);
-}
-/***
- * Scene.GetActiveCategory
- * \desc Gets the current category number of the scene. (Deprecated; use <linkto ref="Scene_ActiveCategory"></linkto> instead.)
- * \return Returns an Integer value.
- * \ns Scene
- */
-VMValue Scene_GetActiveCategory(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    return INTEGER_VAL(Scene::ActiveCategory);
-}
-/***
- * Scene.GetCategoryCount
- * \desc Gets the amount of categories in the scene list. (Deprecated; use <linkto ref="SceneList.GetCategoryCount"></linkto> instead.)
- * \return Returns an Integer value.
- * \ns Scene
- */
-VMValue Scene_GetCategoryCount(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    return INTEGER_VAL((int)SceneInfo::Categories.size());
-}
-/***
- * Scene.GetStageCount
- * \desc Gets the amount of stages in the scene list. (Deprecated; use <linkto ref="SceneList.GetSceneCount"></linkto> instead.)
- * \return Returns an Integer value.
- * \ns Scene
- */
-VMValue Scene_GetStageCount(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    return INTEGER_VAL((int)SceneInfo::Entries.size());
 }
 /***
  * Scene.GetDebugMode
@@ -10040,35 +10035,6 @@ VMValue Scene_IsUsingID(int argCount, VMValue* args, Uint32 threadID) {
     return INTEGER_VAL(false);
 }
 /***
- * Scene.CheckValidScene
- * \desc Checks whether the scene list's position is within the list's size, if a scene list is loaded. (Deprecated; use <linkto ref="Scene.IsCurrentEntryValid"></linkto> instead.)
- * \return Returns a Boolean value.
- * \ns Scene
- */
-VMValue Scene_CheckValidScene(int argCount, VMValue* args, Uint32 threadID) {
-    return Scene_IsCurrentEntryValid(argCount, args, threadID);
-}
-/***
- * Scene.CheckSceneFolder
- * \desc Checks whether the current scene's folder matches the string to check, if a scene list is loaded. (Deprecated; use <linkto ref="Scene.IsUsingFolder"></linkto> instead.)
- * \param folder (String): Folder name to compare.
- * \return Returns a Boolean value.
- * \ns Scene
- */
-VMValue Scene_CheckSceneFolder(int argCount, VMValue* args, Uint32 threadID) {
-    return Scene_IsUsingFolder(argCount, args, threadID);
-}
-/***
- * Scene.CheckSceneID
- * \desc Checks whether the current scene's ID matches the string to check, if a scene list is loaded. (Deprecated; use <linkto ref="Scene.IsUsingID"></linkto> instead.)
- * \param id (String): ID to compare.
- * \return Returns a Boolean value.
- * \ns Scene
- */
-VMValue Scene_CheckSceneID(int argCount, VMValue* args, Uint32 threadID) {
-    return Scene_IsUsingID(argCount, args, threadID);
-}
-/***
  * Scene.IsPaused
  * \desc Gets whether or not the scene is paused.
  * \return Returns a Boolean value.
@@ -10076,28 +10042,6 @@ VMValue Scene_CheckSceneID(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Scene_IsPaused(int argCount, VMValue* args, Uint32 threadID) {
     return INTEGER_VAL((int)Scene::Paused);
-}
-/***
- * Scene.SetListPos
- * \desc Sets the current list position of the scene. (Deprecated; use <linkto ref="Scene_ListPos"></linkto> instead.)
- * \param sceneNum (Integer): Scene number to use.
- * \ns Scene
- */
-VMValue Scene_SetListPos(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
-    Scene::CurrentSceneInList = GET_ARG(0, GetInteger);
-    return NULL_VAL;
-}
-/***
- * Scene.SetActiveCategory
- * \desc Sets the current category number of the scene. (Deprecated; use <linkto ref="Scene_ActiveCategory"></linkto> instead.)
- * \param categoryNum (Integer): Scene category number to use.
- * \ns Scene
- */
-VMValue Scene_SetActiveCategory(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
-    Scene::ActiveCategory = GET_ARG(0, GetInteger);
-    return NULL_VAL;
 }
 /***
  * Scene.SetDebugMode
@@ -10108,16 +10052,6 @@ VMValue Scene_SetDebugMode(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     Scene::DebugMode = GET_ARG(0, GetInteger);
     return NULL_VAL;
-}
-/***
- * Scene.SetScene
- * \desc Sets the scene if the category and scene names exist within the scene list. (Deprecated; use <linkto ref="Scene.Change"></linkto> instead.)
- * \param category (String): Category name.
- * \param scene (String): Scene name. If the scene name is not found but the category name is, the first scene in the category is used.
- * \ns Scene
- */
-VMValue Scene_SetScene(int argCount, VMValue* args, Uint32 threadID) {
-    return Scene_Change(argCount, args, threadID);
 }
 /***
  * Scene.SetTile
@@ -12798,7 +12732,7 @@ VMValue Sprite_GetFrameHitbox(int argCount, VMValue* args, Uint32 threadID) {
 
     ObjArray* array = NewArray();
     for (int i = 0; i < 4; i++)
-        array->Values->push_back(DECIMAL_VAL(0.0f));
+        array->Values->push_back(INTEGER_VAL(0));
 
     if (sprite && animationID >= 0 && frameID >= 0) {
         AnimFrame frame = sprite->Animations[animationID].Frames[frameID];
@@ -12808,10 +12742,10 @@ VMValue Sprite_GetFrameHitbox(int argCount, VMValue* args, Uint32 threadID) {
 
         CollisionBox box    = frame.Boxes[hitboxID];
         ObjArray* hitbox    = NewArray();
-        hitbox->Values->push_back(DECIMAL_VAL((float)box.Top));
-        hitbox->Values->push_back(DECIMAL_VAL((float)box.Left));
-        hitbox->Values->push_back(DECIMAL_VAL((float)box.Right));
-        hitbox->Values->push_back(DECIMAL_VAL((float)box.Bottom));
+        hitbox->Values->push_back(INTEGER_VAL(box.Top));
+        hitbox->Values->push_back(INTEGER_VAL(box.Left));
+        hitbox->Values->push_back(INTEGER_VAL(box.Right));
+        hitbox->Values->push_back(INTEGER_VAL(box.Bottom));
         return OBJECT_VAL(hitbox);
     }
     else {
@@ -14616,6 +14550,48 @@ VMValue View_SetPosition(int argCount, VMValue* args, Uint32 threadID) {
     return NULL_VAL;
 }
 /***
+* View.AdjustX
+* \desc Adjusts the x - axis position of the camera for the specified view by an amount.
+* \param viewIndex(Integer) : Index of the view.
+* \param x(Number) : Desired X adjust amount.
+* \ns View
+*/
+VMValue View_AdjustX(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int view_index = GET_ARG(0, GetInteger);
+    CHECK_VIEW_INDEX();
+    Scene::Views[view_index].X += GET_ARG(1, GetDecimal);
+    return NULL_VAL;
+}
+/***
+* View.AdjustY
+* \desc Adjusts the y-axis position of the camera for the specified view by an amount.
+* \param viewIndex (Integer): Index of the view.
+* \param y (Number): Desired Y adjust amount.
+* \ns View
+*/
+VMValue View_AdjustY(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int view_index = GET_ARG(0, GetInteger);
+    CHECK_VIEW_INDEX();
+    Scene::Views[view_index].Y += GET_ARG(1, GetDecimal);
+    return NULL_VAL;
+}
+/***
+* View.AdjustX
+* \desc Adjusts the z-axis position of the camera for the specified view by an amount.
+* \param viewIndex (Integer): Index of the view.
+* \param z (Number): Desired Z adjust amount.
+* \ns View
+*/
+VMValue View_AdjustZ(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int view_index = GET_ARG(0, GetInteger);
+    CHECK_VIEW_INDEX();
+    Scene::Views[view_index].Z += GET_ARG(1, GetDecimal);
+    return NULL_VAL;
+}
+/***
  * View.SetAngle
  * \desc Sets the angle of the camera for the specified view.
  * \param viewIndex (Integer): Index of the view.
@@ -15037,9 +15013,9 @@ VMValue View_GetActiveCount(int argCount, VMValue* args, Uint32 threadID) {
  * View.CheckOnScreen
  * \desc Determines whether an instance is on screen.
  * \param instance (Instance): The instance to check.
- * \param rangeX (Decimal): The x range to check, or null if an update region width should be used.
- * \param rangeY (Decimal): The y range to check, or null if an update region height should be used.
- * \return Returns whether or not the instance is on screen on any view.
+ * \param rangeX (Decimal): The x range to check, or <code>-1</code> if the instance's update region width should be used.
+ * \param rangeY (Decimal): The y range to check, or <code>-1</code> if the instance's update region height should be used.
+ * \return Returns whether the instance is on screen on any view.
  * \ns View
  */
 VMValue View_CheckOnScreen(int argCount, VMValue* args, Uint32 threadID) {
@@ -15047,17 +15023,16 @@ VMValue View_CheckOnScreen(int argCount, VMValue* args, Uint32 threadID) {
 
     ObjInstance* instance   = GET_ARG(0, GetInstance);
     Entity* self            = (Entity*)instance->EntityPtr;
-    // TODO: Check if GetDecimal can get null values
     float rangeX            = GET_ARG(1, GetDecimal);
     float rangeY            = GET_ARG(2, GetDecimal);
 
     if (!self)
         return INTEGER_VAL(false);
 
-    if (!rangeX)
+    if (rangeX == -1.0)
         rangeX = self->OnScreenHitboxW;
 
-    if (!rangeY)
+    if (rangeY == -1.0)
         rangeY = self->OnScreenHitboxH;
 
     return INTEGER_VAL(Scene::CheckPosOnScreen(self->X, self->Y, rangeX, rangeY));
@@ -15506,16 +15481,6 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_ENUM_CLASS(KeyBind, DevQuit);
     // #endregion
 
-    // #region Audio
-    INIT_CLASS(Audio);
-    DEF_NATIVE(Audio, GetMasterVolume);
-    DEF_NATIVE(Audio, GetMusicVolume);
-    DEF_NATIVE(Audio, GetSoundVolume);
-    DEF_NATIVE(Audio, SetMasterVolume);
-    DEF_NATIVE(Audio, SetMusicVolume);
-    DEF_NATIVE(Audio, SetSoundVolume);
-    // #endregion
-
     // #region Array
     INIT_CLASS(Array);
     DEF_NATIVE(Array, Create);
@@ -15529,6 +15494,27 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Array, SetAll);
     DEF_NATIVE(Array, Reverse);
     DEF_NATIVE(Array, Sort);
+    // #endregion
+
+    // #region Audio
+    INIT_CLASS(Audio);
+    DEF_NATIVE(Audio, GetMasterVolume);
+    DEF_NATIVE(Audio, GetMusicVolume);
+    DEF_NATIVE(Audio, GetSoundVolume);
+    DEF_NATIVE(Audio, SetMasterVolume);
+    DEF_NATIVE(Audio, SetMusicVolume);
+    DEF_NATIVE(Audio, SetSoundVolume);
+    // #endregion
+
+    // #region Collision
+    INIT_CLASS(Collision);
+    DEF_NATIVE(Collision, ProcessObjectMovement);
+    DEF_NATIVE(Collision, ObjectTileCollision);
+    DEF_NATIVE(Collision, ObjectTileGrip);
+    DEF_NATIVE(Collision, CheckObjectCollisionTouch);
+    DEF_NATIVE(Collision, CheckObjectCollisionCircle);
+    DEF_NATIVE(Collision, CheckObjectCollisionBox);
+    DEF_NATIVE(Collision, CheckObjectCollisionPlatform);
     // #endregion
 
     // #region Controller
@@ -15953,6 +15939,10 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Draw, UseStrokeSmoothing);
     DEF_NATIVE(Draw, SetClip);
     DEF_NATIVE(Draw, ClearClip);
+    DEF_NATIVE(Draw, GetClipX);
+    DEF_NATIVE(Draw, GetClipY);
+    DEF_NATIVE(Draw, GetClipWidth);
+    DEF_NATIVE(Draw, GetClipHeight);
     DEF_NATIVE(Draw, Save);
     DEF_NATIVE(Draw, Scale);
     DEF_NATIVE(Draw, Rotate);
@@ -16421,86 +16411,86 @@ PUBLIC STATIC void StandardLibrary::Link() {
 
     // #region Hitbox Sides
     /***
-    * \enum HitboxSide_LEFT
+    * \enum HITBOX_LEFT
     * \desc Left side, slot 0 of a hitbox array.
     */
-    DEF_ENUM(HitboxSide_LEFT);
+    DEF_ENUM(HITBOX_LEFT);
     /***
-    * \enum HitboxSide_TOP
+    * \enum HITBOX_TOP
     * \desc Top side, slot 1 of a hitbox array.
     */
-    DEF_ENUM(HitboxSide_TOP);
+    DEF_ENUM(HITBOX_TOP);
     /***
-    * \enum HitboxSide_RIGHT
+    * \enum HITBOX_RIGHT
     * \desc Right side, slot 2 of a hitbox array.
     */
-    DEF_ENUM(HitboxSide_RIGHT);
+    DEF_ENUM(HITBOX_RIGHT);
     /***
-    * \enum HitboxSide_BOTTOM
+    * \enum HITBOX_BOTTOM
     * \desc Bottom side, slot 3 of a hitbox array.
     */
-    DEF_ENUM(HitboxSide_BOTTOM);
+    DEF_ENUM(HITBOX_BOTTOM);
     // #endregion
 
     // #region Weekdays
     /***
-    * \enum Weekday_SUNDAY
+    * \enum WEEKDAY_SUNDAY
     * \desc The first day of the week.
     */
-    DEF_CONST_INT("Weekday_SUNDAY", (int)Weekday::SUNDAY);
+    DEF_CONST_INT("WEEKDAY_SUNDAY", (int)Weekday::SUNDAY);
     /***
-    * \enum Weekday_MONDAY
+    * \enum WEEKDAY_MONDAY
     * \desc The second day of the week.
     */
-    DEF_CONST_INT("Weekday_MONDAY", (int)Weekday::MONDAY);
+    DEF_CONST_INT("WEEKDAY_MONDAY", (int)Weekday::MONDAY);
     /***
-    * \enum Weekday_TUESDAY
+    * \enum WEEKDAY_TUESDAY
     * \desc The third day of the week.
     */
-    DEF_CONST_INT("Weekday_TUESDAY", (int)Weekday::TUESDAY);
+    DEF_CONST_INT("WEEKDAY_TUESDAY", (int)Weekday::TUESDAY);
     /***
-    * \enum Weekday_WEDNESDAY
+    * \enum WEEKDAY_WEDNESDAY
     * \desc The fourth day of the week.
     */
-    DEF_CONST_INT("Weekday_WEDNESDAY", (int)Weekday::WEDNESDAY);
+    DEF_CONST_INT("WEEKDAY_WEDNESDAY", (int)Weekday::WEDNESDAY);
     /***
-    * \enum Weekday_THURSDAY
+    * \enum WEEKDAY_THURSDAY
     * \desc The fifth day of the week.
     */
-    DEF_CONST_INT("Weekday_THURSDAY", (int)Weekday::THURSDAY);
+    DEF_CONST_INT("WEEKDAY_THURSDAY", (int)Weekday::THURSDAY);
     /***
-    * \enum Weekday_FRIDAY
+    * \enum WEEKDAY_FRIDAY
     * \desc The sixth day of the week.
     */
-    DEF_CONST_INT("Weekday_FRIDAY", (int)Weekday::FRIDAY);
+    DEF_CONST_INT("WEEKDAY_FRIDAY", (int)Weekday::FRIDAY);
     /***
-    * \enum Weekday_SATURDAY
+    * \enum WEEKDAY_SATURDAY
     * \desc The seventh day of the week.
     */
-    DEF_CONST_INT("Weekday_SATURDAY", (int)Weekday::SATURDAY);
+    DEF_CONST_INT("WEEKDAY_SATURDAY", (int)Weekday::SATURDAY);
     // #endregion
 
     // #region TimesOfDay
     /***
-    * \enum TimeOfDay_MORNING
+    * \enum TIMEOFDAY_MORNING
     * \desc The early hours of the day (5AM to 11AM, or 05:00 to 11:00).
     */
-    DEF_CONST_INT("TimeOfDay_MORNING", (int)TimeOfDay::MORNING);
+    DEF_CONST_INT("TIMEOFDAY_MORNING", (int)TimeOfDay::MORNING);
     /***
-    * \enum TimeOfDay_MIDDAY
+    * \enum TIMEOFDAY_MIDDAY
     * \desc The middle hours of the day (12PM to 4PM, or 12:00 to 16:00).
     */
-    DEF_CONST_INT("TimeOfDay_MIDDAY", (int)TimeOfDay::MIDDAY);
+    DEF_CONST_INT("TIMEOFDAY_MIDDAY", (int)TimeOfDay::MIDDAY);
     /***
-    * \enum TimeOfDay_EVENING
+    * \enum TIMEOFDAY_EVENING
     * \desc The later hours of the day (5PM to 8PM, or 17:00 to 20:00).
     */
-    DEF_CONST_INT("TimeOfDay_EVENING", (int)TimeOfDay::EVENING);
+    DEF_CONST_INT("TIMEOFDAY_EVENING", (int)TimeOfDay::EVENING);
     /***
-    * \enum TimeOfDay_NIGHT
+    * \enum TIMEOFDAY_NIGHT
     * \desc The very late and very early hours of the day (9PM to 4AM, or 21:00 to 4:00).
     */
-    DEF_CONST_INT("TimeOfDay_NIGHT", (int)TimeOfDay::NIGHT);
+    DEF_CONST_INT("TIMEOFDAY_NIGHT", (int)TimeOfDay::NIGHT);
     // #endregion
 
     // #region Ease
@@ -16676,6 +16666,8 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Math, Min);
     DEF_NATIVE(Math, Max);
     DEF_NATIVE(Math, Clamp);
+    DEF_NATIVE(Math, ToFixed);
+    DEF_NATIVE(Math, FromFixed);
     DEF_NATIVE(Math, Sign);
     DEF_NATIVE(Math, Random);
     DEF_NATIVE(Math, RandomMax);
@@ -16707,6 +16699,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NAMESPACED_NATIVE(Math, Tan256);
     DEF_NAMESPACED_NATIVE(Math, ASin256);
     DEF_NAMESPACED_NATIVE(Math, ACos256);
+    DEF_NAMESPACED_NATIVE(Math, ATan2);
     DEF_NAMESPACED_NATIVE(Math, RadianToInteger);
     DEF_NAMESPACED_NATIVE(Math, IntegerToRadian);
     DEF_NAMESPACED_NATIVE(Math, GetRandSeed);
@@ -16814,6 +16807,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     // #region Resources
     INIT_CLASS(Resources);
     DEF_NATIVE(Resources, LoadSprite);
+    DEF_NATIVE(Resources, LoadDynamicSprite);
     DEF_NATIVE(Resources, LoadImage);
     DEF_NATIVE(Resources, LoadFont);
     DEF_NATIVE(Resources, LoadModel);
@@ -16837,17 +16831,8 @@ PUBLIC STATIC void StandardLibrary::Link() {
 
     // #region Scene
     INIT_CLASS(Scene);
-    DEF_NATIVE(Scene, ProcessObjectMovement);
-    DEF_NATIVE(Scene, ObjectTileCollision);
-    DEF_NATIVE(Scene, ObjectTileGrip);
-    DEF_NATIVE(Scene, CheckObjectCollisionTouch);
-    DEF_NATIVE(Scene, CheckObjectCollisionCircle);
-    DEF_NATIVE(Scene, CheckObjectCollisionBox);
-    DEF_NATIVE(Scene, CheckObjectCollisionPlatform);
     DEF_NATIVE(Scene, Load);
-    DEF_NATIVE(Scene, LoadNoPersistency); // deprecated
     DEF_NATIVE(Scene, Change);
-    DEF_NATIVE(Scene, LoadPosition); // deprecated
     DEF_NATIVE(Scene, LoadTileCollisions);
     DEF_NATIVE(Scene, AreTileCollisionsLoaded);
     DEF_NATIVE(Scene, AddTileset);
@@ -16888,15 +16873,10 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, GetTilesetPaletteIndex);
     DEF_NATIVE(Scene, GetDrawGroupCount);
     DEF_NATIVE(Scene, GetDrawGroupEntityDepthSorting);
-    DEF_NATIVE(Scene, GetListPos); // deprecated
     DEF_NATIVE(Scene, GetCurrentFolder);
     DEF_NATIVE(Scene, GetCurrentID);
     DEF_NATIVE(Scene, GetCurrentResourceFolder);
-    DEF_NATIVE(Scene, GetCurrentSpriteFolder); // deprecated
     DEF_NATIVE(Scene, GetCurrentCategory);
-    DEF_NATIVE(Scene, GetActiveCategory);
-    DEF_NATIVE(Scene, GetCategoryCount); // deprecated
-    DEF_NATIVE(Scene, GetStageCount); // deprecated
     DEF_NATIVE(Scene, GetDebugMode);
     DEF_NATIVE(Scene, GetFirstInstance);
     DEF_NATIVE(Scene, GetLastInstance);
@@ -16912,14 +16892,8 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, IsCurrentEntryValid);
     DEF_NATIVE(Scene, IsUsingFolder);
     DEF_NATIVE(Scene, IsUsingID);
-    DEF_NATIVE(Scene, CheckValidScene); // deprecated
-    DEF_NATIVE(Scene, CheckSceneFolder); // deprecated
-    DEF_NATIVE(Scene, CheckSceneID); // deprecated
     DEF_NATIVE(Scene, IsPaused);
-    DEF_NATIVE(Scene, SetListPos); // deprecated
-    DEF_NATIVE(Scene, SetActiveCategory); // deprecated
     DEF_NATIVE(Scene, SetDebugMode);
-    DEF_NATIVE(Scene, SetScene); // deprecated
     DEF_NATIVE(Scene, SetTile);
     DEF_NATIVE(Scene, SetTileCollisionSides);
     DEF_NATIVE(Scene, SetPaused);
@@ -17306,6 +17280,9 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(View, SetY);
     DEF_NATIVE(View, SetZ);
     DEF_NATIVE(View, SetPosition);
+    DEF_NATIVE(View, AdjustX);
+    DEF_NATIVE(View, AdjustY);
+    DEF_NATIVE(View, AdjustZ);
     DEF_NATIVE(View, SetAngle);
     DEF_NATIVE(View, SetSize);
     DEF_NATIVE(View, SetOutputX);

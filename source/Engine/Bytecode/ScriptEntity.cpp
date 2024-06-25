@@ -194,6 +194,14 @@ PUBLIC void ScriptEntity::LinkFields() {
     */
     LINK_DEC(Alpha);
     /***
+   * \field BlendMode
+   * \type Integer
+   * \default BlendMode_NORMAL
+   * \ns Instance
+   * \desc A field that may be used in <linkto ref="instance.Render"></linkto> for changing the BlendMode of a sprite.
+   */
+    LINK_INT(BlendMode);
+    /***
     * \field Priority
     * \type Integer
     * \default 0
@@ -1393,16 +1401,16 @@ PUBLIC STATIC VMValue ScriptEntity::VM_GetHitboxFromSprite(int argCount, VMValue
  * \param animation (Integer): The animation index.
  * \param frame (Integer): The frame index.
  * \param hitbox (Integer): The hitbox ID.
- * \return Returns an array containing the hitbox top, left, right and bottom sides in that order. 
+ * \return Returns an array containing the hitbox top, left, right and bottom sides in that order.
  * \ns Instance
  */
 PUBLIC STATIC VMValue ScriptEntity::VM_ReturnHitboxFromSprite(int argCount, VMValue* args, Uint32 threadID) {
     StandardLibrary::CheckArgCount(argCount, 5);
-    ScriptEntity* self    = GET_ENTITY(0);
-    ISprite* sprite         = GET_ARG(1, GetSprite);
-    int animation           = GET_ARG(2, GetInteger);
-    int frame               = GET_ARG(3, GetInteger);
-    int hitbox              = GET_ARG(4, GetInteger);
+    ScriptEntity* self = GET_ENTITY(0);
+    ISprite* sprite = GET_ARG(1, GetSprite);
+    int animation = GET_ARG(2, GetInteger);
+    int frame = GET_ARG(3, GetInteger);
+    int hitbox = GET_ARG(4, GetInteger);
 
     if (!self || !sprite)
         return NULL_VAL;

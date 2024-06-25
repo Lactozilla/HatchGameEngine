@@ -147,6 +147,7 @@ PUBLIC STATIC string SceneInfo::GetFilename(int entryID) {
 
     char filePath[4096];
     if (!strcmp(scene.Filetype, "bin")) {
+        snprintf(filePath, sizeof(filePath), "Scene%s.%s", id, scene.Filetype);
         if (scene.Folder == nullptr) {
             if (scene.Filetype == nullptr)
                 snprintf(filePath, sizeof(filePath), "Scene%s", id);
@@ -252,6 +253,8 @@ PUBLIC STATIC bool SceneInfo::Load(XMLNode* node) {
                     // Folder
                     if (stgElement->attributes.Exists("folder"))
                         entry.Folder = XMLParser::TokenToString(stgElement->attributes.Get("folder"));
+                    else
+                        entry.Folder = StringUtils::Duplicate("Unknown");
 
                     // ID
                     if (stgElement->attributes.Exists("id"))
@@ -265,16 +268,14 @@ PUBLIC STATIC bool SceneInfo::Load(XMLNode* node) {
                     // Resource folder
                     if (stgElement->attributes.Exists("resourceFolder"))
                         entry.ResourceFolder = XMLParser::TokenToString(stgElement->attributes.Get("resourceFolder"));
-
-                    // Sprite folder (backwards compat)
-                    if (stgElement->attributes.Exists("spriteFolder"))
-                        entry.ResourceFolder = XMLParser::TokenToString(stgElement->attributes.Get("spriteFolder"));
+                    else
+                        entry.ResourceFolder = StringUtils::Duplicate(entry.Folder);
 
                     // Filetype
-                    if (stgElement->attributes.Exists("fileExtension"))
-                        entry.Filetype = XMLParser::TokenToString(stgElement->attributes.Get("fileExtension"));
-                    else if (stgElement->attributes.Exists("type"))
+                    if (stgElement->attributes.Exists("type"))
                         entry.Filetype = XMLParser::TokenToString(stgElement->attributes.Get("type"));
+                    else
+                        entry.Name = StringUtils::Duplicate("tmx");
 
                     entry.ParentCategoryID = Categories.size();
                     entry.CategoryPos = category.Count;
@@ -285,7 +286,6 @@ PUBLIC STATIC bool SceneInfo::Load(XMLNode* node) {
                     entry.Properties->Put("folder", entry.Folder);
                     entry.Properties->Put("id", entry.ID);
                     entry.Properties->Put("resourceFolder", entry.ResourceFolder);
-                    entry.Properties->Put("spriteFolder", entry.ResourceFolder); // backwards compat
                     entry.Properties->Put("fileExtension", entry.Filetype);
 
                     FillAttributesHashMap(&stgElement->attributes, entry.Properties);
