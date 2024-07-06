@@ -8,6 +8,7 @@ public:
     static Scanner              scanner;
     static ParseRule*           Rules;
     static vector<ObjFunction*> Functions;
+    static vector<Local>        ModuleLocals;
     static HashMap<Token>*      TokenMap;
     static bool                 ShowWarnings;
     static bool                 WriteDebugInfo;
@@ -45,6 +46,7 @@ Parser               Compiler::parser;
 Scanner              Compiler::scanner;
 ParseRule*           Compiler::Rules = NULL;
 vector<ObjFunction*> Compiler::Functions;
+vector<Local>        Compiler::ModuleLocals;
 HashMap<Token>*      Compiler::TokenMap = NULL;
 
 bool                 Compiler::ShowWarnings = false;
@@ -129,6 +131,7 @@ enum TokenTYPE {
     TOKEN_EVENT,
     TOKEN_VAR,
     TOKEN_STATIC,
+    TOKEN_LOCAL,
 
     // Keywords.
     TOKEN_DO,
@@ -155,6 +158,8 @@ enum TokenTYPE {
     TOKEN_AS,
     TOKEN_IN,
     TOKEN_FROM,
+    TOKEN_USING,
+    TOKEN_NAMESPACE,
 
     TOKEN_PRINT,
 
@@ -374,9 +379,12 @@ PUBLIC VIRTUAL int   Compiler::GetKeywordType() {
                 }
             }
             break;
+        case 'l':
+            return CheckKeyword(1, 4, "ocal", TOKEN_LOCAL);
         case 'n':
             if (scanner.Current - scanner.Start > 1) {
                 switch (*(scanner.Start + 1)) {
+                    case 'a': return CheckKeyword(2, 7, "mespace", TOKEN_NAMESPACE);
                     case 'u': return CheckKeyword(2, 2, "ll", TOKEN_NULL);
                     case 'e': return CheckKeyword(2, 1, "w", TOKEN_NEW);
                 }
@@ -434,6 +442,8 @@ PUBLIC VIRTUAL int   Compiler::GetKeywordType() {
                 }
             }
             break;
+        case 'u':
+            return CheckKeyword(1, 4, "sing", TOKEN_USING);
         case 'v':
             return CheckKeyword(1, 2, "ar", TOKEN_VAR);
         case 'w':
@@ -670,7 +680,7 @@ PUBLIC bool          Compiler::ReportError(int line, bool fatal, const char* str
 
     va_list args;
     va_start(args, string);
-    vsprintf(message, string, args);
+    vsnprintf(message, sizeof message, string, args);
     va_end(args);
 
     Log::Print(fatal ? Log::LOG_ERROR : Log::LOG_WARN, "in file '%s' on line %d:\n    %s\n\n", scanner.SourceFilename, line, message);
@@ -689,7 +699,7 @@ PUBLIC bool          Compiler::ReportErrorPos(int line, int pos, bool fatal, con
 
     va_list args;
     va_start(args, string);
-    vsprintf(message, string, args);
+    vsnprintf(message, sizeof message, string, args);
     va_end(args);
 
 	char* textBuffer = (char*)malloc(512);
@@ -767,7 +777,7 @@ PUBLIC void          Compiler::WarningInFunction(const char* format, ...) {
 
     va_list args;
     va_start(args, format);
-    vsprintf(message, format, args);
+    vsnprintf(message, sizeof message, format, args);
     va_end(args);
 
     char* textBuffer = (char*)malloc(512);
@@ -795,9 +805,7 @@ PUBLIC void          Compiler::WarningInFunction(const char* format, ...) {
 
 PUBLIC void  Compiler::ParseVariable(const char* errorMessage) {
     ConsumeToken(TOKEN_IDENTIFIER, errorMessage);
-
     DeclareVariable(&parser.Previous);
-    if (ScopeDepth > 0) return;
 }
 PUBLIC bool  Compiler::IdentifiersEqual(Token* a, Token* b) {
     if (a->Length != b->Length) return false;
@@ -830,6 +838,24 @@ PUBLIC void  Compiler::DeclareVariable(Token* name) {
 
     AddLocal(*name);
 }
+PUBLIC int   Compiler::ParseModuleVariable(const char* errorMessage) {
+    ConsumeToken(TOKEN_IDENTIFIER, errorMessage);
+    return DeclareModuleVariable(&parser.Previous);
+}
+PUBLIC void  Compiler::DefineModuleVariable(int local) {
+    EmitByte(OP_DEFINE_MODULE_LOCAL);
+    Compiler::ModuleLocals[local].Depth = 0;
+}
+PUBLIC int   Compiler::DeclareModuleVariable(Token* name) {
+    for (int i = Compiler::ModuleLocals.size() - 1; i >= 0; i--) {
+        Local& local = Compiler::ModuleLocals[i];
+
+        if (IdentifiersEqual(name, &local.Name))
+            Error("Local with this name already declared in this module.");
+    }
+
+    return AddModuleLocal(*name);
+}
 PRIVATE void Compiler::WarnVariablesUnused() {
     if (!Compiler::ShowWarnings)
         return;
@@ -843,7 +869,7 @@ PRIVATE void Compiler::WarnVariablesUnused() {
 
     for (int i = numUnused - 1; i >= 0; i--) {
         Local& local = (*UnusedVariables)[i];
-        snprintf(temp, sizeof(temp), "Variable '%.*s' is unused. (Declared on line %d)", local.Name.Length, local.Name.Start, local.Name.Line);
+        snprintf(temp, sizeof(temp), "Variable '%.*s' is unused. (Declared on line %d)", (int)local.Name.Length, local.Name.Start, local.Name.Line);
         message += std::string(temp);
         if (i != 0)
             message += "\n    ";
@@ -865,6 +891,10 @@ PUBLIC void  Compiler::EmitSetOperation(Uint8 setOp, int arg, Token name) {
         case OP_SET_ELEMENT:
             EmitByte(setOp);
             break;
+        case OP_SET_MODULE_LOCAL:
+            EmitByte(setOp);
+            EmitUint16((Uint16)arg);
+            break;
         default:
             break;
     }
@@ -882,6 +912,9 @@ PUBLIC void  Compiler::EmitGetOperation(Uint8 getOp, int arg, Token name) {
         case OP_GET_ELEMENT:
             EmitByte(getOp);
             break;
+        case OP_GET_MODULE_LOCAL:
+            EmitByte(getOp);
+            EmitUint16((Uint16)arg);
         default:
             break;
     }
@@ -955,8 +988,15 @@ PUBLIC void  Compiler::NamedVariable(Token name, bool canAssign) {
         setOp = OP_SET_LOCAL;
     }
     else {
-        getOp = OP_GET_GLOBAL;
-        setOp = OP_SET_GLOBAL;
+        arg = ResolveModuleLocal(&name);
+        if (arg != -1) {
+            getOp = OP_GET_MODULE_LOCAL;
+            setOp = OP_SET_MODULE_LOCAL;
+        }
+        else {
+            getOp = OP_GET_GLOBAL;
+            setOp = OP_SET_GLOBAL;
+        }
     }
 
     if (canAssign && MatchAssignmentToken()) {
@@ -1082,6 +1122,31 @@ PUBLIC int   Compiler::ResolveLocal(Token* name) {
     }
     return -1;
 }
+PUBLIC int   Compiler::AddModuleLocal(Token name) {
+    if (Compiler::ModuleLocals.size() == 0xFFFF) {
+        Error("Too many locals in module.");
+        return -1;
+    }
+    Local local;
+    local.Name = name;
+    local.Depth = -1;
+    local.Resolved = false;
+    Compiler::ModuleLocals.push_back(local);
+    return ((int)Compiler::ModuleLocals.size()) - 1;
+}
+PUBLIC int   Compiler::ResolveModuleLocal(Token* name) {
+    for (int i = Compiler::ModuleLocals.size() - 1; i >= 0; i--) {
+        Local& local = Compiler::ModuleLocals[i];
+        if (IdentifiersEqual(name, &local.Name)) {
+            if (local.Depth == -1) {
+                Error("Cannot read local variable in its own initializer.");
+            }
+            local.Resolved = true;
+            return i;
+        }
+    }
+    return -1;
+}
 PUBLIC Uint8 Compiler::GetArgumentList() {
     Uint8 argumentCount = 0;
     if (!CheckToken(TOKEN_RIGHT_PAREN)) {
@@ -1102,25 +1167,25 @@ PUBLIC Uint8 Compiler::GetArgumentList() {
 Token InstanceToken = Token { 0, NULL, 0, 0, 0 };
 PUBLIC void  Compiler::GetThis(bool canAssign) {
     InstanceToken = parser.Previous;
-    // if (currentClass == NULL) {
-    //     Error("Cannot use 'this' outside of a class.");
-    // }
-    // else {
-        GetVariable(false);
-    // }
+    GetVariable(false);
 }
 PUBLIC void  Compiler::GetSuper(bool canAssign) {
     InstanceToken = parser.Previous;
+    if (!CheckToken(TOKEN_DOT))
+        Error("Expect '.' after 'super'.");
     EmitBytes(OP_GET_LOCAL, 0);
 }
 PUBLIC void  Compiler::GetDot(bool canAssign) {
-    Token instanceToken = InstanceToken;
+    bool isSuper = InstanceToken.Type == TOKEN_SUPER;
     InstanceToken.Type = -1;
 
     ConsumeToken(TOKEN_IDENTIFIER, "Expect property name after '.'.");
     Token nameToken = parser.Previous;
 
     if (canAssign && MatchAssignmentToken()) {
+        if (isSuper)
+            EmitByte(OP_GET_SUPERCLASS);
+
         Token assignmentToken = parser.Previous;
         if (assignmentToken.Type == TOKEN_INCREMENT ||
             assignmentToken.Type == TOKEN_DECREMENT) {
@@ -1153,9 +1218,12 @@ PUBLIC void  Compiler::GetDot(bool canAssign) {
     else if (MatchToken(TOKEN_LEFT_PAREN)) {
         uint8_t argCount = GetArgumentList();
 
-        EmitCall(nameToken, argCount, instanceToken.Type == TOKEN_SUPER);
+        EmitCall(nameToken, argCount, isSuper);
     }
     else {
+        if (isSuper)
+            EmitByte(OP_GET_SUPERCLASS);
+
         EmitGetOperation(OP_GET_PROPERTY, -1, nameToken);
     }
 }
@@ -1195,9 +1263,6 @@ PUBLIC void  Compiler::GetElement(bool canAssign) {
             EmitAssignmentToken(assignmentToken);
             EmitSetOperation(OP_SET_ELEMENT, -1, blank);
         }
-    }
-    else if (MatchToken(TOKEN_LEFT_PAREN)) {
-        EmitGetOperation(OP_GET_ELEMENT, -1, blank);
     }
     else {
         EmitGetOperation(OP_GET_ELEMENT, -1, blank);
@@ -1673,7 +1738,7 @@ PUBLIC void Compiler::GetSwitchStatement() {
 
         EmitCopy(1);
 
-        for (int i = 0; i < case_info.CodeLength; i++)
+        for (Uint32 i = 0; i < case_info.CodeLength; i++)
             chunk->Write(case_info.CodeBlock[i], case_info.LineBlock[i]);
 
         EmitByte(OP_EQUAL);
@@ -1830,7 +1895,6 @@ PUBLIC void Compiler::GetBreakStatement() {
     ConsumeToken(TOKEN_SEMICOLON, "Expect ';' after break.");
 }
 PUBLIC void Compiler::GetBlockStatement() {
-    // printf("GetBlockStatement()\n");
     while (!CheckToken(TOKEN_RIGHT_BRACE) && !CheckToken(TOKEN_EOF)) {
         GetDeclaration();
     }
@@ -2188,8 +2252,13 @@ PUBLIC int  Compiler::GetFunction(int type, string className) {
     // Compile the parameter list.
     compiler->ConsumeToken(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
 
+    bool isOptional = false;
+
     if (!compiler->CheckToken(TOKEN_RIGHT_PAREN)) {
         do {
+            if (!isOptional && compiler->MatchToken(TOKEN_LEFT_SQUARE_BRACE))
+                isOptional = true;
+
             compiler->ParseVariable("Expect parameter name.");
             compiler->DefineVariableToken(parser.Previous);
 
@@ -2197,6 +2266,11 @@ PUBLIC int  Compiler::GetFunction(int type, string className) {
             if (compiler->Function->Arity > 255) {
                 compiler->Error("Cannot have more than 255 parameters.");
             }
+
+            if (!isOptional)
+                compiler->Function->MinArity++;
+            else if (compiler->MatchToken(TOKEN_RIGHT_SQUARE_BRACE))
+                break;
         }
         while (compiler->MatchToken(TOKEN_COMMA));
     }
@@ -2225,7 +2299,7 @@ PUBLIC void Compiler::GetMethod(Token className) {
     if (IdentifiersEqual(&className, &parser.Previous))
         type = TYPE_CONSTRUCTOR;
 
-    int index = GetFunction(type, std::string(className.Start, className.Length));
+    int index = GetFunction(type, className.ToString());
 
     EmitByte(OP_METHOD);
     EmitByte(index);
@@ -2250,6 +2324,29 @@ PUBLIC void Compiler::GetVariableDeclaration() {
         }
 
         DefineVariableToken(token);
+    }
+    while (MatchToken(TOKEN_COMMA));
+
+    ConsumeToken(TOKEN_SEMICOLON, "Expected \";\" after variable declaration.");
+}
+PUBLIC void Compiler::GetModuleVariableDeclaration() {
+    ConsumeToken(TOKEN_VAR, "Expected \"var\" after \"local\" declaration.");
+
+    if (ScopeDepth > 0) {
+        Error("Cannot use local declaration outside of top-level code.");
+    }
+
+    do {
+        int local = ParseModuleVariable("Expected variable name.");
+
+        if (MatchToken(TOKEN_ASSIGNMENT)) {
+            GetExpression();
+        }
+        else {
+            EmitByte(OP_NULL);
+        }
+
+        DefineModuleVariable(local);
     }
     while (MatchToken(TOKEN_COMMA));
 
@@ -2404,7 +2501,24 @@ PUBLIC void Compiler::GetImportDeclaration() {
     }
     while (MatchToken(TOKEN_COMMA));
 
-    ConsumeToken(TOKEN_SEMICOLON, "Expected \";\" after import declaration.");
+    ConsumeToken(TOKEN_SEMICOLON, "Expected \";\" after \"import\" declaration.");
+}
+PUBLIC void Compiler::GetUsingDeclaration() {
+    ConsumeToken(TOKEN_NAMESPACE, "Expected \"namespace\" after \"using\" declaration.");
+
+    if (ScopeDepth > 0) {
+        Error("Cannot use namespaces outside of top-level code.");
+    }
+
+    do {
+        ConsumeToken(TOKEN_IDENTIFIER, "Expected namespace name.");
+        Token nsName = parser.Previous;
+        EmitByte(OP_USE_NAMESPACE);
+        EmitStringHash(nsName);
+    }
+    while (MatchToken(TOKEN_COMMA));
+
+    ConsumeToken(TOKEN_SEMICOLON, "Expected \";\" after \"using\" declaration.");
 }
 PUBLIC void Compiler::GetEventDeclaration() {
     ConsumeToken(TOKEN_IDENTIFIER, "Expected event name.");
@@ -2437,6 +2551,10 @@ PUBLIC void Compiler::GetDeclaration() {
         GetImportDeclaration();
     else if (MatchToken(TOKEN_VAR))
         GetVariableDeclaration();
+    else if (MatchToken(TOKEN_LOCAL))
+        GetModuleVariableDeclaration();
+    else if (MatchToken(TOKEN_USING))
+        GetUsingDeclaration();
     else if (MatchToken(TOKEN_EVENT))
         GetEventDeclaration();
     else
@@ -2745,9 +2863,8 @@ PUBLIC STATIC int    Compiler::SimpleInstruction(const char* name, int offset) {
     return offset + 1;
 }
 PUBLIC STATIC int    Compiler::ByteInstruction(const char* name, Chunk* chunk, int offset) {
-    uint8_t slot = chunk->Code[offset + 1];
-    printf("%-16s %9d\n", name, slot);
-    return offset + 2; // [debug]
+    printf("%-16s %9d\n", name, chunk->Code[offset + 1]);
+    return offset + 2;
 }
 PUBLIC STATIC int    Compiler::LocalInstruction(const char* name, Chunk* chunk, int offset) {
     uint8_t slot = chunk->Code[offset + 1];
@@ -2755,7 +2872,7 @@ PUBLIC STATIC int    Compiler::LocalInstruction(const char* name, Chunk* chunk, 
         printf("%-16s %9d\n", name, slot);
     else
         printf("%-16s %9d 'this'\n", name, slot);
-    return offset + 2; // [debug]
+    return offset + 2;
 }
 PUBLIC STATIC int    Compiler::MethodInstruction(const char* name, Chunk* chunk, int offset) {
     uint8_t slot = chunk->Code[offset + 1];
@@ -2768,7 +2885,7 @@ PUBLIC STATIC int    Compiler::MethodInstruction(const char* name, Chunk* chunk,
         printf(" (%.*s)", (int)t.Length, t.Start);
     }
     printf("\n");
-    return offset + 6; // [debug]
+    return offset + 6;
 }
 PUBLIC STATIC int    Compiler::InvokeInstruction(const char* name, Chunk* chunk, int offset) {
     return Compiler::MethodInstruction(name, chunk, offset) + 1;
@@ -2782,16 +2899,19 @@ PUBLIC STATIC int    Compiler::JumpInstruction(const char* name, int sign, Chunk
 PUBLIC STATIC int    Compiler::ClassInstruction(const char* name, Chunk* chunk, int offset) {
     return Compiler::HashInstruction(name, chunk, offset) + 1;
 }
+PUBLIC STATIC int    Compiler::EnumInstruction(const char* name, Chunk* chunk, int offset) {
+    return Compiler::HashInstruction(name, chunk, offset);
+}
 PUBLIC STATIC int    Compiler::WithInstruction(const char* name, Chunk* chunk, int offset) {
     uint8_t slot = chunk->Code[offset + 1];
     if (slot == 0) {
         printf("%-16s %9d\n", name, slot);
-        return offset + 2; // [debug]
+        return offset + 2;
     }
     uint16_t jump = (uint16_t)(chunk->Code[offset + 2]);
     jump |= chunk->Code[offset + 3] << 8;
     printf("%-16s %9d -> %d\n", name, slot, jump);
-    return offset + 4; // [debug]
+    return offset + 4;
 }
 PUBLIC STATIC int    Compiler::DebugInstruction(Chunk* chunk, int offset) {
     printf("%04d ", offset);
@@ -2815,7 +2935,7 @@ PUBLIC STATIC int    Compiler::DebugInstruction(Chunk* chunk, int offset) {
         case OP_POP:
             return SimpleInstruction("OP_POP", offset);
         case OP_COPY:
-            return SimpleInstruction("OP_COPY", offset);
+            return ByteInstruction("OP_COPY", chunk, offset);
         case OP_GET_LOCAL:
             return LocalInstruction("OP_GET_LOCAL", chunk, offset);
         case OP_SET_LOCAL:
@@ -2912,6 +3032,8 @@ PUBLIC STATIC int    Compiler::DebugInstruction(Chunk* chunk, int offset) {
             return InvokeInstruction("OP_INVOKE", chunk, offset);
         case OP_IMPORT:
             return ConstantInstruction("OP_IMPORT", chunk, offset);
+        case OP_IMPORT_MODULE:
+            return ConstantInstruction("OP_IMPORT_MODULE", chunk, offset);
 
         case OP_PRINT_STACK: {
             offset++;
@@ -2937,18 +3059,22 @@ PUBLIC STATIC int    Compiler::DebugInstruction(Chunk* chunk, int offset) {
         case OP_CLASS:
             return ClassInstruction("OP_CLASS", chunk, offset);
         case OP_NEW_ENUM:
-            return ClassInstruction("OP_NEW_ENUM", chunk, offset);
+            return EnumInstruction("OP_NEW_ENUM", chunk, offset);
         case OP_INHERIT:
             return SimpleInstruction("OP_INHERIT", offset);
         case OP_METHOD:
             return MethodInstruction("OP_METHOD", chunk, offset);
         default:
             printf("\x1b[1;93mUnknown opcode %d\x1b[m\n", instruction);
-            return offset + 1;
+            return chunk->Count + 1;
     }
 }
-PUBLIC STATIC void   Compiler::DebugChunk(Chunk* chunk, const char* name, int arity) {
-    printf("== %s (argCount: %d) ==\n", name, arity);
+PUBLIC STATIC void   Compiler::DebugChunk(Chunk* chunk, const char* name, int minArity, int maxArity) {
+    int optArgCount = maxArity - minArity;
+    if (optArgCount)
+        printf("== %s (argCount: %d, optArgCount: %d) ==\n", name, maxArity, optArgCount);
+    else
+        printf("== %s (argCount: %d) ==\n", name, maxArity);
     printf("byte   ln\n");
     for (int offset = 0; offset < chunk->Count;) {
         offset = DebugInstruction(chunk, offset);
@@ -3040,6 +3166,14 @@ PUBLIC bool          Compiler::Compile(const char* filename, const char* source,
     }
 
     ConsumeToken(TOKEN_EOF, "Expected end of file.");
+
+    if (UnusedVariables) {
+        for (size_t i = 0; i < Compiler::ModuleLocals.size(); i++) {
+            if (!Compiler::ModuleLocals[i].Resolved)
+                UnusedVariables->insert(UnusedVariables->begin(), Compiler::ModuleLocals[i]);
+        }
+    }
+
     Finish();
 
     bool debugCompiler = false;
@@ -3047,7 +3181,7 @@ PUBLIC bool          Compiler::Compile(const char* filename, const char* source,
     if (debugCompiler) {
         for (size_t c = 0; c < Compiler::Functions.size(); c++) {
             Chunk* chunk = &Compiler::Functions[c]->Chunk;
-            DebugChunk(chunk, Compiler::Functions[c]->Name->Chars, Compiler::Functions[c]->Arity);
+            DebugChunk(chunk, Compiler::Functions[c]->Name->Chars, Compiler::Functions[c]->MinArity, Compiler::Functions[c]->Arity);
             printf("\n");
         }
     }
@@ -3075,6 +3209,7 @@ PUBLIC VIRTUAL       Compiler::~Compiler() {
 }
 PUBLIC STATIC void   Compiler::FinishCompiling() {
     Compiler::Functions.clear();
+    Compiler::ModuleLocals.clear();
 
     if (TokenMap) {
         delete TokenMap;

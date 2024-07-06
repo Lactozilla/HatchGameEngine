@@ -15,6 +15,7 @@
 #include <Engine/Rendering/GameTexture.h>
 #include <Engine/Scene/SceneConfig.h>
 #include <Engine/Scene/SceneLayer.h>
+#include <Engine/Scene/SceneEnums.h>
 #include <Engine/Scene/TileConfig.h>
 #include <Engine/Scene/TileSpriteInfo.h>
 #include <Engine/Scene/TileAnimation.h>
@@ -104,17 +105,12 @@ public:
 
     static int                       Filter;
 
-    static vector<SceneListEntry>    ListData;
-    static vector<SceneListInfo>     ListCategory;
-    static int                       ListPos;
-    static char                      CurrentFolder[16];
-    static char                      CurrentID[16];
-    static char                      CurrentSpriteFolder[16];
-    static char                      CurrentCategory[16];
+    static int                       CurrentSceneInList;
+    static char                      CurrentFolder[256];
+    static char                      CurrentID[256];
+    static char                      CurrentSpriteFolder[256];
+    static char                      CurrentCategory[256];
     static int                       ActiveCategory;
-    static int                       CategoryCount;
-    static int                       ListCount;
-    static int                       StageCount;
 
     static int                       DebugMode;
 
@@ -166,7 +162,7 @@ public:
 #include <Engine/ResourceTypes/ResourceManager.h>
 #include <Engine/ResourceTypes/SceneFormats/TiledMapReader.h>
 #include <Engine/Rendering/SDL2/SDL2Renderer.h>
-#include <Engine/Scene/SceneConfig.h>
+#include <Engine/Scene/SceneInfo.h>
 #include <Engine/TextFormats/XML/XMLParser.h>
 #include <Engine/TextFormats/XML/XMLNode.h>
 #include <Engine/Types/EntityTypes.h>
@@ -247,17 +243,12 @@ int                       Scene::Minutes = 0;
 int                       Scene::Filter = 0xFF;
 
 // Scene list variables
-vector<SceneListEntry>    Scene::ListData;
-vector<SceneListInfo>     Scene::ListCategory;
-int                       Scene::ListPos;
-char                      Scene::CurrentFolder[16];
-char                      Scene::CurrentID[16];
-char                      Scene::CurrentSpriteFolder[16];
-char                      Scene::CurrentCategory[16];
+int                       Scene::CurrentSceneInList;
+char                      Scene::CurrentFolder[256];
+char                      Scene::CurrentID[256];
+char                      Scene::CurrentSpriteFolder[256];
+char                      Scene::CurrentCategory[256];
 int                       Scene::ActiveCategory;
-int                       Scene::CategoryCount;
-int                       Scene::ListCount;
-int                       Scene::StageCount;
 
 // Debug mode variables
 int                       Scene::DebugMode;
@@ -325,19 +316,8 @@ void UpdateObjectEarly(Entity* ent) {
 
     elapsed = Clock::GetTicks() - elapsed;
 
-    if (ent->List) {
-        ObjectList* list = ent->List;
-        double count = list->AverageUpdateEarlyItemCount;
-        if (count < 60.0 * 60.0) {
-            count += 1.0;
-            if (count == 1.0)
-                list->AverageUpdateEarlyTime = elapsed;
-            else
-                list->AverageUpdateEarlyTime =
-                list->AverageUpdateEarlyTime + (elapsed - list->AverageUpdateEarlyTime) / count;
-            list->AverageUpdateEarlyItemCount = count;
-        }
-    }
+    if (ent->List)
+        ent->List->Performance.EarlyUpdate.DoAverage(elapsed);
 }
 void UpdateObjectLate(Entity* ent) {
     if (Scene::Paused && ent->Pauseable && ent->Activity != ACTIVE_PAUSED && ent->Activity != ACTIVE_ALWAYS)
@@ -353,19 +333,8 @@ void UpdateObjectLate(Entity* ent) {
 
     elapsed = Clock::GetTicks() - elapsed;
 
-    if (ent->List) {
-        ObjectList* list = ent->List;
-        double count = list->AverageUpdateLateItemCount;
-        if (count < 60.0 * 60.0) {
-            count += 1.0;
-            if (count == 1.0)
-                list->AverageUpdateLateTime = elapsed;
-            else
-                list->AverageUpdateLateTime =
-                list->AverageUpdateLateTime + (elapsed - list->AverageUpdateLateTime) / count;
-            list->AverageUpdateLateItemCount = count;
-        }
-    }
+    if (ent->List)
+        ent->List->Performance.LateUpdate.DoAverage(elapsed);
 }
 void UpdateObject(Entity* ent) {
     if (Scene::Paused && ent->Pauseable && ent->Activity != ACTIVE_PAUSED && ent->Activity != ACTIVE_ALWAYS)
@@ -486,19 +455,8 @@ void UpdateObject(Entity* ent) {
 
         elapsed = Clock::GetTicks() - elapsed;
 
-        if (ent->List) {
-            ObjectList* list = ent->List;
-            double count = list->AverageUpdateItemCount;
-            if (count < 60.0 * 60.0) {
-                count += 1.0;
-                if (count == 1.0)
-                    list->AverageUpdateTime = elapsed;
-                else
-                    list->AverageUpdateTime =
-                        list->AverageUpdateTime + (elapsed - list->AverageUpdateTime) / count;
-                list->AverageUpdateItemCount = count;
-            }
-        }
+        if (ent->List)
+            ent->List->Performance.Update.DoAverage(elapsed);
 
         ent->WasOffScreen = false;
     }
@@ -673,22 +631,40 @@ PUBLIC STATIC void Scene::OnEvent(Uint32 event) {
 }
 
 // Scene List Functions
-PUBLIC STATIC void Scene::SetScene(const char* categoryName, const char* sceneName) {
-    for (int i = 0; i < Scene::CategoryCount; ++i) {
-        if (!strcmp(Scene::ListCategory[i].name, categoryName)) {
-            Scene::ActiveCategory = i;
-            Scene::ListPos = Scene::ListCategory[i].sceneOffsetStart;
+PUBLIC STATIC void Scene::SetCurrent(const char* categoryName, const char* sceneName) {
+    int categoryID = SceneInfo::GetCategoryID(categoryName);
+    if (categoryID < 0)
+        return;
 
-            for (int s = 0; s < Scene::ListCategory[i].sceneCount; ++s) {
-                if (!strcmp(Scene::ListData[Scene::ListCategory[i].sceneOffsetStart + s].name, sceneName)) {
-                    Scene::ListPos = Scene::ListCategory[i].sceneOffsetStart + s;
-                    break;
-                }
-            }
+    SceneListCategory& category = SceneInfo::Categories[categoryID];
+    if (!SceneInfo::IsEntryValid(category.OffsetStart))
+        return;
 
-            break;
-        }
-    }
+    Scene::ActiveCategory = categoryID;
+
+    int entryID = SceneInfo::GetEntryIDWithinRange(category.OffsetStart, category.OffsetEnd, sceneName);
+    if (entryID != -1)
+        Scene::CurrentSceneInList = entryID;
+    else
+        Scene::CurrentSceneInList = category.OffsetStart;
+}
+PUBLIC STATIC void Scene::SetInfoFromCurrentID() {
+    if (!SceneInfo::IsCategoryValid(Scene::ActiveCategory))
+        return;
+
+    SceneListCategory& category = SceneInfo::Categories[Scene::ActiveCategory];
+    size_t entryID = (size_t)Scene::CurrentSceneInList;
+    if (Scene::CurrentSceneInList >= category.OffsetEnd)
+        return;
+
+    SceneListEntry& scene = SceneInfo::Entries[entryID];
+
+    strcpy(Scene::CurrentFolder, scene.Folder);
+    strcpy(Scene::CurrentID, scene.ID);
+    strcpy(Scene::CurrentSpriteFolder, scene.SpriteFolder);
+    strcpy(Scene::CurrentCategory, category.Name);
+
+    Scene::CurrentSceneInList = entryID;
 }
 
 // Scene Lifecycle
@@ -1124,19 +1100,8 @@ DoCheckRender:
 
                 elapsed = Clock::GetTicks() - elapsed;
 
-                if (ent->List) {
-                    ObjectList* list = ent->List;
-                    double count = list->AverageRenderItemCount;
-                    if (count < 60.0 * 60.0) {
-                        count += 1.0;
-                        if (count == 1.0)
-                            list->AverageRenderTime = elapsed;
-                        else
-                            list->AverageRenderTime =
-                                list->AverageRenderTime + (elapsed - list->AverageRenderTime) / count;
-                        list->AverageRenderItemCount = count;
-                    }
-                }
+                if (ent->List)
+                    ent->List->Performance.Render.DoAverage(elapsed);
             }
         }
         objectTime = Clock::GetTicks() - objectTime;
@@ -1662,28 +1627,12 @@ PUBLIC STATIC void Scene::LoadScene(const char* filename) {
                 TiledMapReader::Read(filename, pathParent);
         }
 
-        // Prepare tile collisions
         InitTileCollisions();
+        SetInfoFromCurrentID();
 
-        // Load scene info and tile collisions
-        if (Scene::ListData.size()) {
-            SceneListEntry scene = Scene::ListData[Scene::ListPos];
-
-            strcpy(Scene::CurrentFolder, scene.folder);
-            strcpy(Scene::CurrentID, scene.id);
-            strcpy(Scene::CurrentSpriteFolder, scene.spriteFolder);
-
-            char filePath[4096];
-            if (!strcmp(scene.fileType, "bin")) {
-                snprintf(filePath, sizeof(filePath), "Stages/%s/TileConfig.bin", scene.folder);
-            }
-            else {
-                if (scene.folder[0] == '\0')
-                    snprintf(filePath, sizeof(filePath), "Scenes/TileConfig.bin");
-                else
-                    snprintf(filePath, sizeof(filePath), "Scenes/%s/TileConfig.bin", scene.folder);
-            }
-            Scene::LoadTileCollisions(filePath, 0);
+        if (SceneInfo::IsEntryValid(CurrentSceneInList)) {
+            std::string filename = SceneInfo::GetTileConfigFilename(CurrentSceneInList);
+            Scene::LoadTileCollisions(filename.c_str(), 0);
         }
     }
     else
@@ -1720,7 +1669,7 @@ PUBLIC STATIC void Scene::ProcessSceneTimer() {
 }
 
 PUBLIC STATIC ObjectList* Scene::NewObjectList(const char* objectName) {
-    ObjectList* objectList = new (nothrow) ObjectList(objectName);
+    ObjectList* objectList = new (std::nothrow) ObjectList(objectName);
     if (objectList && ScriptManager::LoadObjectClass(objectName, true))
         objectList->SpawnFunction = ScriptManager::ObjectSpawnFunction;
     return objectList;
@@ -2344,6 +2293,7 @@ PUBLIC STATIC bool Scene::AddTileset(char* path) {
         info.Sprite = tileSprite;
         info.AnimationIndex = 0;
         info.FrameIndex = (int)tileSprite->Animations[0].Frames.size();
+        info.TilesetID = Scene::Tilesets.size() - 1;
         Scene::TileSpriteInfos.push_back(info);
 
         tileSprite->AddFrame(0,
@@ -2435,6 +2385,48 @@ PUBLIC STATIC void Scene::UnloadTileCollisions() {
     Scene::TileCfg.clear();
     Scene::TileCfgLoaded = false;
     Scene::TileCount = 0;
+}
+
+// Resource Management
+// return true if we found it in the list
+PUBLIC STATIC bool Scene::GetResourceListSpace(vector<ResourceType*>* list, ResourceType* resource, size_t& index, bool& foundEmpty) {
+    foundEmpty = false;
+    index = list->size();
+    for (size_t i = 0, listSz = list->size(); i < listSz; i++) {
+        if (!(*list)[i]) {
+            if (!foundEmpty) {
+                foundEmpty = true;
+                index = i;
+            }
+            continue;
+        }
+        if ((*list)[i]->FilenameHash == resource->FilenameHash) {
+            index = i;
+            delete resource;
+            return true;
+        }
+    }
+    return false;
+}
+
+PUBLIC STATIC bool Scene::GetResource(vector<ResourceType*>* list, ResourceType* resource, size_t& index) {
+    bool foundEmpty = false;
+    if (GetResourceListSpace(list, resource, index, foundEmpty))
+        return true;
+    else if (foundEmpty)
+        (*list)[index] = resource;
+    else
+        list->push_back(resource);
+    return false;
+}
+
+PUBLIC STATIC ISprite* Scene::GetSpriteResource(int index) {
+    if (index < 0 || index >= (int)Scene::SpriteList.size())
+        return NULL;
+
+    if (!Scene::SpriteList[index]) return NULL;
+
+    return Scene::SpriteList[index]->AsSprite;
 }
 
 PUBLIC STATIC void Scene::DisposeInScope(Uint32 scope) {
@@ -3385,7 +3377,7 @@ PUBLIC STATIC bool Scene::ObjectTileCollision(Entity* entity, int cLayers, int c
         default: return false;
 
         case CMODE_FLOOR:
-            for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+            for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
                 SceneLayer layer = Layers[l];
 
                 if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -3432,7 +3424,7 @@ PUBLIC STATIC bool Scene::ObjectTileCollision(Entity* entity, int cLayers, int c
             return collided;
 
         case CMODE_LWALL:
-            for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+            for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
                 SceneLayer layer = Layers[l];
 
                 if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -3479,7 +3471,7 @@ PUBLIC STATIC bool Scene::ObjectTileCollision(Entity* entity, int cLayers, int c
             return collided;
 
         case CMODE_ROOF:
-            for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+            for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
                 SceneLayer layer = Layers[l];
 
                 if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -3526,7 +3518,7 @@ PUBLIC STATIC bool Scene::ObjectTileCollision(Entity* entity, int cLayers, int c
             return collided;
 
         case CMODE_RWALL:
-            for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+            for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
                 SceneLayer layer = Layers[l];
 
                 if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -3591,7 +3583,7 @@ PUBLIC STATIC bool Scene::ObjectTileGrip(Entity* entity, int cLayers, int cMode,
         default: return false;
 
         case CMODE_FLOOR:
-            for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+            for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
                 SceneLayer layer = Layers[l];
 
                 if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -3641,7 +3633,7 @@ PUBLIC STATIC bool Scene::ObjectTileGrip(Entity* entity, int cLayers, int cMode,
             return collided;
 
         case CMODE_LWALL:
-            for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+            for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
                 SceneLayer layer = Layers[l];
 
                 if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -3691,7 +3683,7 @@ PUBLIC STATIC bool Scene::ObjectTileGrip(Entity* entity, int cLayers, int cMode,
             return collided;
 
         case CMODE_ROOF:
-            for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+            for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
                 SceneLayer layer = Layers[l];
 
                 if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -3741,7 +3733,7 @@ PUBLIC STATIC bool Scene::ObjectTileGrip(Entity* entity, int cLayers, int cMode,
             return collided;
 
         case CMODE_RWALL:
-            for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+            for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
                 SceneLayer layer = Layers[l];
 
                 if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -3949,7 +3941,7 @@ PUBLIC STATIC void Scene::ProcessPathGrip() {
                 }
 
                 if (Sensors[0].Angle < 0xDE && Sensors[0].Angle > 0x80)
-                    CollisionEntity->CollisionMode == CMODE_LWALL;
+                    CollisionEntity->CollisionMode = CMODE_LWALL;
                 if (Sensors[0].Angle > 0x22 && Sensors[0].Angle < 0x80)
                     CollisionEntity->CollisionMode = CMODE_RWALL;
                 break;
@@ -5041,7 +5033,7 @@ PUBLIC STATIC void Scene::FindLWallPosition(CollisionSensor* sensor) {
     int startX = posX;
 
     int layerID = 1;
-    for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+    for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
         SceneLayer layer = Layers[l];
 
         if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -5111,7 +5103,7 @@ PUBLIC STATIC void Scene::FindRoofPosition(CollisionSensor* sensor) {
     int startY = posY;
 
     int layerID = 1;
-    for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+    for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
         SceneLayer layer = Layers[l];
 
         if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -5180,7 +5172,7 @@ PUBLIC STATIC void Scene::FindRWallPosition(CollisionSensor* sensor) {
     int startX = posX;
 
     int layerID = 1;
-    for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+    for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
         SceneLayer layer = Layers[l];
 
         if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -5251,7 +5243,7 @@ PUBLIC STATIC void Scene::FloorCollision(CollisionSensor* sensor) {
     float collidePos    = 65536.0;
 
     int layerID = 1;
-    for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+    for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
         SceneLayer layer = Layers[l];
 
         if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -5326,7 +5318,7 @@ PUBLIC STATIC void Scene::LWallCollision(CollisionSensor* sensor) {
     int solid = 2;
 
     int layerID = 1;
-    for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+    for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
         SceneLayer layer = Layers[l];
 
         if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -5390,7 +5382,7 @@ PUBLIC STATIC void Scene::RoofCollision(CollisionSensor* sensor) {
     float collidePos    = -1.0;
 
     int layerID = 1;
-        for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+        for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
         SceneLayer layer = Layers[l];
 
         if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))
@@ -5462,7 +5454,7 @@ PUBLIC STATIC void Scene::RWallCollision(CollisionSensor* sensor) {
     int solid = 2;
 
     int layerID = 1;
-    for (size_t l = 0; l < Layers.size(); ++l, layerID << 1) {
+    for (size_t l = 0; l < Layers.size(); ++l, layerID <<= 1) {
         SceneLayer layer = Layers[l];
 
         if (!(layer.Flags & SceneLayer::FLAGS_COLLIDEABLE))

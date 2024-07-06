@@ -25,7 +25,6 @@ public:
     int               ConstantY = 0x0000;
     int               OffsetX = 0x0000;
     int               OffsetY = 0x0000;
-    bool              Repeat = true;
 
     Uint32*           Tiles = NULL;
     Uint32*           TilesBackup = NULL;
@@ -47,6 +46,8 @@ public:
     Uint8             BlendMode = 0; // BlendMode_NORMAL
     float             Opacity = 1.0f;
 
+    bool              UsePaletteIndexLines = false;
+
     bool              UsingCustomScanlineFunction = false;
     ObjFunction       CustomScanlineFunction;
 
@@ -65,8 +66,8 @@ public:
 
     enum {
         FLAGS_COLLIDEABLE = 1,
-        FLAGS_NO_REPEAT_X = 2,
-        FLAGS_NO_REPEAT_Y = 4,
+        FLAGS_REPEAT_X = 2,
+        FLAGS_REPEAT_Y = 4,
     };
 };
 #endif

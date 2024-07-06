@@ -5,6 +5,7 @@
 #include <Engine/Bytecode/TypeImpl/ArrayImpl.h>
 #include <Engine/Bytecode/TypeImpl/MapImpl.h>
 #include <Engine/Bytecode/TypeImpl/FunctionImpl.h>
+#include <Engine/Bytecode/TypeImpl/StringImpl.h>
 #include <Engine/Diagnostics/Log.h>
 #include <Engine/Diagnostics/Memory.h>
 #include <Engine/Hashing/FNV1A.h>
@@ -32,6 +33,7 @@ static Obj*       AllocateObject(size_t size, ObjType type) {
 static ObjString* AllocateString(char* chars, size_t length, Uint32 hash) {
     ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
     Memory::Track(string, "NewString");
+    string->Object.Class = StringImpl::Class;
     string->Length = length;
     string->Chars = chars;
     string->Hash = hash;
@@ -57,6 +59,13 @@ ObjString*        CopyString(const char* chars, size_t length) {
 ObjString*        CopyString(const char* chars) {
     return CopyString(chars, strlen(chars));
 }
+ObjString*        CopyString(ObjString* string) {
+    char* heapChars = ALLOCATE(char, string->Length + 1);
+    memcpy(heapChars, string->Chars, string->Length);
+    heapChars[string->Length] = '\0';
+
+    return AllocateString(heapChars, string->Length, string->Hash);
+}
 ObjString*        AllocString(size_t length) {
     char* heapChars = ALLOCATE(char, length + 1);
     heapChars[length] = '\0';
@@ -69,10 +78,11 @@ ObjFunction*      NewFunction() {
     Memory::Track(function, "NewFunction");
     function->Object.Class = FunctionImpl::Class;
     function->Arity = 0;
+    function->MinArity = 0;
     function->UpvalueCount = 0;
+    function->Module = NULL;
     function->Name = NULL;
     function->ClassName = NULL;
-    function->SourceFilename = NULL;
     function->Chunk.Init();
     return function;
 }
@@ -108,6 +118,10 @@ ObjClass*         NewClass(Uint32 hash) {
     klass->Hash = hash;
     klass->Methods = new Table(NULL, 4);
     klass->Fields = new Table(NULL, 16);
+    klass->PropertyGet = NULL;
+    klass->PropertySet = NULL;
+    klass->ElementGet = NULL;
+    klass->ElementSet = NULL;
     klass->Initializer = NULL_VAL;
     klass->Type = CLASS_TYPE_NORMAL;
     klass->ParentHash = 0;
@@ -120,6 +134,8 @@ ObjInstance*      NewInstance(ObjClass* klass) {
     instance->Object.Class = klass;
     instance->Fields = new Table(NULL, 16);
     instance->EntityPtr = NULL;
+    instance->PropertyGet = NULL;
+    instance->PropertySet = NULL;
     return instance;
 }
 ObjBoundMethod*   NewBoundMethod(VMValue receiver, ObjFunction* method) {
@@ -158,15 +174,24 @@ ObjNamespace*     NewNamespace(Uint32 hash) {
     ns->Name = NULL;
     ns->Hash = hash;
     ns->Fields = new Table(NULL, 16);
+    ns->InUse = false;
     return ns;
 }
-ObjEnum*          NewEnumeration(Uint32 hash) {
+ObjEnum*          NewEnum(Uint32 hash) {
     ObjEnum* enumeration = ALLOCATE_OBJ(ObjEnum, OBJ_ENUM);
-    Memory::Track(enumeration, "NewEnumeration");
+    Memory::Track(enumeration, "NewEnum");
     enumeration->Name = NULL;
     enumeration->Hash = hash;
     enumeration->Fields = new Table(NULL, 16);
     return enumeration;
+}
+ObjModule*        NewModule() {
+    ObjModule* module = ALLOCATE_OBJ(ObjModule, OBJ_MODULE);
+    Memory::Track(module, "NewModule");
+    module->Functions = new vector<ObjFunction*>();
+    module->Locals = new vector<VMValue>();
+    module->SourceFilename = NULL;
+    return module;
 }
 
 bool              ValuesEqual(VMValue a, VMValue b) {
@@ -223,6 +248,8 @@ const char*       GetObjectTypeString(Uint32 type) {
             return "Stream";
         case OBJ_NAMESPACE:
             return "Namespace";
+        case OBJ_MODULE:
+            return "Module";
     }
     return "Unknown Object Type";
 }

@@ -10,10 +10,13 @@ public:
 #include <Engine/Diagnostics/Clock.h>
 
 #ifdef WIN32
+#define USE_WIN32_CLOCK
+#endif
+
+#ifdef USE_WIN32_CLOCK
     #include <windows.h>
 
     bool          Win32_PerformanceFrequencyEnabled = false;
-    LARGE_INTEGER Win32_Frequency;
     double        Win32_CPUFreq;
     Sint64        Win32_GameStartTime;
     stack<double> Win32_ClockStack;
@@ -24,70 +27,77 @@ public:
 #include <chrono>
 #include <thread>
 
-chrono::steady_clock::time_point        GameStartTime;
-stack<chrono::steady_clock::time_point> ClockStack;
+std::chrono::steady_clock::time_point        GameStartTime;
+stack<std::chrono::steady_clock::time_point> ClockStack;
 
 PUBLIC STATIC void   Clock::Init() {
-    #ifdef WIN32
-        if (QueryPerformanceFrequency(&Win32_Frequency)) {
-            Win32_PerformanceFrequencyEnabled = true;
-            Win32_CPUFreq = (double)Win32_Frequency.QuadPart / 1000.0;
-            // Log::Print(Log::LOG_INFO, "CPU Frequency: %.1f GHz", Win32_Frequency.QuadPart / 1000000.0);
+#ifdef USE_WIN32_CLOCK
+    LARGE_INTEGER Win32_Frequency;
 
-            LARGE_INTEGER ticks;
-            if (QueryPerformanceCounter(&ticks)) {
-                Win32_GameStartTime = ticks.QuadPart;
-            }
-        }
-        else {
-            Win32_PerformanceFrequencyEnabled = false;
-            // Win32_GameStartTime = timeGetTime();
-        }
-    #endif
+    if (QueryPerformanceFrequency(&Win32_Frequency)) {
+        Win32_PerformanceFrequencyEnabled = true;
+        Win32_CPUFreq = (double)Win32_Frequency.QuadPart / 1000.0;
 
-    GameStartTime = chrono::steady_clock::now();
+        LARGE_INTEGER ticks;
+        if (QueryPerformanceCounter(&ticks)) {
+            Win32_GameStartTime = ticks.QuadPart;
+        }
+
+        return;
+    }
+    else {
+        Win32_PerformanceFrequencyEnabled = false;
+    }
+#endif
+
+    GameStartTime = std::chrono::steady_clock::now();
 }
 PUBLIC STATIC void   Clock::Start() {
-    #ifdef WIN32
+#ifdef USE_WIN32_CLOCK
+    if (Win32_PerformanceFrequencyEnabled) {
         Win32_ClockStack.push(Clock::GetTicks());
-    #endif
+        return;
+    }
+#endif
 
-    ClockStack.push(chrono::steady_clock::now());
+    ClockStack.push(std::chrono::steady_clock::now());
 }
 PUBLIC STATIC double Clock::GetTicks() {
-    #ifdef WIN32
-        if (Win32_PerformanceFrequencyEnabled) {
-            LARGE_INTEGER ticks;
-            if (QueryPerformanceCounter(&ticks)) {
-                return (double)(ticks.QuadPart - Win32_GameStartTime) / Win32_CPUFreq;
-            }
+#ifdef USE_WIN32_CLOCK
+    if (Win32_PerformanceFrequencyEnabled) {
+        LARGE_INTEGER ticks;
+        if (QueryPerformanceCounter(&ticks)) {
+            return (double)(ticks.QuadPart - Win32_GameStartTime) / Win32_CPUFreq;
         }
-        else {
-            // return (double)(timeGetTime() - Win32_GameStartTime);
-        }
-    #endif
 
-    return (chrono::steady_clock::now() - GameStartTime).count() / 1000000.0;
+        return 0.0;
+    }
+#endif
+
+    return (std::chrono::steady_clock::now() - GameStartTime).count() / 1000000.0;
 }
 PUBLIC STATIC double Clock::End() {
-    #ifdef WIN32
-    {
+#ifdef USE_WIN32_CLOCK
+    if (Win32_PerformanceFrequencyEnabled) {
         auto t1 = Win32_ClockStack.top();
         auto t2 = Clock::GetTicks();
         Win32_ClockStack.pop();
         return t2 - t1;
     }
-    #endif
+#endif
 
     auto t1 = ClockStack.top();
-    auto t2 = chrono::steady_clock::now();
+    auto t2 = std::chrono::steady_clock::now();
     ClockStack.pop();
     return (t2 - t1).count() / 1000000.0;
 }
 PUBLIC STATIC void   Clock::Delay(double milliseconds) {
-    #ifdef WIN32
+#ifdef USE_WIN32_CLOCK
+    if (Win32_PerformanceFrequencyEnabled) {
         Sleep((DWORD)milliseconds);
         return;
-    #endif
-    this_thread::sleep_for(chrono::nanoseconds((int)(milliseconds * 1000000.0)));
+    }
+#endif
+
+    std::this_thread::sleep_for(std::chrono::nanoseconds((int)(milliseconds * 1000000.0)));
 }

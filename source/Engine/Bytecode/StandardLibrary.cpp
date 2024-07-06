@@ -25,6 +25,7 @@ public:
 #include <Engine/Hashing/CombinedHash.h>
 #include <Engine/Hashing/CRC32.h>
 #include <Engine/Hashing/FNV1A.h>
+#include <Engine/Includes/DateTime.h>
 #include <Engine/Input/Controller.h>
 #include <Engine/Input/Input.h>
 #include <Engine/IO/FileStream.h>
@@ -33,6 +34,7 @@ public:
 #include <Engine/IO/Serializer.h>
 #include <Engine/Math/Ease.h>
 #include <Engine/Math/Math.h>
+#include <Engine/Math/Geometry.h>
 #include <Engine/Network/HTTP.h>
 #include <Engine/Network/WebSocketClient.h>
 #include <Engine/Rendering/ViewTexture.h>
@@ -42,6 +44,8 @@ public:
 #include <Engine/ResourceTypes/SceneFormats/RSDKSceneReader.h>
 #include <Engine/ResourceTypes/ResourceManager.h>
 #include <Engine/ResourceTypes/ResourceType.h>
+#include <Engine/Scene/SceneEnums.h>
+#include <Engine/Scene/SceneInfo.h>
 #include <Engine/TextFormats/JSON/jsmn.h>
 #include <Engine/Utilities/ColorUtils.h>
 #include <Engine/Utilities/StringUtils.h>
@@ -236,32 +240,31 @@ namespace LOCAL {
         return value;
     }
 
-    inline ISprite*        GetSprite(VMValue* args, int index, Uint32 threadID) {
-        int where = GetInteger(args, index, threadID);
-        if (where < 0 || where > (int)Scene::SpriteList.size()) {
+    inline ISprite*        GetSpriteIndex(int where, Uint32 threadID) {
+        if (where < 0 || where >= (int)Scene::SpriteList.size()) {
             if (THROW_ERROR(
                 "Sprite index \"%d\" outside bounds of list.", where) == ERROR_RES_CONTINUE)
                 ScriptManager::Threads[threadID].ReturnFromNative();
+
+            return NULL;
         }
 
         if (!Scene::SpriteList[where]) return NULL;
 
         return Scene::SpriteList[where]->AsSprite;
     }
-    inline ISprite*        GetSpriteIndex(int index) {
-        if (index < 0 || index > (int)Scene::SpriteList.size() || !Scene::SpriteList[index])
-            return NULL;
-
-        if (!Scene::SpriteList[index]) return NULL;
-
-        return Scene::SpriteList[index]->AsSprite;
+    inline ISprite*        GetSprite(VMValue* args, int index, Uint32 threadID) {
+        int where = GetInteger(args, index, threadID);
+        return GetSpriteIndex(where, threadID);
     }
     inline Image*         GetImage(VMValue* args, int index, Uint32 threadID) {
         int where = GetInteger(args, index, threadID);
-        if (where < 0 || where > (int)Scene::ImageList.size()) {
+        if (where < 0 || where >= (int)Scene::ImageList.size()) {
             if (THROW_ERROR(
                 "Image index \"%d\" outside bounds of list.", where) == ERROR_RES_CONTINUE)
                 ScriptManager::Threads[threadID].ReturnFromNative();
+
+            return NULL;
         }
 
         if (!Scene::ImageList[where]) return NULL;
@@ -270,10 +273,12 @@ namespace LOCAL {
     }
     inline GameTexture*   GetTexture(VMValue* args, int index, Uint32 threadID) {
         int where = GetInteger(args, index, threadID);
-        if (where < 0 || where > (int)Scene::TextureList.size()) {
+        if (where < 0 || where >= (int)Scene::TextureList.size()) {
             if (THROW_ERROR(
                 "Texture index \"%d\" outside bounds of list.", where) == ERROR_RES_CONTINUE)
                 ScriptManager::Threads[threadID].ReturnFromNative();
+
+            return NULL;
         }
 
         if (!Scene::TextureList[where]) return NULL;
@@ -282,10 +287,12 @@ namespace LOCAL {
     }
     inline ISound*         GetSound(VMValue* args, int index, Uint32 threadID) {
         int where = GetInteger(args, index, threadID);
-        if (where < 0 || where > (int)Scene::SoundList.size()) {
+        if (where < 0 || where >= (int)Scene::SoundList.size()) {
             if (THROW_ERROR(
                 "Sound index \"%d\" outside bounds of list.", where) == ERROR_RES_CONTINUE)
                 ScriptManager::Threads[threadID].ReturnFromNative();
+
+            return NULL;
         }
 
         if (!Scene::SoundList[where]) return NULL;
@@ -294,10 +301,12 @@ namespace LOCAL {
     }
     inline ISound*         GetMusic(VMValue* args, int index, Uint32 threadID) {
         int where = GetInteger(args, index, threadID);
-        if (where < 0 || where >(int)Scene::MusicList.size()) {
+        if (where < 0 || where >= (int)Scene::MusicList.size()) {
             if (THROW_ERROR(
                 "Music index \"%d\" outside bounds of list.", where) == ERROR_RES_CONTINUE)
                 ScriptManager::Threads[threadID].ReturnFromNative();
+
+            return NULL;
         }
 
         if (!Scene::MusicList[where]) return NULL;
@@ -306,10 +315,12 @@ namespace LOCAL {
     }
     inline IModel*         GetModel(VMValue* args, int index, Uint32 threadID) {
         int where = GetInteger(args, index, threadID);
-        if (where < 0 || where > (int)Scene::ModelList.size()) {
+        if (where < 0 || where >= (int)Scene::ModelList.size()) {
             if (THROW_ERROR(
                 "Model index \"%d\" outside bounds of list.", where) == ERROR_RES_CONTINUE)
                 ScriptManager::Threads[threadID].ReturnFromNative();
+
+            return NULL;
         }
 
         if (!Scene::ModelList[where]) return NULL;
@@ -318,10 +329,12 @@ namespace LOCAL {
     }
     inline MediaBag*       GetVideo(VMValue* args, int index, Uint32 threadID) {
         int where = GetInteger(args, index, threadID);
-        if (where < 0 || where > (int)Scene::MediaList.size()) {
+        if (where < 0 || where >= (int)Scene::MediaList.size()) {
             if (THROW_ERROR(
                 "Video index \"%d\" outside bounds of list.", where) == ERROR_RES_CONTINUE)
                 ScriptManager::Threads[threadID].ReturnFromNative();
+
+            return NULL;
         }
 
         if (!Scene::MediaList[where]) return NULL;
@@ -330,8 +343,13 @@ namespace LOCAL {
     }
     inline Animator* GetAnimator(VMValue* args, int index, Uint32 threadID) {
         int where = GetInteger(args, index, threadID);
-        if (where < 0 || where > (int)Scene::AnimatorList.size())
+        if (where < 0 || where >= (int)Scene::AnimatorList.size()) {
+            if (THROW_ERROR(
+                "Animator index \"%d\" outside bounds of list.", where) == ERROR_RES_CONTINUE)
+                ScriptManager::Threads[threadID].ReturnFromNative();
+
             return NULL;
+        }
 
         if (!Scene::AnimatorList[where]) return NULL;
 
@@ -519,7 +537,7 @@ VMValue Animator_SetAnimation(int argCount, VMValue* args, Uint32 threadID) {
     }
 
     ISprite* sprite = Scene::SpriteList[spriteIndex]->AsSprite;
-    if (animationID < 0 || animationID >= (int)sprite->Animations.size()) {
+    if (!sprite || animationID < 0 || animationID >= (int)sprite->Animations.size()) {
         animator->CurrentAnimation = -1;
         return NULL_VAL;
     }
@@ -562,10 +580,10 @@ VMValue Animator_Animate(int argCount, VMValue* args, Uint32 threadID) {
     if (!animator || !animator->Frames.size())
         return NULL_VAL;
 
-    if (animator->Sprite < 0 || animator->Sprite >= (int)Scene::SpriteList.size())
+    ISprite* sprite = Scene::GetSpriteResource(animator->Sprite);
+    if (!sprite)
         return NULL_VAL;
 
-    ISprite* sprite = Scene::SpriteList[animator->Sprite]->AsSprite;
     if (animator->CurrentAnimation < 0 || animator->CurrentAnimation >= (int)sprite->Animations.size()
         || animator->CurrentFrame < 0 || animator->CurrentFrame >= (int)sprite->Animations[animator->CurrentAnimation].Frames.size()) {
         return NULL_VAL;
@@ -1310,19 +1328,19 @@ VMValue Array_Shift(int argCount, VMValue* args, Uint32 threadID) {
         ObjArray* array = GET_ARG(0, GetArray);
         int       toright = GET_ARG(1, GetInteger);
 
-		if (array->Values->size() > 1) {
-			if (toright) {
-				size_t lastIndex = array->Values->size() - 1;
-				VMValue temp = (*array->Values)[lastIndex];
-				array->Values->erase(array->Values->begin() + lastIndex);
-				array->Values->insert(array->Values->begin(), temp);
-			}
-			else {
-				VMValue temp = (*array->Values)[0];
-				array->Values->erase(array->Values->begin() + 0);
-				array->Values->push_back(temp);
-			}
-		}
+        if (array->Values->size() > 1) {
+            if (toright) {
+                size_t lastIndex = array->Values->size() - 1;
+                VMValue temp = (*array->Values)[lastIndex];
+                array->Values->erase(array->Values->begin() + lastIndex);
+                array->Values->insert(array->Values->begin(), temp);
+            }
+            else {
+                VMValue temp = (*array->Values)[0];
+                array->Values->erase(array->Values->begin() + 0);
+                array->Values->push_back(temp);
+            }
+        }
 
         ScriptManager::Unlock();
     }
@@ -1341,11 +1359,11 @@ VMValue Array_SetAll(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(4);
     if (ScriptManager::Lock()) {
         ObjArray* array = GET_ARG(0, GetArray);
-		size_t    startIndex = GET_ARG(1, GetInteger);
-		size_t    endIndex = GET_ARG(2, GetInteger);
+        size_t    startIndex = GET_ARG(1, GetInteger);
+        size_t    endIndex = GET_ARG(2, GetInteger);
         VMValue   value = args[3];
 
-		size_t arraySize = array->Values->size();
+        size_t arraySize = array->Values->size();
         if (arraySize > 0) {
             if (startIndex < 0)
                 startIndex = 0;
@@ -1360,6 +1378,83 @@ VMValue Array_SetAll(int argCount, VMValue* args, Uint32 threadID) {
             for (size_t i = startIndex; i <= endIndex; i++) {
                 (*array->Values)[i] = value;
             }
+        }
+
+        ScriptManager::Unlock();
+    }
+    return NULL_VAL;
+}
+/***
+ * Array.Reverse
+ * \desc Reverses the elements of an array through the specified range, exclusive. The array is reversed from <code>startIndex</code> to, but not including, <code>endIndex</code>.
+ * \param array (Array): Array to reverse.
+ * \paramOpt startIndex (Integer): Start range. Default is zero.
+ * \paramOpt endIndex (Integer): End range. Default is size of array.
+ * \ns Array
+ */
+VMValue Array_Reverse(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    if (ScriptManager::Lock()) {
+        ObjArray* array = GET_ARG(0, GetArray);
+        int       startIndex = GET_ARG_OPT(1, GetInteger, 0);
+        int       endIndex = GET_ARG_OPT(2, GetInteger, array->Values->size());
+
+        if (startIndex < 0 || startIndex >= (int)array->Values->size() || startIndex >= endIndex) {
+            THROW_ERROR("Start index out of range.");
+            return NULL_VAL;
+        }
+        if (endIndex <= 0 || endIndex > (int)array->Values->size() || endIndex <= startIndex) {
+            THROW_ERROR("End index out of range.");
+            return NULL_VAL;
+        }
+
+        std::reverse(array->Values->begin() + startIndex, array->Values->begin() + endIndex);
+
+        ScriptManager::Unlock();
+    }
+    return NULL_VAL;
+}
+/***
+ * Array.Sort
+ * \desc Sorts the entries of the given array.
+ * \param array (Array): Array to sort.
+ * \paramOpt compFunction (Function): Comparison function. If not given, a default comparison function is used; the entries of the array are sorted in ascending order, and non-numeric values do not participate in the comparison.
+ * \ns Array
+ */
+VMValue Array_Sort(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    if (ScriptManager::Lock()) {
+        ObjArray* array = GET_ARG(0, GetArray);
+        ObjFunction* function = GET_ARG_OPT(1, GetFunction, nullptr);
+
+        if (function) {
+            VMThread* thread = &ScriptManager::Threads[threadID];
+
+            std::stable_sort(array->Values->begin(), array->Values->end(), [array, thread, function](const VMValue& a, const VMValue& b) {
+                thread->Push(a);
+                thread->Push(b);
+
+                VMValue result = thread->RunEntityFunction(function, 2);
+
+                thread->Pop(2);
+
+                if (IS_INTEGER(result))
+                    return AS_INTEGER(result) == 1;
+
+                return false;
+            });
+        } else {
+            std::stable_sort(array->Values->begin(), array->Values->end(), [array](const VMValue& a, const VMValue& b) {
+                if (IS_NOT_NUMBER(a) || IS_NOT_NUMBER(b)) {
+                    return false;
+                }
+                else if (IS_DECIMAL(a) || IS_DECIMAL(b)) {
+                    return AS_DECIMAL(ScriptManager::CastValueAsDecimal(a)) < AS_DECIMAL(ScriptManager::CastValueAsDecimal(b));
+                }
+                else {
+                    return AS_INTEGER(a) < AS_INTEGER(b);
+                }
+            });
         }
 
         ScriptManager::Unlock();
@@ -1467,14 +1562,14 @@ CONTROLLER_GET_BOOL(HasMicrophoneButton)
  */
 CONTROLLER_GET_BOOL(HasPaddles)
 /***
- * Controller.GetButton
- * \desc Gets the <linkto ref="Button_*">button</linkto> value from the controller at the index.
+ * Controller.IsButtonHeld
+ * \desc Checks if a <linkto ref="Button_*">button</linkto> is held.
  * \param controllerIndex (Integer): Index of the controller to check.
  * \param buttonIndex (Enum): Index of the <linkto ref="Button_*">button</linkto> to check.
- * \return Returns the button value from the controller at the index.
+ * \return Returns a Boolean value.
  * \ns Controller
  */
-VMValue Controller_GetButton(int argCount, VMValue* args, Uint32 threadID) {
+VMValue Controller_IsButtonHeld(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     int index = GET_ARG(0, GetInteger);
     int button = GET_ARG(1, GetInteger);
@@ -1483,7 +1578,37 @@ VMValue Controller_GetButton(int argCount, VMValue* args, Uint32 threadID) {
         THROW_ERROR("Controller button %d out of range.", button);
         return NULL_VAL;
     }
-    return INTEGER_VAL(InputManager::ControllerGetButton(index, button));
+    return INTEGER_VAL(InputManager::ControllerIsButtonHeld(index, button));
+}
+/***
+ * Controller.IsButtonPressed
+ * \desc Checks if a <linkto ref="Button_*">button</linkto> is pressed.
+ * \param controllerIndex (Integer): Index of the controller to check.
+ * \param buttonIndex (Enum): Index of the <linkto ref="Button_*">button</linkto> to check.
+ * \return Returns a Boolean value.
+ * \ns Controller
+ */
+VMValue Controller_IsButtonPressed(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int index = GET_ARG(0, GetInteger);
+    int button = GET_ARG(1, GetInteger);
+    CHECK_CONTROLLER_INDEX(index);
+    if (button < 0 || button >= (int)ControllerButton::Max) {
+        THROW_ERROR("Controller button %d out of range.", button);
+        return NULL_VAL;
+    }
+    return INTEGER_VAL(InputManager::ControllerIsButtonPressed(index, button));
+}
+/***
+ * Controller.GetButton
+ * \desc Gets the <linkto ref="Button_*">button</linkto> value from the controller at the index. (Deprecated; use <linkto ref="Controller.IsButtonHeld"></linkto> instead.)
+ * \param controllerIndex (Integer): Index of the controller to check.
+ * \param buttonIndex (Enum): Index of the <linkto ref="Button_*">button</linkto> to check.
+ * \return Returns the button value from the controller at the index.
+ * \ns Controller
+ */
+VMValue Controller_GetButton(int argCount, VMValue* args, Uint32 threadID) {
+    return Controller_IsButtonHeld(argCount, args, threadID);
 }
 /***
  * Controller.GetAxis
@@ -1562,8 +1687,7 @@ CONTROLLER_GET_BOOL(IsRumbleActive)
  * Controller.Rumble
  * \desc Rumbles a controller.
  * \param controllerIndex (Integer): Index of the controller to rumble.
- * \param largeMotorFrequency (Number): Frequency of the large motor. (0.0 - 1.0)
- * \param smallMotorFrequency (Number): Frequency of the small motor. (0.0 - 1.0)
+ * \param strength (Number): Rumble strength. (0.0 - 1.0)
  * \param duration (Integer): Duration in milliseconds. Use <code>0</code> for infinite duration.
  * \ns Controller
  */
@@ -1644,7 +1768,7 @@ VMValue Controller_SetRumblePaused(int argCount, VMValue* args, Uint32 threadID)
 }
 /***
  * Controller.SetLargeMotorFrequency
- * \desc Sets the frequency of a controller's large motor.
+ * \desc Sets the frequency of a controller's large motor. (Deprecated)
  * \param controllerIndex (Integer): Index of the controller.
  * \param frequency (Number): Frequency of the large motor.
  * \ns Controller
@@ -1663,7 +1787,7 @@ VMValue Controller_SetLargeMotorFrequency(int argCount, VMValue* args, Uint32 th
 }
 /***
  * Controller.SetSmallMotorFrequency
- * \desc Sets the frequency of a controller's small motor.
+ * \desc Sets the frequency of a controller's small motor. (Deprecated)
  * \param controllerIndex (Integer): Index of the controller.
  * \param frequency (Number): Frequency of the small motor.
  * \ns Controller
@@ -1746,13 +1870,13 @@ VMValue Date_GetTimeOfDay(int argCount, VMValue* args, Uint32 threadID) {
     int hour = ((int)time(NULL) / 3600) % 24;
 
     if (hour >= 5 && hour <= 11)
-        return INTEGER_VAL(MORNING);
+        return INTEGER_VAL((int)TimeOfDay::MORNING);
     else if (hour >= 12 && hour <= 16)
-        return INTEGER_VAL(MIDDAY);
+        return INTEGER_VAL((int)TimeOfDay::MIDDAY);
     else if (hour >= 17 && hour <= 20)
-        return INTEGER_VAL(EVENING);
+        return INTEGER_VAL((int)TimeOfDay::EVENING);
     else
-        return INTEGER_VAL(NIGHT);
+        return INTEGER_VAL((int)TimeOfDay::NIGHT);
 }
 /***
  * Date.GetTicks
@@ -1932,8 +2056,9 @@ VMValue Display_GetHeight(int argCount, VMValue* args, Uint32 threadID) {
  * \param flipY (Integer): Whether or not to flip the sprite vertically.
  * \paramOpt scaleX (Number): Scale multiplier of the sprite horizontally.
  * \paramOpt scaleY (Number): Scale multiplier of the sprite vertically.
- * \paramOpt rotation (Number): Rotation of the drawn sprite in radians, or in integer if useInteger is true
- * \paramOpt useInteger (Number): Whether or not the rotation argument is already in radians
+ * \paramOpt rotation (Number): Rotation of the drawn sprite in radians, or in integer if <code>useInteger</code> is <code>true</code>.
+ * \paramOpt useInteger (Number): Whether or not the rotation argument is already in radians.
+ * \paramOpt paletteID (Integer): Which palette index to use.
  * \ns Draw
  */
 VMValue Draw_Sprite(int argCount, VMValue* args, Uint32 threadID) {
@@ -1946,18 +2071,11 @@ VMValue Draw_Sprite(int argCount, VMValue* args, Uint32 threadID) {
     int y = (int)GET_ARG(4, GetDecimal);
     int flipX = GET_ARG(5, GetInteger);
     int flipY = GET_ARG(6, GetInteger);
-    float scaleX = 1.0f;
-    float scaleY = 1.0f;
-    float rotation = 0.0f;
-    bool useInteger = false;
-    if (argCount > 7)
-        scaleX = GET_ARG(7, GetDecimal);
-    if (argCount > 8)
-        scaleY = GET_ARG(8, GetDecimal);
-    if (argCount > 9)
-        rotation = GET_ARG(9, GetDecimal);
-    if (argCount > 10)
-        useInteger = GET_ARG(10, GetInteger);
+    float scaleX = GET_ARG_OPT(7, GetDecimal, 1.0f);
+    float scaleY = GET_ARG_OPT(8, GetDecimal, 1.0f);
+    float rotation = GET_ARG_OPT(9, GetDecimal, 0.0f);
+    bool useInteger = GET_ARG_OPT(10, GetInteger, false);
+    unsigned paletteID = GET_ARG_OPT(11, GetInteger, 0);
 
     if (sprite && animation >= 0 && frame >= 0) {
         if (useInteger) {
@@ -1974,7 +2092,7 @@ VMValue Draw_Sprite(int argCount, VMValue* args, Uint32 threadID) {
             rotation = rot * M_PI / 256.0;
         }
 
-        Graphics::DrawSprite(sprite, animation, frame, x, y, flipX, flipY, scaleX, scaleY, rotation);
+        Graphics::DrawSprite(sprite, animation, frame, x, y, flipX, flipY, scaleX, scaleY, rotation, paletteID);
     }
     return NULL_VAL;
 }
@@ -1990,7 +2108,7 @@ VMValue Draw_SpriteBasic(int argCount, VMValue* args, Uint32 threadID) {
 
     ObjInstance* instance   = GET_ARG(0, GetInstance);
     Entity* entity          = (Entity*)instance->EntityPtr;
-    ISprite* sprite         = GET_ARG_OPT(1, GetSprite, GetSpriteIndex(entity->Sprite));
+    ISprite* sprite         = GET_ARG_OPT(1, GetSprite, GetSpriteIndex(entity->Sprite, threadID));
     float rotation          = 0.0f;
 
     if (entity && sprite && entity->CurrentAnimation >= 0 && entity->CurrentFrame >= 0) {
@@ -2039,7 +2157,7 @@ VMValue Draw_Animator(int argCount, VMValue* args, Uint32 threadID) {
         return NULL_VAL;
 
     if (animator->Sprite >= 0 && animator->CurrentAnimation >= 0 && animator->CurrentFrame >= 0) {
-        ISprite* sprite = GetSpriteIndex(animator->Sprite);
+        ISprite* sprite = GetSpriteIndex(animator->Sprite, threadID);
         if (!sprite)
             return NULL_VAL;
 
@@ -2073,14 +2191,17 @@ VMValue Draw_AnimatorBasic(int argCount, VMValue* args, Uint32 threadID) {
     Animator* animator      = GET_ARG(0, GetAnimator);
     ObjInstance* instance   = GET_ARG(1, GetInstance);
     Entity* entity          = (Entity*)instance->EntityPtr;
-    ISprite* sprite         = (argCount > 2) ? GetSpriteIndex(GET_ARG(2, GetInteger)) : GetSpriteIndex(animator->Sprite);
+    ISprite* sprite         = (argCount > 2) ? GET_ARG(2, GetSprite) : GetSpriteIndex(animator->Sprite, threadID);
     float rotation          = 0.0f;
 
     if (!animator || !animator->Frames.size())
         return NULL_VAL;
 
     if (entity && animator->Sprite >= 0 && animator->CurrentAnimation >= 0 && animator->CurrentFrame >= 0) {
-        ISprite* sprite = GetSpriteIndex(animator->Sprite);
+        ISprite* animatorSprite = GetSpriteIndex(animator->Sprite, threadID);
+        if (animatorSprite)
+            sprite = animatorSprite;
+
         if (!sprite)
             return NULL_VAL;
 
@@ -2116,8 +2237,9 @@ VMValue Draw_AnimatorBasic(int argCount, VMValue* args, Uint32 threadID) {
  * \param flipY (Integer): Whether or not to flip the sprite vertically.
  * \paramOpt scaleX (Number): Scale multiplier of the sprite horizontally.
  * \paramOpt scaleY (Number): Scale multiplier of the sprite vertically.
- * \paramOpt rotation (Number): Rotation of the drawn sprite in radians, or in integer if useInteger is true
- * \paramOpt useInteger (Number): Whether or not the rotation argument is already in radians
+ * \paramOpt rotation (Number): Rotation of the drawn sprite in radians, or in integer if <code>useInteger</code> is <code>true</code>.
+ * \paramOpt useInteger (Number): Whether or not the rotation argument is already in radians.
+ * \paramOpt paletteID (Integer): Which palette index to use.
  * \ns Draw
  */
 VMValue Draw_SpritePart(int argCount, VMValue* args, Uint32 threadID) {
@@ -2134,18 +2256,11 @@ VMValue Draw_SpritePart(int argCount, VMValue* args, Uint32 threadID) {
     int sh = (int)GET_ARG(8, GetDecimal);
     int flipX = GET_ARG(9, GetInteger);
     int flipY = GET_ARG(10, GetInteger);
-    float scaleX = 1.0f;
-    float scaleY = 1.0f;
-    float rotation = 0.0f;
-    bool useInteger = false;
-    if (argCount > 11)
-        scaleX = GET_ARG(11, GetDecimal);
-    if (argCount > 12)
-        scaleY = GET_ARG(12, GetDecimal);
-    if (argCount > 13)
-        rotation = GET_ARG(13, GetDecimal);
-    if (argCount > 14)
-        useInteger = GET_ARG(14, GetInteger);
+    float scaleX = GET_ARG_OPT(11, GetDecimal, 1.0f);
+    float scaleY = GET_ARG_OPT(12, GetDecimal, 1.0f);
+    float rotation = GET_ARG_OPT(13, GetDecimal, 0.0f);
+    bool useInteger = GET_ARG_OPT(14, GetInteger, false);
+    unsigned paletteID = GET_ARG_OPT(15, GetInteger, 0);
 
     if (sprite && animation >= 0 && frame >= 0) {
         if (useInteger) {
@@ -2162,7 +2277,7 @@ VMValue Draw_SpritePart(int argCount, VMValue* args, Uint32 threadID) {
             rotation = rot * M_PI / 256.0;
         }
 
-        Graphics::DrawSpritePart(sprite, animation, frame, sx, sy, sw, sh, x, y, flipX, flipY, scaleX, scaleY, rotation);
+        Graphics::DrawSpritePart(sprite, animation, frame, sx, sy, sw, sh, x, y, flipX, flipY, scaleX, scaleY, rotation, paletteID);
     }
     return NULL_VAL;
 }
@@ -2181,7 +2296,8 @@ VMValue Draw_Image(int argCount, VMValue* args, Uint32 threadID) {
     float x = GET_ARG(1, GetDecimal);
     float y = GET_ARG(2, GetDecimal);
 
-    Graphics::DrawTexture(image->TexturePtr, 0, 0, image->TexturePtr->Width, image->TexturePtr->Height, x, y, image->TexturePtr->Width, image->TexturePtr->Height);
+    if (image)
+        Graphics::DrawTexture(image->TexturePtr, 0, 0, image->TexturePtr->Width, image->TexturePtr->Height, x, y, image->TexturePtr->Width, image->TexturePtr->Height);
     return NULL_VAL;
 }
 /***
@@ -2207,7 +2323,8 @@ VMValue Draw_ImagePart(int argCount, VMValue* args, Uint32 threadID) {
     float x = GET_ARG(5, GetDecimal);
     float y = GET_ARG(6, GetDecimal);
 
-    Graphics::DrawTexture(image->TexturePtr, sx, sy, sw, sh, x, y, sw, sh);
+    if (image)
+        Graphics::DrawTexture(image->TexturePtr, sx, sy, sw, sh, x, y, sw, sh);
     return NULL_VAL;
 }
 /***
@@ -2229,7 +2346,8 @@ VMValue Draw_ImageSized(int argCount, VMValue* args, Uint32 threadID) {
     float w = GET_ARG(3, GetDecimal);
     float h = GET_ARG(4, GetDecimal);
 
-    Graphics::DrawTexture(image->TexturePtr, 0, 0, image->TexturePtr->Width, image->TexturePtr->Height, x, y, w, h);
+    if (image)
+        Graphics::DrawTexture(image->TexturePtr, 0, 0, image->TexturePtr->Width, image->TexturePtr->Height, x, y, w, h);
     return NULL_VAL;
 }
 /***
@@ -2259,7 +2377,8 @@ VMValue Draw_ImagePartSized(int argCount, VMValue* args, Uint32 threadID) {
     float w = GET_ARG(7, GetDecimal);
     float h = GET_ARG(8, GetDecimal);
 
-    Graphics::DrawTexture(image->TexturePtr, sx, sy, sw, sh, x, y, w, h);
+    if (image)
+        Graphics::DrawTexture(image->TexturePtr, sx, sy, sw, sh, x, y, w, h);
     return NULL_VAL;
 }
 /***
@@ -2411,1109 +2530,6 @@ VMValue Draw_ViewPartSized(int argCount, VMValue* args, Uint32 threadID) {
     DO_RENDER_VIEW();
 
     Graphics::DrawTexture(Scene::Views[view_index].DrawTarget, sx, sy, sw, sh, x, y, w, h);
-    return NULL_VAL;
-}
-/***
- * Draw.BindVertexBuffer
- * \desc Binds a vertex buffer.
- * \param vertexBufferIndex (Integer): Sets the vertex buffer to bind.
- * \return
- * \ns Draw
- */
-VMValue Draw_BindVertexBuffer(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
-    Uint32 vertexBufferIndex = GET_ARG(0, GetInteger);
-    if (vertexBufferIndex < 0 || vertexBufferIndex >= MAX_VERTEX_BUFFERS) {
-        OUT_OF_RANGE_ERROR("Vertex index", vertexBufferIndex, 0, MAX_VERTEX_BUFFERS);
-        return NULL_VAL;
-    }
-
-    Graphics::BindVertexBuffer(vertexBufferIndex);
-    return NULL_VAL;
-}
-/***
- * Draw.UnbindVertexBuffer
- * \desc Unbinds the currently bound vertex buffer.
- * \return
- * \ns Draw
- */
-VMValue Draw_UnbindVertexBuffer(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    Graphics::UnbindVertexBuffer();
-    return NULL_VAL;
-}
-#define GET_SCENE_3D() \
-    if (scene3DIndex < 0 || scene3DIndex >= MAX_3D_SCENES) { \
-        OUT_OF_RANGE_ERROR("Scene3D", scene3DIndex, 0, MAX_3D_SCENES - 1); \
-        return NULL_VAL; \
-    } \
-    Scene3D* scene3D = &Graphics::Scene3Ds[scene3DIndex]
-/***
- * Draw.InitArrayBuffer
- * \desc Initializes an array buffer. There are 32 array buffers. (Deprecated; use <linkto ref="Scene3D.Create"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The array buffer at the index to use. (Maximum index: 31)
- * \param numVertices (Integer): The initial capacity of this array buffer.
- * \return
- * \ns Draw
- */
-VMValue Draw_InitArrayBuffer(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(2);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    Uint32 numVertices = GET_ARG(1, GetInteger);
-    GET_SCENE_3D();
-
-    Graphics::InitScene3D(scene3DIndex, numVertices);
-
-    return NULL_VAL;
-}
-/***
- * Draw.SetArrayBufferDrawMode
- * \desc Sets the draw mode of the array buffer. (Deprecated; use <linkto ref="Scene3D.SetDrawMode"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param drawMode (Integer): The type of drawing to use for the vertices in the array buffer.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetArrayBufferDrawMode(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(2);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    Uint32 drawMode = GET_ARG(1, GetInteger);
-    GET_SCENE_3D();
-    scene3D->DrawMode = drawMode;
-    return NULL_VAL;
-}
-/***
- * Draw.SetProjectionMatrix
- * \desc Sets the projection matrix. (Deprecated; use <linkto ref="Scene3D.SetCustomProjectionMatrix"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param projMatrix (Matrix): The projection matrix.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetProjectionMatrix(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(2);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    ObjArray* projMatrix = GET_ARG(1, GetArray);
-
-    Matrix4x4 matrix4x4;
-    int arrSize = (int)projMatrix->Values->size();
-    if (arrSize != 16) {
-        THROW_ERROR("Matrix has unexpected size (expected 16 elements, but has %d)", arrSize);
-        return NULL_VAL;
-    }
-
-    // Yeah just copy it directly
-    for (int i = 0; i < 16; i++)
-        matrix4x4.Values[i] = AS_DECIMAL((*projMatrix->Values)[i]);
-
-    GET_SCENE_3D();
-    scene3D->SetProjectionMatrix(&matrix4x4);
-    scene3D->SetClippingPlanes();
-    return NULL_VAL;
-}
-/***
- * Draw.SetViewMatrix
- * \desc Sets the view matrix. (Deprecated; use <linkto ref="Scene3D.SetViewMatrix"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param viewMatrix (Matrix): The view matrix.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetViewMatrix(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(2);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    ObjArray* viewMatrix = GET_ARG(1, GetArray);
-
-    Matrix4x4 matrix4x4;
-
-    for (int i = 0; i < 16; i++)
-        matrix4x4.Values[i] = AS_DECIMAL((*viewMatrix->Values)[i]);
-
-    GET_SCENE_3D();
-    scene3D->SetViewMatrix(&matrix4x4);
-    return NULL_VAL;
-}
-/***
- * Draw.SetAmbientLighting
- * \desc Sets the ambient lighting of the array buffer. (Deprecated; use <linkto ref="Scene3D.SetAmbientLighting"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param red (Number): The red color value, bounded by 0.0 - 1.0.
- * \param green (Number): The green color value, bounded by 0.0 - 1.0.
- * \param blue (Number): The blue color value, bounded by 0.0 - 1.0.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetAmbientLighting(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(4);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    float r = Math::Clamp(GET_ARG(1, GetDecimal), 0.0f, 1.0f);
-    float g = Math::Clamp(GET_ARG(2, GetDecimal), 0.0f, 1.0f);
-    float b = Math::Clamp(GET_ARG(3, GetDecimal), 0.0f, 1.0f);
-    GET_SCENE_3D();
-    scene3D->SetAmbientLighting(r, g, b);
-    return NULL_VAL;
-}
-/***
- * Draw.SetDiffuseLighting
- * \desc Sets the diffuse lighting of the array buffer. (Deprecated; use <linkto ref="Scene3D.SetDiffuseLighting"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param red (Number): The red color value, bounded by 0.0 - 1.0.
- * \param green (Number): The green color value, bounded by 0.0 - 1.0.
- * \param blue (Number): The blue color value, bounded by 0.0 - 1.0.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetDiffuseLighting(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(4);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    float r = Math::Clamp(GET_ARG(1, GetDecimal), 0.0f, 1.0f);
-    float g = Math::Clamp(GET_ARG(2, GetDecimal), 0.0f, 1.0f);
-    float b = Math::Clamp(GET_ARG(3, GetDecimal), 0.0f, 1.0f);
-    GET_SCENE_3D();
-    scene3D->SetDiffuseLighting(r, g, b);
-    return NULL_VAL;
-}
-/***
- * Draw.SetSpecularLighting
- * \desc Sets the specular lighting of the array buffer. (Deprecated; use <linkto ref="Scene3D.SetSpecularLighting"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param red (Number): The red color value, bounded by 0.0 - 1.0.
- * \param green (Number): The green color value, bounded by 0.0 - 1.0.
- * \param blue (Number): The blue color value, bounded by 0.0 - 1.0.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetSpecularLighting(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(4);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    float r = Math::Clamp(GET_ARG(1, GetDecimal), 0.0f, 1.0f);
-    float g = Math::Clamp(GET_ARG(2, GetDecimal), 0.0f, 1.0f);
-    float b = Math::Clamp(GET_ARG(3, GetDecimal), 0.0f, 1.0f);
-    GET_SCENE_3D();
-    scene3D->SetSpecularLighting(r, g, b);
-    return NULL_VAL;
-}
-/***
- * Draw.SetFogDensity
- * \desc Sets the density of the array buffer's fog. (Deprecated; use <linkto ref="Scene3D.SetFogDensity"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param density (Number): The fog density.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetFogDensity(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(2);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-
-    GET_SCENE_3D();
-    scene3D->SetFogDensity(GET_ARG(1, GetDecimal));
-    return NULL_VAL;
-}
-/***
- * Draw.SetFogColor
- * \desc Sets the fog color of the array buffer. (Deprecated; use <linkto ref="Scene3D.SetFogColor"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param red (Number): The red color value, bounded by 0.0 - 1.0.
- * \param green (Number): The green color value, bounded by 0.0 - 1.0.
- * \param blue (Number): The blue color value, bounded by 0.0 - 1.0.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetFogColor(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(4);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    float r = Math::Clamp(GET_ARG(1, GetDecimal), 0.0f, 1.0f);
-    float g = Math::Clamp(GET_ARG(2, GetDecimal), 0.0f, 1.0f);
-    float b = Math::Clamp(GET_ARG(3, GetDecimal), 0.0f, 1.0f);
-    GET_SCENE_3D();
-    scene3D->SetFogColor(r, g, b);
-    return NULL_VAL;
-}
-/***
- * Draw.SetClipPolygons
- * \desc Enables or disables polygon clipping by the view frustum of the array buffer. (Deprecated; software-renderer only.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param clipPolygons (Boolean): Whether or not to clip polygons.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetClipPolygons(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(2);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    bool clipPolygons = !!GET_ARG(1, GetInteger);
-    GET_SCENE_3D();
-    scene3D->SetClipPolygons(clipPolygons);
-    return NULL_VAL;
-}
-/***
- * Draw.SetPointSize
- * \desc Sets the point size of the array buffer. (Deprecated; use <linkto ref="Scene3D.SetPointSize"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The index of the array buffer.
- * \param pointSize (Decimal): The point size.
- * \return
- * \ns Draw
- */
-VMValue Draw_SetPointSize(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(2);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    float pointSize = !!GET_ARG(1, GetDecimal);
-    GET_SCENE_3D();
-    scene3D->PointSize = pointSize;
-    return NULL_VAL;
-}
-/***
- * Draw.BindArrayBuffer
- * \desc Binds an array buffer for drawing polygons in 3D space. (Deprecated; use <linkto ref="Draw.BindScene3D"></linkto> instead.)
- * \param arrayBufferIndex (Integer): Sets the array buffer to bind.
- * \return
- * \ns Draw
- */
-VMValue Draw_BindArrayBuffer(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    if (scene3DIndex < 0 || scene3DIndex >= MAX_3D_SCENES) {
-        OUT_OF_RANGE_ERROR("Scene3D", scene3DIndex, 0, MAX_3D_SCENES - 1);
-        return NULL_VAL;
-    }
-
-    Graphics::ClearScene3D(scene3DIndex);
-    Graphics::BindScene3D(scene3DIndex);
-
-    return NULL_VAL;
-}
-/***
- * Draw.BindScene3D
- * \desc Binds a 3D scene for drawing polygons in 3D space.
- * \param scene3DIndex (Integer): Sets the 3D scene to bind.
- * \return
- * \ns Draw
- */
-VMValue Draw_BindScene3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(1);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    if (scene3DIndex < 0 || scene3DIndex >= MAX_3D_SCENES) {
-        OUT_OF_RANGE_ERROR("Scene3D", scene3DIndex, 0, MAX_3D_SCENES - 1);
-        return NULL_VAL;
-    }
-
-    Graphics::BindScene3D(scene3DIndex);
-    return NULL_VAL;
-}
-static void PrepareMatrix(Matrix4x4 *output, ObjArray* input) {
-    MatrixHelper helper;
-    MatrixHelper_CopyFrom(&helper, input);
-
-    for (int i = 0; i < 16; i++) {
-        int x = i >> 2;
-        int y = i  & 3;
-        output->Values[i] = helper[x][y];
-    }
-}
-/***
- * Draw.Model
- * \desc Draws a model.
- * \param modelIndex (Integer): Index of loaded model.
- * \param animation (Integer): Animation of model to draw.
- * \param frame (Decimal): Frame of model to draw.
- * \paramOpt matrixModel (Matrix): Matrix for transforming model coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming model normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_Model(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(5);
-
-    IModel* model = GET_ARG(0, GetModel);
-    int animation = GET_ARG(1, GetInteger);
-    int frame = GET_ARG(2, GetDecimal) * 0x100;
-
-    ObjArray* matrixModelArr = NULL;
-    Matrix4x4 matrixModel;
-    if (!IS_NULL(args[3])) {
-        matrixModelArr = GET_ARG(3, GetArray);
-        PrepareMatrix(&matrixModel, matrixModelArr);
-    }
-
-    ObjArray* matrixNormalArr = NULL;
-    Matrix4x4 matrixNormal;
-    if (!IS_NULL(args[4])) {
-        matrixNormalArr = GET_ARG(4, GetArray);
-        PrepareMatrix(&matrixNormal, matrixNormalArr);
-    }
-
-    Graphics::DrawModel(model, animation, frame, matrixModelArr ? &matrixModel : NULL, matrixNormalArr ? &matrixNormal : NULL);
-
-    return NULL_VAL;
-}
-/***
- * Draw.ModelSkinned
- * \desc Draws a skinned model.
- * \param modelIndex (Integer): Index of loaded model.
- * \param skeleton (Integer): Skeleton of model to skin the model.
- * \paramOpt matrixModel (Matrix): Matrix for transforming model coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming model normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_ModelSkinned(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(4);
-
-    IModel* model = GET_ARG(0, GetModel);
-    int armature = GET_ARG(1, GetInteger);
-
-    ObjArray* matrixModelArr = NULL;
-    Matrix4x4 matrixModel;
-    if (!IS_NULL(args[2])) {
-        matrixModelArr = GET_ARG(2, GetArray);
-        PrepareMatrix(&matrixModel, matrixModelArr);
-    }
-
-    ObjArray* matrixNormalArr = NULL;
-    Matrix4x4 matrixNormal;
-    if (!IS_NULL(args[3])) {
-        matrixNormalArr = GET_ARG(3, GetArray);
-        PrepareMatrix(&matrixNormal, matrixNormalArr);
-    }
-
-    Graphics::DrawModelSkinned(model, armature, matrixModelArr ? &matrixModel : NULL, matrixNormalArr ? &matrixNormal : NULL);
-
-    return NULL_VAL;
-}
-/***
- * Draw.ModelSimple
- * \desc Draws a model without using matrices.
- * \param modelIndex (Integer): Index of loaded model.
- * \param animation (Integer): Animation of model to draw.
- * \param frame (Integer): Frame of model to draw.
- * \param x (Number): X position
- * \param y (Number): Y position
- * \param scale (Number): Model scale
- * \param rx (Number): X rotation in radians
- * \param ry (Number): Y rotation in radians
- * \param rz (Number): Z rotation in radians
- * \return
- * \ns Draw
- */
-VMValue Draw_ModelSimple(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(9);
-
-    IModel* model = GET_ARG(0, GetModel);
-    int animation = GET_ARG(1, GetInteger);
-    int frame = GET_ARG(2, GetDecimal) * 0x100;
-    float x = GET_ARG(3, GetDecimal);
-    float y = GET_ARG(4, GetDecimal);
-    float scale = GET_ARG(5, GetDecimal);
-    float rx = GET_ARG(6, GetDecimal);
-    float ry = GET_ARG(7, GetDecimal);
-    float rz = GET_ARG(8, GetDecimal);
-
-    Matrix4x4 matrixScaleTranslate;
-    Matrix4x4::IdentityScale(&matrixScaleTranslate, scale, scale, scale);
-    Matrix4x4::Translate(&matrixScaleTranslate, &matrixScaleTranslate, x, y, 0);
-
-    Matrix4x4 matrixModel;
-    Matrix4x4::IdentityRotationXYZ(&matrixModel, 0, ry, rz);
-    Matrix4x4::Multiply(&matrixModel, &matrixModel, &matrixScaleTranslate);
-
-    Matrix4x4 matrixRotationX;
-    Matrix4x4::IdentityRotationX(&matrixRotationX, rx);
-    Matrix4x4 matrixNormal;
-    Matrix4x4::IdentityRotationXYZ(&matrixNormal, 0, ry, rz);
-    Matrix4x4::Multiply(&matrixNormal, &matrixNormal, &matrixRotationX);
-
-    Graphics::DrawModel(model, animation, frame, &matrixModel, &matrixNormal);
-    return NULL_VAL;
-}
-
-#define PREPARE_MATRICES(matrixModelArr, matrixNormalArr) \
-    Matrix4x4* matrixModel = NULL; \
-    Matrix4x4* matrixNormal = NULL; \
-    Matrix4x4 sMatrixModel, sMatrixNormal; \
-    if (matrixModelArr) { \
-        matrixModel = &sMatrixModel; \
-        PrepareMatrix(matrixModel, matrixModelArr); \
-    } \
-    if (matrixNormalArr) { \
-        matrixNormal = &sMatrixNormal; \
-        PrepareMatrix(matrixNormal, matrixNormalArr); \
-    }
-
-static void DrawPolygon3D(VertexAttribute *data, int vertexCount, int vertexFlag, Texture* texture, ObjArray* matrixModelArr, ObjArray* matrixNormalArr) {
-    PREPARE_MATRICES(matrixModelArr, matrixNormalArr);
-    Graphics::DrawPolygon3D(data, vertexCount, vertexFlag, texture, matrixModel, matrixNormal);
-}
-
-#define VERTEX_ARGS(num, offset) \
-    int argOffset = offset; \
-    for (int i = 0; i < num; i++) { \
-        data[i].Position.X = FP16_TO(GET_ARG(i * 3 + argOffset,     GetDecimal)); \
-        data[i].Position.Y = FP16_TO(GET_ARG(i * 3 + argOffset + 1, GetDecimal)); \
-        data[i].Position.Z = FP16_TO(GET_ARG(i * 3 + argOffset + 2, GetDecimal)); \
-        data[i].Normal.X   = data[i].Normal.Y = data[i].Normal.Z = data[i].Normal.W = 0; \
-        data[i].UV.X       = data[i].UV.Y = 0; \
-    } \
-    argOffset += 3 * num
-
-#define VERTEX_COLOR_ARGS(num) \
-    for (int i = 0; i < num; i++) { \
-        if (argCount <= i + argOffset) \
-            break; \
-        if (!IS_NULL(args[i + argOffset])) \
-            data[i].Color = GET_ARG(i + argOffset, GetInteger); \
-        else \
-            data[i].Color = 0xFFFFFF; \
-    } \
-    argOffset += num
-
-#define VERTEX_UV_ARGS(num) \
-    for (int i = 0; i < num; i++) { \
-        if (argCount <= (i * 2) + argOffset) \
-            break; \
-        if (!IS_NULL(args[(i * 2) + argOffset])) \
-            data[i].UV.X = FP16_TO(GET_ARG((i * 2) + argOffset, GetDecimal)); \
-        if (!IS_NULL(args[(i * 2) + 1 + argOffset])) \
-            data[i].UV.Y = FP16_TO(GET_ARG((i * 2) + 1 + argOffset, GetDecimal)); \
-    } \
-    argOffset += num * 2
-
-#define GET_MATRICES(offset) \
-    ObjArray* matrixModelArr = NULL; \
-    if (argCount > offset && !IS_NULL(args[offset])) \
-        matrixModelArr = GET_ARG(offset, GetArray); \
-    ObjArray* matrixNormalArr = NULL; \
-    if (argCount > offset + 1 && !IS_NULL(args[offset + 1])) \
-        matrixNormalArr = GET_ARG(offset + 1, GetArray)
-
-/***
- * Draw.Triangle3D
- * \desc Draws a triangle in 3D space.
- * \param x1 (Number): X position of the first vertex.
- * \param y1 (Number): Y position of the first vertex.
- * \param z1 (Number): Z position of the first vertex.
- * \param x2 (Number): X position of the second vertex.
- * \param y2 (Number): Y position of the second vertex.
- * \param z2 (Number): Z position of the second vertex.
- * \param x3 (Number): X position of the third vertex.
- * \param y3 (Number): Y position of the third vertex.
- * \param z3 (Number): Z position of the third vertex.
- * \paramOpt color1 (Integer): Color of the first vertex.
- * \paramOpt color2 (Integer): Color of the second vertex.
- * \paramOpt color3 (Integer): Color of the third vertex.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_Triangle3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(9);
-
-    VertexAttribute data[3];
-
-    VERTEX_ARGS(3, 0);
-    VERTEX_COLOR_ARGS(3);
-    GET_MATRICES(argOffset);
-
-    DrawPolygon3D(data, 3, VertexType_Position | VertexType_Color, NULL, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.Quad3D
- * \desc Draws a quadrilateral in 3D space.
- * \param x1 (Number): X position of the first vertex.
- * \param y1 (Number): Y position of the first vertex.
- * \param z1 (Number): Z position of the first vertex.
- * \param x2 (Number): X position of the second vertex.
- * \param y2 (Number): Y position of the second vertex.
- * \param z2 (Number): Z position of the second vertex.
- * \param x3 (Number): X position of the third vertex.
- * \param y3 (Number): Y position of the third vertex.
- * \param z3 (Number): Z position of the third vertex.
- * \param x4 (Number): X position of the fourth vertex.
- * \param y4 (Number): Y position of the fourth vertex.
- * \param z4 (Number): Z position of the fourth vertex.
- * \paramOpt color1 (Integer): Color of the first vertex.
- * \paramOpt color2 (Integer): Color of the second vertex.
- * \paramOpt color3 (Integer): Color of the third vertex.
- * \paramOpt color4 (Integer): Color of the fourth vertex.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_Quad3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(12);
-
-    VertexAttribute data[4];
-
-    VERTEX_ARGS(4, 0);
-    VERTEX_COLOR_ARGS(4);
-    GET_MATRICES(argOffset);
-
-    DrawPolygon3D(data, 4, VertexType_Position | VertexType_Color, NULL, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-
-/***
- * Draw.Sprite3D
- * \desc Draws a sprite in 3D space.
- * \param sprite (Integer): Index of the loaded sprite.
- * \param animation (Integer): Index of the animation entry.
- * \param frame (Integer): Index of the frame in the animation entry.
- * \param x (Number): X position of where to draw the sprite.
- * \param y (Number): Y position of where to draw the sprite.
- * \param z (Number): Z position of where to draw the sprite.
- * \param flipX (Integer): Whether or not to flip the sprite horizontally.
- * \param flipY (Integer): Whether or not to flip the sprite vertically.
- * \paramOpt scaleX (Number): Scale multiplier of the sprite horizontally.
- * \paramOpt scaleY (Number): Scale multiplier of the sprite vertically.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_Sprite3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(7);
-
-    ISprite* sprite = GET_ARG(0, GetSprite);
-    int animation = GET_ARG(1, GetInteger);
-    int frame = GET_ARG(2, GetInteger);
-    float x = GET_ARG(3, GetDecimal);
-    float y = GET_ARG(4, GetDecimal);
-    float z = GET_ARG(5, GetDecimal);
-    int flipX = GET_ARG(6, GetInteger);
-    int flipY = GET_ARG(7, GetInteger);
-    float scaleX = 1.0f;
-    float scaleY = 1.0f;
-    if (argCount > 8)
-        scaleX = GET_ARG(8, GetDecimal);
-    if (argCount > 9)
-        scaleY = GET_ARG(9, GetDecimal);
-
-    GET_MATRICES(10);
-
-    if (Graphics::SpriteRangeCheck(sprite, animation, frame))
-        return NULL_VAL;
-
-    AnimFrame frameStr = sprite->Animations[animation].Frames[frame];
-    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
-
-    VertexAttribute data[4];
-
-    x += frameStr.OffsetX * scaleX;
-    y -= frameStr.OffsetY * scaleY;
-
-    Graphics::MakeSpritePolygon(data, x, y, z, flipX, flipY, scaleX, scaleY, texture, frameStr.X, frameStr.Y, frameStr.Width, frameStr.Height);
-    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.SpritePart3D
- * \desc Draws part of a sprite in 3D space.
- * \param sprite (Integer): Index of the loaded sprite.
- * \param animation (Integer): Index of the animation entry.
- * \param frame (Integer): Index of the frame in the animation entry.
- * \param x (Number): X position of where to draw the sprite.
- * \param y (Number): Y position of where to draw the sprite.
- * \param z (Number): Z position of where to draw the sprite.
- * \param partX (Integer): X coordinate of part of frame to draw.
- * \param partY (Integer): Y coordinate of part of frame to draw.
- * \param partW (Integer): Width of part of frame to draw.
- * \param partH (Integer): Height of part of frame to draw.
- * \param flipX (Integer): Whether or not to flip the sprite horizontally.
- * \param flipY (Integer): Whether or not to flip the sprite vertically.
- * \paramOpt scaleX (Number): Scale multiplier of the sprite horizontally.
- * \paramOpt scaleY (Number): Scale multiplier of the sprite vertically.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_SpritePart3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(11);
-
-    ISprite* sprite = GET_ARG(0, GetSprite);
-    int animation = GET_ARG(1, GetInteger);
-    int frame = GET_ARG(2, GetInteger);
-    float x = GET_ARG(3, GetDecimal);
-    float y = GET_ARG(4, GetDecimal);
-    float z = GET_ARG(5, GetDecimal);
-    int sx = (int)GET_ARG(6, GetDecimal);
-    int sy = (int)GET_ARG(7, GetDecimal);
-    int sw = (int)GET_ARG(8, GetDecimal);
-    int sh = (int)GET_ARG(9, GetDecimal);
-    int flipX = GET_ARG(10, GetInteger);
-    int flipY = GET_ARG(11, GetInteger);
-    float scaleX = 1.0f;
-    float scaleY = 1.0f;
-    if (argCount > 12)
-        scaleX = GET_ARG(12, GetDecimal);
-    if (argCount > 13)
-        scaleY = GET_ARG(13, GetDecimal);
-
-    GET_MATRICES(14);
-
-    if (Graphics::SpriteRangeCheck(sprite, animation, frame))
-        return NULL_VAL;
-
-    if (sw < 1 || sh < 1)
-        return NULL_VAL;
-
-    AnimFrame frameStr = sprite->Animations[animation].Frames[frame];
-    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
-
-    VertexAttribute data[4];
-
-    x += frameStr.OffsetX * scaleX;
-    y -= frameStr.OffsetY * scaleY;
-
-    Graphics::MakeSpritePolygon(data, x, y, z, flipX, flipY, scaleX, scaleY, texture, sx, sy, sw, sh);
-    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.Image3D
- * \desc Draws an image in 3D space.
- * \param image (Integer): Index of the loaded image.
- * \param x (Number): X position of where to draw the image.
- * \param y (Number): Y position of where to draw the image.
- * \param z (Number): Z position of where to draw the image.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_Image3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(4);
-
-    Image* image = GET_ARG(0, GetImage);
-    float x = GET_ARG(1, GetDecimal);
-    float y = GET_ARG(2, GetDecimal);
-    float z = GET_ARG(3, GetDecimal);
-
-    GET_MATRICES(4);
-
-    Texture* texture = image->TexturePtr;
-    VertexAttribute data[4];
-
-    Graphics::MakeSpritePolygon(data, x, y, z, 0, 0, 1.0f, 1.0f, texture, 0, 0, texture->Width, texture->Height);
-    DrawPolygon3D(data, 4, VertexType_Position | VertexType_Normal | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.ImagePart3D
- * \desc Draws part of an image in 3D space.
- * \param image (Integer): Index of the loaded image.
- * \param x (Number): X position of where to draw the image.
- * \param y (Number): Y position of where to draw the image.
- * \param z (Number): Z position of where to draw the image.
- * \param partX (Integer): X coordinate of part of image to draw.
- * \param partY (Integer): Y coordinate of part of image to draw.
- * \param partW (Integer): Width of part of image to draw.
- * \param partH (Integer): Height of part of image to draw.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_ImagePart3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(8);
-
-    Image* image = GET_ARG(0, GetImage);
-    float x = GET_ARG(1, GetDecimal);
-    float y = GET_ARG(2, GetDecimal);
-    float z = GET_ARG(3, GetDecimal);
-    int sx = (int)GET_ARG(4, GetDecimal);
-    int sy = (int)GET_ARG(5, GetDecimal);
-    int sw = (int)GET_ARG(6, GetDecimal);
-    int sh = (int)GET_ARG(7, GetDecimal);
-
-    GET_MATRICES(8);
-
-    Texture* texture = image->TexturePtr;
-    VertexAttribute data[4];
-
-    Graphics::MakeSpritePolygon(data, x, y, z, 0, 0, 1.0f, 1.0f, texture, sx, sy, sw, sh);
-    DrawPolygon3D(data, 4, VertexType_Position | VertexType_Normal | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.Tile3D
- * \desc Draws a tile in 3D space.
- * \param ID (Integer): ID of the tile to draw.
- * \param x (Number): X position of where to draw the tile.
- * \param y (Number): Y position of where to draw the tile.
- * \param z (Number): Z position of where to draw the tile.
- * \param flipX (Integer): Whether or not to flip the tile horizontally.
- * \param flipY (Integer): Whether or not to flip the tile vertically.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_Tile3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(6);
-
-    Uint32 id = GET_ARG(0, GetInteger);
-    float x = GET_ARG(1, GetDecimal);
-    float y = GET_ARG(2, GetDecimal);
-    float z = GET_ARG(3, GetDecimal);
-    int flipX = GET_ARG(4, GetInteger);
-    int flipY = GET_ARG(5, GetInteger);
-
-    GET_MATRICES(6);
-
-    TileSpriteInfo info;
-    ISprite* sprite;
-    if (id < Scene::TileSpriteInfos.size() && (info = Scene::TileSpriteInfos[id]).Sprite != NULL)
-        sprite = info.Sprite;
-    else
-        return NULL_VAL;
-
-    AnimFrame frameStr = sprite->Animations[info.AnimationIndex].Frames[info.FrameIndex];
-    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
-
-    VertexAttribute data[4];
-
-    Graphics::MakeSpritePolygon(data, x, y, z, flipX, flipY, 1.0f, 1.0f, texture, frameStr.X, frameStr.Y, frameStr.Width, frameStr.Height);
-    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.TriangleTextured
- * \desc Draws a textured triangle in 3D space. The texture source should be an image.
- * \param image (Integer): Index of the loaded image.
- * \param x1 (Number): X position of the first vertex.
- * \param y1 (Number): Y position of the first vertex.
- * \param z1 (Number): Z position of the first vertex.
- * \param x2 (Number): X position of the second vertex.
- * \param y2 (Number): Y position of the second vertex.
- * \param z2 (Number): Z position of the second vertex.
- * \param x3 (Number): X position of the third vertex.
- * \param y3 (Number): Y position of the third vertex.
- * \param z3 (Number): Z position of the third vertex.
- * \paramOpt color1 (Integer): Color of the first vertex.
- * \paramOpt color2 (Integer): Color of the second vertex.
- * \paramOpt color3 (Integer): Color of the third vertex.
- * \paramOpt u1 (Number): Texture U of the first vertex.
- * \paramOpt v1 (Number): Texture V of the first vertex.
- * \paramOpt u2 (Number): Texture U of the second vertex.
- * \paramOpt v2 (Number): Texture V of the second vertex.
- * \paramOpt u3 (Number): Texture U of the third vertex.
- * \paramOpt v3 (Number): Texture V of the third vertex.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_TriangleTextured(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(7);
-
-    VertexAttribute data[3];
-
-    Image* image = GET_ARG(0, GetImage);
-    Texture* texture = image->TexturePtr;
-
-    VERTEX_ARGS(3, 1);
-    VERTEX_COLOR_ARGS(3);
-
-    // 0
-    // | \
-    // 1--2
-
-    data[1].UV.X = FP16_TO(1.0f);
-
-    data[2].UV.X = FP16_TO(1.0f);
-    data[2].UV.Y = FP16_TO(1.0f);
-
-    VERTEX_UV_ARGS(3);
-
-    GET_MATRICES(argOffset);
-
-    DrawPolygon3D(data, 3, VertexType_Position | VertexType_UV | VertexType_Color, texture, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.QuadTextured
- * \desc Draws a textured quad in 3D space. The texture source should be an image.
- * \param image (Integer): Index of the loaded image.
- * \param x1 (Number): X position of the first vertex.
- * \param y1 (Number): Y position of the first vertex.
- * \param z1 (Number): Z position of the first vertex.
- * \param x2 (Number): X position of the second vertex.
- * \param y2 (Number): Y position of the second vertex.
- * \param z2 (Number): Z position of the second vertex.
- * \param x3 (Number): X position of the third vertex.
- * \param y3 (Number): Y position of the third vertex.
- * \param z3 (Number): Z position of the third vertex.
- * \param x4 (Number): X position of the fourth vertex.
- * \param y4 (Number): Y position of the fourth vertex.
- * \param z4 (Number): Z position of the fourth vertex.
- * \paramOpt color1 (Integer): Color of the first vertex.
- * \paramOpt color2 (Integer): Color of the second vertex.
- * \paramOpt color3 (Integer): Color of the third vertex.
- * \paramOpt color4 (Integer): Color of the fourth vertex.
- * \paramOpt u1 (Number): Texture U of the first vertex.
- * \paramOpt v1 (Number): Texture V of the first vertex.
- * \paramOpt u2 (Number): Texture U of the second vertex.
- * \paramOpt v2 (Number): Texture V of the second vertex.
- * \paramOpt u3 (Number): Texture U of the third vertex.
- * \paramOpt v3 (Number): Texture V of the third vertex.
- * \paramOpt u4 (Number): Texture U of the fourth vertex.
- * \paramOpt v4 (Number): Texture V of the fourth vertex.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_QuadTextured(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(13);
-
-    VertexAttribute data[4];
-
-    Image* image = GET_ARG(0, GetImage);
-    Texture* texture = image->TexturePtr;
-
-    VERTEX_ARGS(4, 1);
-    VERTEX_COLOR_ARGS(4);
-
-    // 0--1
-    // |  |
-    // 3--2
-
-    data[1].UV.X = FP16_TO(1.0f);
-
-    data[2].UV.X = FP16_TO(1.0f);
-    data[2].UV.Y = FP16_TO(1.0f);
-
-    data[3].UV.Y = FP16_TO(1.0f);
-
-    VERTEX_UV_ARGS(4);
-
-    GET_MATRICES(argOffset);
-
-    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV | VertexType_Color, texture, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.SpritePoints
- * \desc Draws a textured rectangle in 3D space. The texture source should be a sprite.
- * \param sprite (Integer): Index of the loaded sprite.
- * \param animation (Integer): Index of the animation entry.
- * \param frame (Integer): Index of the frame in the animation entry.
- * \param flipX (Integer): Whether or not to flip the sprite horizontally.
- * \param flipY (Integer): Whether or not to flip the sprite vertically.
- * \param x1 (Number): X position of the first vertex.
- * \param y1 (Number): Y position of the first vertex.
- * \param z1 (Number): Z position of the first vertex.
- * \param x2 (Number): X position of the second vertex.
- * \param y2 (Number): Y position of the second vertex.
- * \param z2 (Number): Z position of the second vertex.
- * \param x3 (Number): X position of the third vertex.
- * \param y3 (Number): Y position of the third vertex.
- * \param z3 (Number): Z position of the third vertex.
- * \param x4 (Number): X position of the fourth vertex.
- * \param y4 (Number): Y position of the fourth vertex.
- * \param z4 (Number): Z position of the fourth vertex.
- * \paramOpt color1 (Integer): Color of the first vertex.
- * \paramOpt color2 (Integer): Color of the second vertex.
- * \paramOpt color3 (Integer): Color of the third vertex.
- * \paramOpt color4 (Integer): Color of the fourth vertex.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_SpritePoints(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(16);
-
-    VertexAttribute data[4];
-
-    ISprite* sprite = GET_ARG(0, GetSprite);
-    int animation = GET_ARG(1, GetInteger);
-    int frame = GET_ARG(2, GetInteger);
-    int flipX = GET_ARG(3, GetInteger);
-    int flipY = GET_ARG(4, GetInteger);
-
-    if (Graphics::SpriteRangeCheck(sprite, animation, frame))
-        return NULL_VAL;
-
-    AnimFrame frameStr = sprite->Animations[animation].Frames[frame];
-    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
-
-    VERTEX_ARGS(4, 5);
-    VERTEX_COLOR_ARGS(4);
-    GET_MATRICES(argOffset);
-
-    Graphics::MakeSpritePolygonUVs(data, flipX, flipY, texture, frameStr.X, frameStr.Y, frameStr.Width, frameStr.Height);
-    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV | VertexType_Color, texture, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.TilePoints
- * \desc Draws a textured rectangle in 3D space. The texture source should be a tile.
- * \param ID (Integer): ID of the tile to draw.
- * \param flipX (Integer): Whether or not to flip the tile horizontally.
- * \param flipY (Integer): Whether or not to flip the tile vertically.
- * \param x1 (Number): X position of the first vertex.
- * \param y1 (Number): Y position of the first vertex.
- * \param z1 (Number): Z position of the first vertex.
- * \param x2 (Number): X position of the second vertex.
- * \param y2 (Number): Y position of the second vertex.
- * \param z2 (Number): Z position of the second vertex.
- * \param x3 (Number): X position of the third vertex.
- * \param y3 (Number): Y position of the third vertex.
- * \param z3 (Number): Z position of the third vertex.
- * \param x4 (Number): X position of the fourth vertex.
- * \param y4 (Number): Y position of the fourth vertex.
- * \param z4 (Number): Z position of the fourth vertex.
- * \paramOpt color1 (Integer): Color of the first vertex.
- * \paramOpt color2 (Integer): Color of the second vertex.
- * \paramOpt color3 (Integer): Color of the third vertex.
- * \paramOpt color4 (Integer): Color of the fourth vertex.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_TilePoints(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(15);
-
-    VertexAttribute data[4];
-    TileSpriteInfo info;
-    ISprite* sprite;
-
-    Uint32 id = GET_ARG(0, GetInteger);
-    int flipX = GET_ARG(1, GetInteger);
-    int flipY = GET_ARG(2, GetInteger);
-    if (id < Scene::TileSpriteInfos.size() && (info = Scene::TileSpriteInfos[id]).Sprite != NULL)
-        sprite = info.Sprite;
-    else
-        return NULL_VAL;
-
-    AnimFrame frameStr = sprite->Animations[info.AnimationIndex].Frames[info.FrameIndex];
-    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
-
-    VERTEX_ARGS(4, 3);
-    VERTEX_COLOR_ARGS(4);
-    GET_MATRICES(argOffset);
-
-    Graphics::MakeSpritePolygonUVs(data, flipX, flipY, texture, frameStr.X, frameStr.Y, frameStr.Width, frameStr.Height);
-    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV | VertexType_Color, texture, matrixModelArr, matrixNormalArr);
-    return NULL_VAL;
-}
-/***
- * Draw.SceneLayer3D
- * \desc Draws a scene layer in 3D space.
- * \param layer (Integer): Index of the layer.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_SceneLayer3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(1);
-    int layerID = GET_ARG(0, GetInteger);
-
-    GET_MATRICES(1);
-    PREPARE_MATRICES(matrixModelArr, matrixNormalArr);
-
-    SceneLayer* layer = &Scene::Layers[layerID];
-    Graphics::DrawSceneLayer3D(layer, 0, 0, layer->Width, layer->Height, matrixModel, matrixNormal);
-    return NULL_VAL;
-}
-/***
- * Draw.SceneLayerPart3D
- * \desc Draws part of a scene layer in 3D space.
- * \param layer (Integer): Index of the layer.
- * \param partX (Integer): X coordinate (in tiles) of part of layer to draw.
- * \param partY (Integer): Y coordinate (in tiles) of part of layer to draw.
- * \param partW (Integer): Width (in tiles) of part of layer to draw.
- * \param partH (Integer): Height (in tiles) of part of layer to draw.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_SceneLayerPart3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(5);
-    int layerID = GET_ARG(0, GetInteger);
-    int sx = (int)GET_ARG(1, GetDecimal);
-    int sy = (int)GET_ARG(2, GetDecimal);
-    int sw = (int)GET_ARG(3, GetDecimal);
-    int sh = (int)GET_ARG(4, GetDecimal);
-
-    GET_MATRICES(5);
-    PREPARE_MATRICES(matrixModelArr, matrixNormalArr);
-
-    SceneLayer* layer = &Scene::Layers[layerID];
-    if (sx < 0)
-        sx = 0;
-    if (sy < 0)
-        sy = 0;
-    if (sw <= 0 || sh <= 0)
-        return NULL_VAL;
-    if (sw > layer->Width)
-        sw = layer->Width;
-    if (sh > layer->Height)
-        sh = layer->Height;
-    if (sx >= sw || sy >= sh)
-        return NULL_VAL;
-
-    Graphics::DrawSceneLayer3D(layer, sx, sy, sw, sh, matrixModel, matrixNormal);
-    return NULL_VAL;
-}
-/***
- * Draw.VertexBuffer
- * \desc Draws a vertex buffer.
- * \param vertexBufferIndex (Integer): The vertex buffer to draw.
- * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
- * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
- * \return
- * \ns Draw
- */
-VMValue Draw_VertexBuffer(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(1);
-    Uint32 vertexBufferIndex = GET_ARG(0, GetInteger);
-    if (vertexBufferIndex < 0 || vertexBufferIndex >= MAX_VERTEX_BUFFERS)
-        return NULL_VAL;
-
-    GET_MATRICES(1);
-    PREPARE_MATRICES(matrixModelArr, matrixNormalArr);
-
-    Graphics::DrawVertexBuffer(vertexBufferIndex, matrixModel, matrixNormal);
-    return NULL_VAL;
-}
-#undef PREPARE_MATRICES
-/***
- * Draw.RenderArrayBuffer
- * \desc Draws everything in the array buffer. (Deprecated; use <linkto ref="Draw.RenderScene3D"></linkto> instead.)
- * \param arrayBufferIndex (Integer): The array buffer at the index to draw.
- * \paramOpt drawMode (Integer): The type of drawing to use for the vertices in the array buffer.
- * \return
- * \ns Draw
- */
-VMValue Draw_RenderArrayBuffer(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(1);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    Uint32 drawMode = GET_ARG_OPT(1, GetInteger, 0);
-    GET_SCENE_3D();
-    Graphics::DrawScene3D(scene3DIndex, drawMode);
-    return NULL_VAL;
-}
-/***
- * Draw.RenderScene3D
- * \desc Draws everything in the 3D scene.
- * \param scene3DIndex (Integer): The 3D scene at the index to draw.
- * \paramOpt drawMode (Integer): The type of drawing to use for the vertices in the 3D scene.
- * \return
- * \ns Draw
- */
-VMValue Draw_RenderScene3D(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_AT_LEAST_ARGCOUNT(1);
-    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
-    Uint32 drawMode = GET_ARG_OPT(1, GetInteger, 0);
-    GET_SCENE_3D();
-    Graphics::DrawScene3D(scene3DIndex, drawMode);
     return NULL_VAL;
 }
 /***
@@ -3779,6 +2795,9 @@ VMValue Draw_MeasureText(int argCount, VMValue* args, Uint32 threadID) {
     ISprite* sprite = GET_ARG(1, GetSprite);
     char*    text   = GET_ARG(2, GetString);
 
+    if (!sprite)
+        return NULL_VAL;
+
     float x = 0.0, y = 0.0;
     float maxW = 0.0, maxH = 0.0;
     float lineHeight = sprite->Animations[0].FrameToLoop;
@@ -3829,6 +2848,9 @@ VMValue Draw_MeasureTextWrapped(int argCount, VMValue* args, Uint32 threadID) {
     int      maxLines = 0x7FFFFFFF;
     if (argCount > 4)
         maxLines = GET_ARG(4, GetInteger);
+
+    if (!sprite)
+        return NULL_VAL;
 
     int word = 0;
     char* linestart = text;
@@ -3913,6 +2935,9 @@ VMValue Draw_Text(int argCount, VMValue* args, Uint32 threadID) {
     float*   lineWidths;
     int      line = 0;
 
+    if (!sprite)
+        return NULL_VAL;
+
     // Count lines
     for (char* i = text; *i; i++) {
         if (*i == '\n') {
@@ -3987,6 +3012,9 @@ VMValue Draw_TextWrapped(int argCount, VMValue* args, Uint32 threadID) {
     int      maxLines = 0x7FFFFFFF;
     if (argCount > 5)
         maxLines = GET_ARG(5, GetInteger);
+
+    if (!sprite)
+        return NULL_VAL;
 
     float    x = basex;
     float    y = basey;
@@ -4086,6 +3114,9 @@ VMValue Draw_TextEllipsis(int argCount, VMValue* args, Uint32 threadID) {
     float    x = GET_ARG(2, GetDecimal);
     float    y = GET_ARG(3, GetDecimal);
     float    maxwidth = GET_ARG(4, GetDecimal);
+
+    if (!sprite)
+        return NULL_VAL;
 
     float    elpisswidth = sprite->Animations[0].Frames['.'].Advance * 3;
 
@@ -4512,6 +3543,7 @@ VMValue Draw_Triangle(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Draw_TriangleBlend(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(9);
+    // TODO: Implement for GL renderer
     SoftwareRenderer::FillTriangleBlend(
         GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal),
         GET_ARG(2, GetDecimal), GET_ARG(3, GetDecimal),
@@ -4522,8 +3554,31 @@ VMValue Draw_TriangleBlend(int argCount, VMValue* args, Uint32 threadID) {
     return NULL_VAL;
 }
 /***
+ * Draw.Quad
+ * \desc Draws a quad.
+ * \param x1 (Number): X position of the first vertex.
+ * \param y1 (Number): Y position of the first vertex.
+ * \param x2 (Number): X position of the second vertex.
+ * \param y2 (Number): Y position of the second vertex.
+ * \param x3 (Number): X position of the third vertex.
+ * \param y3 (Number): Y position of the third vertex.
+ * \param x4 (Number): X position of the fourth vertex.
+ * \param y4 (Number): Y position of the fourth vertex.
+ * \ns Draw
+ */
+VMValue Draw_Quad(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(8);
+    // TODO: Implement for GL renderer
+    SoftwareRenderer::FillQuad(
+        GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal),
+        GET_ARG(2, GetDecimal), GET_ARG(3, GetDecimal),
+        GET_ARG(4, GetDecimal), GET_ARG(5, GetDecimal),
+        GET_ARG(6, GetDecimal), GET_ARG(7, GetDecimal));
+    return NULL_VAL;
+}
+/***
  * Draw.QuadBlend
- * \desc Draws a triangle, blending the colors at the vertices. (Colors are multipled by the global Draw Blend Color, do <linkto ref="Draw.SetBlendColor"></linkto><code>(0xFFFFFF, 1.0)</code> if you want the vertex colors unaffected.)
+ * \desc Draws a quad, blending the colors at the vertices. (Colors are multipled by the global Draw Blend Color, do <linkto ref="Draw.SetBlendColor"></linkto><code>(0xFFFFFF, 1.0)</code> if you want the vertex colors unaffected.)
  * \param x1 (Number): X position of the first vertex.
  * \param y1 (Number): Y position of the first vertex.
  * \param x2 (Number): X position of the second vertex.
@@ -4540,6 +3595,7 @@ VMValue Draw_TriangleBlend(int argCount, VMValue* args, Uint32 threadID) {
  */
 VMValue Draw_QuadBlend(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(12);
+    // TODO: Implement for GL renderer
     SoftwareRenderer::FillQuadBlend(
         GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal),
         GET_ARG(2, GetDecimal), GET_ARG(3, GetDecimal),
@@ -4549,6 +3605,96 @@ VMValue Draw_QuadBlend(int argCount, VMValue* args, Uint32 threadID) {
         GET_ARG(9, GetInteger),
         GET_ARG(10, GetInteger),
         GET_ARG(11, GetInteger));
+    return NULL_VAL;
+}
+/***
+ * Draw.TriangleTextured
+ * \desc Draws a textured triangle.
+ * \param image (Integer): Image to draw triangle with.
+ * \param x1 (Number): X position of the first vertex.
+ * \param y1 (Number): Y position of the first vertex.
+ * \param x2 (Number): X position of the second vertex.
+ * \param y2 (Number): Y position of the second vertex.
+ * \param x3 (Number): X position of the third vertex.
+ * \param y3 (Number): Y position of the third vertex.
+ * \paramOpt color1 (Integer): Color of the first vertex.
+ * \paramOpt color2 (Integer): Color of the second vertex.
+ * \paramOpt color3 (Integer): Color of the third vertex.
+ * \paramOpt u1 (Number): Texture U of the first vertex.
+ * \paramOpt v1 (Number): Texture V of the first vertex.
+ * \paramOpt u2 (Number): Texture U of the second vertex.
+ * \paramOpt v2 (Number): Texture V of the second vertex.
+ * \paramOpt u3 (Number): Texture U of the third vertex.
+ * \paramOpt v3 (Number): Texture V of the third vertex.
+ * \ns Draw
+ */
+VMValue Draw_TriangleTextured(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(7);
+
+    Image* image = GET_ARG(0, GetImage);
+    if (image) {
+        // TODO: Implement for GL renderer
+        SoftwareRenderer::DrawTriangleTextured(image->TexturePtr,
+            GET_ARG(1, GetDecimal), GET_ARG(2, GetDecimal),
+            GET_ARG(3, GetDecimal), GET_ARG(4, GetDecimal),
+            GET_ARG(5, GetDecimal), GET_ARG(6, GetDecimal),
+            GET_ARG_OPT(7, GetInteger, 0xFFFFFF),
+            GET_ARG_OPT(8, GetInteger, 0xFFFFFF),
+            GET_ARG_OPT(9, GetInteger, 0xFFFFFF),
+            GET_ARG_OPT(10, GetDecimal, 0.0), GET_ARG_OPT(11, GetDecimal, 0.0),
+            GET_ARG_OPT(12, GetDecimal, 1.0), GET_ARG_OPT(13, GetDecimal, 0.0),
+            GET_ARG_OPT(14, GetDecimal, 1.0), GET_ARG_OPT(15, GetDecimal, 1.0));
+    }
+
+    return NULL_VAL;
+}
+/***
+ * Draw.QuadTextured
+ * \desc Draws a textured quad.
+ * \param image (Integer): Image to draw quad with.
+ * \param x1 (Number): X position of the first vertex.
+ * \param y1 (Number): Y position of the first vertex.
+ * \param x2 (Number): X position of the second vertex.
+ * \param y2 (Number): Y position of the second vertex.
+ * \param x3 (Number): X position of the third vertex.
+ * \param y3 (Number): Y position of the third vertex.
+ * \param x4 (Number): X position of the fourth vertex.
+ * \param y4 (Number): Y position of the fourth vertex.
+ * \paramOpt color1 (Integer): Color of the first vertex.
+ * \paramOpt color2 (Integer): Color of the second vertex.
+ * \paramOpt color3 (Integer): Color of the third vertex.
+ * \paramOpt color4 (Integer): Color of the fourth vertex.
+ * \paramOpt u1 (Number): Texture U of the first vertex.
+ * \paramOpt v1 (Number): Texture V of the first vertex.
+ * \paramOpt u2 (Number): Texture U of the second vertex.
+ * \paramOpt v2 (Number): Texture V of the second vertex.
+ * \paramOpt u3 (Number): Texture U of the third vertex.
+ * \paramOpt v3 (Number): Texture V of the third vertex.
+ * \paramOpt u4 (Number): Texture U of the fourth vertex.
+ * \paramOpt v4 (Number): Texture V of the fourth vertex.
+ * \ns Draw
+ */
+VMValue Draw_QuadTextured(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(9);
+
+    Image* image = GET_ARG(0, GetImage);
+    if (image) {
+        // TODO: Implement for GL renderer
+        SoftwareRenderer::DrawQuadTextured(image->TexturePtr,
+            GET_ARG(1, GetDecimal), GET_ARG(2, GetDecimal),
+            GET_ARG(3, GetDecimal), GET_ARG(4, GetDecimal),
+            GET_ARG(5, GetDecimal), GET_ARG(6, GetDecimal),
+            GET_ARG(7, GetDecimal), GET_ARG(8, GetDecimal),
+            GET_ARG_OPT(9, GetInteger, 0xFFFFFF),
+            GET_ARG_OPT(10, GetInteger, 0xFFFFFF),
+            GET_ARG_OPT(11, GetInteger, 0xFFFFFF),
+            GET_ARG_OPT(12, GetInteger, 0xFFFFFF),
+            GET_ARG_OPT(13, GetDecimal, 0.0), GET_ARG_OPT(14, GetDecimal, 0.0),
+            GET_ARG_OPT(15, GetDecimal, 1.0), GET_ARG_OPT(16, GetDecimal, 0.0),
+            GET_ARG_OPT(17, GetDecimal, 1.0), GET_ARG_OPT(18, GetDecimal, 1.0),
+            GET_ARG_OPT(19, GetDecimal, 0.0), GET_ARG_OPT(20, GetDecimal, 1.0));
+    }
+
     return NULL_VAL;
 }
 /***
@@ -4571,11 +3717,12 @@ VMValue Draw_Rectangle(int argCount, VMValue* args, Uint32 threadID) {
  * \param x (Number): Center X position of where to draw the circle.
  * \param y (Number): Center Y position of where to draw the circle.
  * \param radius (Number): Radius of the circle.
+ * \paramOpt thickness (Number): Thickness of the circle.
  * \ns Draw
  */
 VMValue Draw_CircleStroke(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(3);
-    Graphics::StrokeCircle(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal), GET_ARG(2, GetDecimal));
+    CHECK_AT_LEAST_ARGCOUNT(3);
+    Graphics::StrokeCircle(GET_ARG(0, GetDecimal), GET_ARG(1, GetDecimal), GET_ARG(2, GetDecimal), GET_ARG_OPT(3, GetDecimal, 1.0));
     return NULL_VAL;
 }
 /***
@@ -4744,7 +3891,6 @@ VMValue Draw_Translate(int argCount, VMValue* args, Uint32 threadID) {
     Graphics::Translate(x, y, z);
     return NULL_VAL;
 }
-
 /***
  * Draw.SetTextureTarget
  * \desc
@@ -4857,8 +4003,8 @@ VMValue Draw_CopyScreen(int argCount, VMValue* args, Uint32 threadID) {
 
         View* currentView = Graphics::CurrentView;
         if (currentView) {
-            // If we are using a draw target, then we can't reliably use the
-            // viewport's dimensions, because it might not match the view's size
+            // If we are using a draw target, then we can't reliably use the viewport's dimensions,
+            // because it might not match the view's size
             if (currentView->UseDrawTarget && currentView->DrawTarget) {
                 width = Graphics::CurrentView->Width;
                 height = Graphics::CurrentView->Height;
@@ -4877,6 +4023,851 @@ VMValue Draw_CopyScreen(int argCount, VMValue* args, Uint32 threadID) {
 }
 // #endregion
 
+// #region Draw3D
+/***
+ * Draw3D.BindVertexBuffer
+ * \desc Binds a vertex buffer.
+ * \param vertexBufferIndex (Integer): Sets the vertex buffer to bind.
+ * \ns Draw3D
+ */
+VMValue Draw3D_BindVertexBuffer(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    Uint32 vertexBufferIndex = GET_ARG(0, GetInteger);
+    if (vertexBufferIndex < 0 || vertexBufferIndex >= MAX_VERTEX_BUFFERS) {
+        OUT_OF_RANGE_ERROR("Vertex index", vertexBufferIndex, 0, MAX_VERTEX_BUFFERS);
+        return NULL_VAL;
+    }
+
+    Graphics::BindVertexBuffer(vertexBufferIndex);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.UnbindVertexBuffer
+ * \desc Unbinds the currently bound vertex buffer.
+ * \ns Draw3D
+ */
+VMValue Draw3D_UnbindVertexBuffer(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    Graphics::UnbindVertexBuffer();
+    return NULL_VAL;
+}
+#define GET_SCENE_3D() \
+    if (scene3DIndex < 0 || scene3DIndex >= MAX_3D_SCENES) { \
+        OUT_OF_RANGE_ERROR("Scene3D", scene3DIndex, 0, MAX_3D_SCENES - 1); \
+        return NULL_VAL; \
+    } \
+    Scene3D* scene3D = &Graphics::Scene3Ds[scene3DIndex]
+/***
+ * Draw3D.BindScene
+ * \desc Binds a 3D scene for drawing polygons in 3D space.
+ * \param scene3DIndex (Integer): Sets the 3D scene to bind.
+ * \ns Draw3D
+ */
+VMValue Draw3D_BindScene(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
+    if (scene3DIndex < 0 || scene3DIndex >= MAX_3D_SCENES) {
+        OUT_OF_RANGE_ERROR("Scene3D", scene3DIndex, 0, MAX_3D_SCENES - 1);
+        return NULL_VAL;
+    }
+
+    Graphics::BindScene3D(scene3DIndex);
+    return NULL_VAL;
+}
+static void PrepareMatrix(Matrix4x4 *output, ObjArray* input) {
+    MatrixHelper helper;
+    MatrixHelper_CopyFrom(&helper, input);
+
+    for (int i = 0; i < 16; i++) {
+        int x = i >> 2;
+        int y = i  & 3;
+        output->Values[i] = helper[x][y];
+    }
+}
+/***
+ * Draw3D.Model
+ * \desc Draws a model.
+ * \param modelIndex (Integer): Index of loaded model.
+ * \param animation (Integer): Animation of model to draw.
+ * \param frame (Decimal): Frame of model to draw.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming model coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming model normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_Model(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(5);
+
+    IModel* model = GET_ARG(0, GetModel);
+    int animation = GET_ARG(1, GetInteger);
+    int frame = GET_ARG(2, GetDecimal) * 0x100;
+
+    ObjArray* matrixModelArr = NULL;
+    Matrix4x4 matrixModel;
+    if (!IS_NULL(args[3])) {
+        matrixModelArr = GET_ARG(3, GetArray);
+        PrepareMatrix(&matrixModel, matrixModelArr);
+    }
+
+    ObjArray* matrixNormalArr = NULL;
+    Matrix4x4 matrixNormal;
+    if (!IS_NULL(args[4])) {
+        matrixNormalArr = GET_ARG(4, GetArray);
+        PrepareMatrix(&matrixNormal, matrixNormalArr);
+    }
+
+    if (model)
+        Graphics::DrawModel(model, animation, frame, matrixModelArr ? &matrixModel : NULL, matrixNormalArr ? &matrixNormal : NULL);
+
+    return NULL_VAL;
+}
+/***
+ * Draw3D.ModelSkinned
+ * \desc Draws a skinned model.
+ * \param modelIndex (Integer): Index of loaded model.
+ * \param skeleton (Integer): Skeleton of model to skin the model.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming model coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming model normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_ModelSkinned(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(4);
+
+    IModel* model = GET_ARG(0, GetModel);
+    int armature = GET_ARG(1, GetInteger);
+
+    ObjArray* matrixModelArr = NULL;
+    Matrix4x4 matrixModel;
+    if (!IS_NULL(args[2])) {
+        matrixModelArr = GET_ARG(2, GetArray);
+        PrepareMatrix(&matrixModel, matrixModelArr);
+    }
+
+    ObjArray* matrixNormalArr = NULL;
+    Matrix4x4 matrixNormal;
+    if (!IS_NULL(args[3])) {
+        matrixNormalArr = GET_ARG(3, GetArray);
+        PrepareMatrix(&matrixNormal, matrixNormalArr);
+    }
+
+    if (model)
+        Graphics::DrawModelSkinned(model, armature, matrixModelArr ? &matrixModel : NULL, matrixNormalArr ? &matrixNormal : NULL);
+
+    return NULL_VAL;
+}
+/***
+ * Draw3D.ModelSimple
+ * \desc Draws a model without using matrices.
+ * \param modelIndex (Integer): Index of loaded model.
+ * \param animation (Integer): Animation of model to draw.
+ * \param frame (Integer): Frame of model to draw.
+ * \param x (Number): X position
+ * \param y (Number): Y position
+ * \param scale (Number): Model scale
+ * \param rx (Number): X rotation in radians
+ * \param ry (Number): Y rotation in radians
+ * \param rz (Number): Z rotation in radians
+ * \ns Draw3D
+ */
+VMValue Draw3D_ModelSimple(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(9);
+
+    IModel* model = GET_ARG(0, GetModel);
+    int animation = GET_ARG(1, GetInteger);
+    int frame = GET_ARG(2, GetDecimal) * 0x100;
+    float x = GET_ARG(3, GetDecimal);
+    float y = GET_ARG(4, GetDecimal);
+    float scale = GET_ARG(5, GetDecimal);
+    float rx = GET_ARG(6, GetDecimal);
+    float ry = GET_ARG(7, GetDecimal);
+    float rz = GET_ARG(8, GetDecimal);
+
+    Matrix4x4 matrixScaleTranslate;
+    Matrix4x4::IdentityScale(&matrixScaleTranslate, scale, scale, scale);
+    Matrix4x4::Translate(&matrixScaleTranslate, &matrixScaleTranslate, x, y, 0);
+
+    Matrix4x4 matrixModel;
+    Matrix4x4::IdentityRotationXYZ(&matrixModel, 0, ry, rz);
+    Matrix4x4::Multiply(&matrixModel, &matrixModel, &matrixScaleTranslate);
+
+    Matrix4x4 matrixRotationX;
+    Matrix4x4::IdentityRotationX(&matrixRotationX, rx);
+    Matrix4x4 matrixNormal;
+    Matrix4x4::IdentityRotationXYZ(&matrixNormal, 0, ry, rz);
+    Matrix4x4::Multiply(&matrixNormal, &matrixNormal, &matrixRotationX);
+
+    Graphics::DrawModel(model, animation, frame, &matrixModel, &matrixNormal);
+    return NULL_VAL;
+}
+
+#define PREPARE_MATRICES(matrixModelArr, matrixNormalArr) \
+    Matrix4x4* matrixModel = NULL; \
+    Matrix4x4* matrixNormal = NULL; \
+    Matrix4x4 sMatrixModel, sMatrixNormal; \
+    if (matrixModelArr) { \
+        matrixModel = &sMatrixModel; \
+        PrepareMatrix(matrixModel, matrixModelArr); \
+    } \
+    if (matrixNormalArr) { \
+        matrixNormal = &sMatrixNormal; \
+        PrepareMatrix(matrixNormal, matrixNormalArr); \
+    }
+
+static void DrawPolygon3D(VertexAttribute *data, int vertexCount, int vertexFlag, Texture* texture, ObjArray* matrixModelArr, ObjArray* matrixNormalArr) {
+    PREPARE_MATRICES(matrixModelArr, matrixNormalArr);
+    Graphics::DrawPolygon3D(data, vertexCount, vertexFlag, texture, matrixModel, matrixNormal);
+}
+
+#define VERTEX_ARGS(num, offset) \
+    int argOffset = offset; \
+    for (int i = 0; i < num; i++) { \
+        data[i].Position.X = FP16_TO(GET_ARG(i * 3 + argOffset,     GetDecimal)); \
+        data[i].Position.Y = FP16_TO(GET_ARG(i * 3 + argOffset + 1, GetDecimal)); \
+        data[i].Position.Z = FP16_TO(GET_ARG(i * 3 + argOffset + 2, GetDecimal)); \
+        data[i].Normal.X   = data[i].Normal.Y = data[i].Normal.Z = data[i].Normal.W = 0; \
+        data[i].UV.X       = data[i].UV.Y = 0; \
+    } \
+    argOffset += 3 * num
+
+#define VERTEX_COLOR_ARGS(num) \
+    for (int i = 0; i < num; i++) { \
+        if (argCount <= i + argOffset) \
+            break; \
+        if (!IS_NULL(args[i + argOffset])) \
+            data[i].Color = GET_ARG(i + argOffset, GetInteger); \
+        else \
+            data[i].Color = 0xFFFFFF; \
+    } \
+    argOffset += num
+
+#define VERTEX_UV_ARGS(num) \
+    for (int i = 0; i < num; i++) { \
+        if (argCount <= (i * 2) + argOffset) \
+            break; \
+        if (!IS_NULL(args[(i * 2) + argOffset])) \
+            data[i].UV.X = FP16_TO(GET_ARG((i * 2) + argOffset, GetDecimal)); \
+        if (!IS_NULL(args[(i * 2) + 1 + argOffset])) \
+            data[i].UV.Y = FP16_TO(GET_ARG((i * 2) + 1 + argOffset, GetDecimal)); \
+    } \
+    argOffset += num * 2
+
+#define GET_MATRICES(offset) \
+    ObjArray* matrixModelArr = NULL; \
+    if (argCount > offset && !IS_NULL(args[offset])) \
+        matrixModelArr = GET_ARG(offset, GetArray); \
+    ObjArray* matrixNormalArr = NULL; \
+    if (argCount > offset + 1 && !IS_NULL(args[offset + 1])) \
+        matrixNormalArr = GET_ARG(offset + 1, GetArray)
+
+/***
+ * Draw.Triangle3D
+ * \desc Draws a triangle in 3D space.
+ * \param x1 (Number): X position of the first vertex.
+ * \param y1 (Number): Y position of the first vertex.
+ * \param z1 (Number): Z position of the first vertex.
+ * \param x2 (Number): X position of the second vertex.
+ * \param y2 (Number): Y position of the second vertex.
+ * \param z2 (Number): Z position of the second vertex.
+ * \param x3 (Number): X position of the third vertex.
+ * \param y3 (Number): Y position of the third vertex.
+ * \param z3 (Number): Z position of the third vertex.
+ * \paramOpt color1 (Integer): Color of the first vertex.
+ * \paramOpt color2 (Integer): Color of the second vertex.
+ * \paramOpt color3 (Integer): Color of the third vertex.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_Triangle(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(9);
+
+    VertexAttribute data[3];
+
+    VERTEX_ARGS(3, 0);
+    VERTEX_COLOR_ARGS(3);
+    GET_MATRICES(argOffset);
+
+    DrawPolygon3D(data, 3, VertexType_Position | VertexType_Color, NULL, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.Quad
+ * \desc Draws a quadrilateral in 3D space.
+ * \param x1 (Number): X position of the first vertex.
+ * \param y1 (Number): Y position of the first vertex.
+ * \param z1 (Number): Z position of the first vertex.
+ * \param x2 (Number): X position of the second vertex.
+ * \param y2 (Number): Y position of the second vertex.
+ * \param z2 (Number): Z position of the second vertex.
+ * \param x3 (Number): X position of the third vertex.
+ * \param y3 (Number): Y position of the third vertex.
+ * \param z3 (Number): Z position of the third vertex.
+ * \param x4 (Number): X position of the fourth vertex.
+ * \param y4 (Number): Y position of the fourth vertex.
+ * \param z4 (Number): Z position of the fourth vertex.
+ * \paramOpt color1 (Integer): Color of the first vertex.
+ * \paramOpt color2 (Integer): Color of the second vertex.
+ * \paramOpt color3 (Integer): Color of the third vertex.
+ * \paramOpt color4 (Integer): Color of the fourth vertex.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_Quad(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(12);
+
+    VertexAttribute data[4];
+
+    VERTEX_ARGS(4, 0);
+    VERTEX_COLOR_ARGS(4);
+    GET_MATRICES(argOffset);
+
+    DrawPolygon3D(data, 4, VertexType_Position | VertexType_Color, NULL, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+
+/***
+ * Draw3D.Sprite
+ * \desc Draws a sprite in 3D space.
+ * \param sprite (Integer): Index of the loaded sprite.
+ * \param animation (Integer): Index of the animation entry.
+ * \param frame (Integer): Index of the frame in the animation entry.
+ * \param x (Number): X position of where to draw the sprite.
+ * \param y (Number): Y position of where to draw the sprite.
+ * \param z (Number): Z position of where to draw the sprite.
+ * \param flipX (Integer): Whether or not to flip the sprite horizontally.
+ * \param flipY (Integer): Whether or not to flip the sprite vertically.
+ * \paramOpt scaleX (Number): Scale multiplier of the sprite horizontally.
+ * \paramOpt scaleY (Number): Scale multiplier of the sprite vertically.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_Sprite(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(7);
+
+    ISprite* sprite = GET_ARG(0, GetSprite);
+    int animation = GET_ARG(1, GetInteger);
+    int frame = GET_ARG(2, GetInteger);
+    float x = GET_ARG(3, GetDecimal);
+    float y = GET_ARG(4, GetDecimal);
+    float z = GET_ARG(5, GetDecimal);
+    int flipX = GET_ARG(6, GetInteger);
+    int flipY = GET_ARG(7, GetInteger);
+    float scaleX = 1.0f;
+    float scaleY = 1.0f;
+    if (argCount > 8)
+        scaleX = GET_ARG(8, GetDecimal);
+    if (argCount > 9)
+        scaleY = GET_ARG(9, GetDecimal);
+
+    GET_MATRICES(10);
+
+    if (Graphics::SpriteRangeCheck(sprite, animation, frame))
+        return NULL_VAL;
+
+    AnimFrame frameStr = sprite->Animations[animation].Frames[frame];
+    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
+
+    VertexAttribute data[4];
+
+    x += frameStr.OffsetX * scaleX;
+    y -= frameStr.OffsetY * scaleY;
+
+    Graphics::MakeSpritePolygon(data, x, y, z, flipX, flipY, scaleX, scaleY, texture, frameStr.X, frameStr.Y, frameStr.Width, frameStr.Height);
+    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.SpritePart
+ * \desc Draws part of a sprite in 3D space.
+ * \param sprite (Integer): Index of the loaded sprite.
+ * \param animation (Integer): Index of the animation entry.
+ * \param frame (Integer): Index of the frame in the animation entry.
+ * \param x (Number): X position of where to draw the sprite.
+ * \param y (Number): Y position of where to draw the sprite.
+ * \param z (Number): Z position of where to draw the sprite.
+ * \param partX (Integer): X coordinate of part of frame to draw.
+ * \param partY (Integer): Y coordinate of part of frame to draw.
+ * \param partW (Integer): Width of part of frame to draw.
+ * \param partH (Integer): Height of part of frame to draw.
+ * \param flipX (Integer): Whether or not to flip the sprite horizontally.
+ * \param flipY (Integer): Whether or not to flip the sprite vertically.
+ * \paramOpt scaleX (Number): Scale multiplier of the sprite horizontally.
+ * \paramOpt scaleY (Number): Scale multiplier of the sprite vertically.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_SpritePart(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(11);
+
+    ISprite* sprite = GET_ARG(0, GetSprite);
+    int animation = GET_ARG(1, GetInteger);
+    int frame = GET_ARG(2, GetInteger);
+    float x = GET_ARG(3, GetDecimal);
+    float y = GET_ARG(4, GetDecimal);
+    float z = GET_ARG(5, GetDecimal);
+    int sx = (int)GET_ARG(6, GetDecimal);
+    int sy = (int)GET_ARG(7, GetDecimal);
+    int sw = (int)GET_ARG(8, GetDecimal);
+    int sh = (int)GET_ARG(9, GetDecimal);
+    int flipX = GET_ARG(10, GetInteger);
+    int flipY = GET_ARG(11, GetInteger);
+    float scaleX = 1.0f;
+    float scaleY = 1.0f;
+    if (argCount > 12)
+        scaleX = GET_ARG(12, GetDecimal);
+    if (argCount > 13)
+        scaleY = GET_ARG(13, GetDecimal);
+
+    GET_MATRICES(14);
+
+    if (Graphics::SpriteRangeCheck(sprite, animation, frame))
+        return NULL_VAL;
+
+    if (sw < 1 || sh < 1)
+        return NULL_VAL;
+
+    AnimFrame frameStr = sprite->Animations[animation].Frames[frame];
+    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
+
+    VertexAttribute data[4];
+
+    x += frameStr.OffsetX * scaleX;
+    y -= frameStr.OffsetY * scaleY;
+
+    Graphics::MakeSpritePolygon(data, x, y, z, flipX, flipY, scaleX, scaleY, texture, sx, sy, sw, sh);
+    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.Image
+ * \desc Draws an image in 3D space.
+ * \param image (Integer): Index of the loaded image.
+ * \param x (Number): X position of where to draw the image.
+ * \param y (Number): Y position of where to draw the image.
+ * \param z (Number): Z position of where to draw the image.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_Image(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(4);
+
+    Image* image = GET_ARG(0, GetImage);
+    float x = GET_ARG(1, GetDecimal);
+    float y = GET_ARG(2, GetDecimal);
+    float z = GET_ARG(3, GetDecimal);
+
+    GET_MATRICES(4);
+
+    if (!image)
+        return NULL_VAL;
+
+    Texture* texture = image->TexturePtr;
+    VertexAttribute data[4];
+
+    Graphics::MakeSpritePolygon(data, x, y, z, 0, 0, 1.0f, 1.0f, texture, 0, 0, texture->Width, texture->Height);
+    DrawPolygon3D(data, 4, VertexType_Position | VertexType_Normal | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.ImagePart
+ * \desc Draws part of an image in 3D space.
+ * \param image (Integer): Index of the loaded image.
+ * \param x (Number): X position of where to draw the image.
+ * \param y (Number): Y position of where to draw the image.
+ * \param z (Number): Z position of where to draw the image.
+ * \param partX (Integer): X coordinate of part of image to draw.
+ * \param partY (Integer): Y coordinate of part of image to draw.
+ * \param partW (Integer): Width of part of image to draw.
+ * \param partH (Integer): Height of part of image to draw.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_ImagePart(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(8);
+
+    Image* image = GET_ARG(0, GetImage);
+    float x = GET_ARG(1, GetDecimal);
+    float y = GET_ARG(2, GetDecimal);
+    float z = GET_ARG(3, GetDecimal);
+    int sx = (int)GET_ARG(4, GetDecimal);
+    int sy = (int)GET_ARG(5, GetDecimal);
+    int sw = (int)GET_ARG(6, GetDecimal);
+    int sh = (int)GET_ARG(7, GetDecimal);
+
+    GET_MATRICES(8);
+
+    if (!image)
+        return NULL_VAL;
+
+    Texture* texture = image->TexturePtr;
+    VertexAttribute data[4];
+
+    Graphics::MakeSpritePolygon(data, x, y, z, 0, 0, 1.0f, 1.0f, texture, sx, sy, sw, sh);
+    DrawPolygon3D(data, 4, VertexType_Position | VertexType_Normal | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.Tile
+ * \desc Draws a tile in 3D space.
+ * \param ID (Integer): ID of the tile to draw.
+ * \param x (Number): X position of where to draw the tile.
+ * \param y (Number): Y position of where to draw the tile.
+ * \param z (Number): Z position of where to draw the tile.
+ * \param flipX (Integer): Whether or not to flip the tile horizontally.
+ * \param flipY (Integer): Whether or not to flip the tile vertically.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_Tile(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(6);
+
+    Uint32 id = GET_ARG(0, GetInteger);
+    float x = GET_ARG(1, GetDecimal);
+    float y = GET_ARG(2, GetDecimal);
+    float z = GET_ARG(3, GetDecimal);
+    int flipX = GET_ARG(4, GetInteger);
+    int flipY = GET_ARG(5, GetInteger);
+
+    GET_MATRICES(6);
+
+    TileSpriteInfo info;
+    ISprite* sprite;
+    if (id < Scene::TileSpriteInfos.size() && (info = Scene::TileSpriteInfos[id]).Sprite != NULL)
+        sprite = info.Sprite;
+    else
+        return NULL_VAL;
+
+    AnimFrame frameStr = sprite->Animations[info.AnimationIndex].Frames[info.FrameIndex];
+    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
+
+    VertexAttribute data[4];
+
+    Graphics::MakeSpritePolygon(data, x, y, z, flipX, flipY, 1.0f, 1.0f, texture, frameStr.X, frameStr.Y, frameStr.Width, frameStr.Height);
+    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV, texture, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.TriangleTextured
+ * \desc Draws a textured triangle in 3D space. The texture source should be an image.
+ * \param image (Integer): Index of the loaded image.
+ * \param x1 (Number): X position of the first vertex.
+ * \param y1 (Number): Y position of the first vertex.
+ * \param z1 (Number): Z position of the first vertex.
+ * \param x2 (Number): X position of the second vertex.
+ * \param y2 (Number): Y position of the second vertex.
+ * \param z2 (Number): Z position of the second vertex.
+ * \param x3 (Number): X position of the third vertex.
+ * \param y3 (Number): Y position of the third vertex.
+ * \param z3 (Number): Z position of the third vertex.
+ * \paramOpt color1 (Integer): Color of the first vertex.
+ * \paramOpt color2 (Integer): Color of the second vertex.
+ * \paramOpt color3 (Integer): Color of the third vertex.
+ * \paramOpt u1 (Number): Texture U of the first vertex.
+ * \paramOpt v1 (Number): Texture V of the first vertex.
+ * \paramOpt u2 (Number): Texture U of the second vertex.
+ * \paramOpt v2 (Number): Texture V of the second vertex.
+ * \paramOpt u3 (Number): Texture U of the third vertex.
+ * \paramOpt v3 (Number): Texture V of the third vertex.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_TriangleTextured(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(7);
+
+    VertexAttribute data[3];
+
+    Image* image = GET_ARG(0, GetImage);
+
+    VERTEX_ARGS(3, 1);
+    VERTEX_COLOR_ARGS(3);
+
+    // 0
+    // | \
+    // 1--2
+
+    data[1].UV.X = FP16_TO(1.0f);
+
+    data[2].UV.X = FP16_TO(1.0f);
+    data[2].UV.Y = FP16_TO(1.0f);
+
+    VERTEX_UV_ARGS(3);
+
+    GET_MATRICES(argOffset);
+
+    if (image)
+        DrawPolygon3D(data, 3, VertexType_Position | VertexType_UV | VertexType_Color, image->TexturePtr, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.QuadTextured
+ * \desc Draws a textured quad in 3D space. The texture source should be an image.
+ * \param image (Integer): Index of the loaded image.
+ * \param x1 (Number): X position of the first vertex.
+ * \param y1 (Number): Y position of the first vertex.
+ * \param z1 (Number): Z position of the first vertex.
+ * \param x2 (Number): X position of the second vertex.
+ * \param y2 (Number): Y position of the second vertex.
+ * \param z2 (Number): Z position of the second vertex.
+ * \param x3 (Number): X position of the third vertex.
+ * \param y3 (Number): Y position of the third vertex.
+ * \param z3 (Number): Z position of the third vertex.
+ * \param x4 (Number): X position of the fourth vertex.
+ * \param y4 (Number): Y position of the fourth vertex.
+ * \param z4 (Number): Z position of the fourth vertex.
+ * \paramOpt color1 (Integer): Color of the first vertex.
+ * \paramOpt color2 (Integer): Color of the second vertex.
+ * \paramOpt color3 (Integer): Color of the third vertex.
+ * \paramOpt color4 (Integer): Color of the fourth vertex.
+ * \paramOpt u1 (Number): Texture U of the first vertex.
+ * \paramOpt v1 (Number): Texture V of the first vertex.
+ * \paramOpt u2 (Number): Texture U of the second vertex.
+ * \paramOpt v2 (Number): Texture V of the second vertex.
+ * \paramOpt u3 (Number): Texture U of the third vertex.
+ * \paramOpt v3 (Number): Texture V of the third vertex.
+ * \paramOpt u4 (Number): Texture U of the fourth vertex.
+ * \paramOpt v4 (Number): Texture V of the fourth vertex.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_QuadTextured(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(13);
+
+    VertexAttribute data[4];
+
+    Image* image = GET_ARG(0, GetImage);
+
+    VERTEX_ARGS(4, 1);
+    VERTEX_COLOR_ARGS(4);
+
+    // 0--1
+    // |  |
+    // 3--2
+
+    data[1].UV.X = FP16_TO(1.0f);
+
+    data[2].UV.X = FP16_TO(1.0f);
+    data[2].UV.Y = FP16_TO(1.0f);
+
+    data[3].UV.Y = FP16_TO(1.0f);
+
+    VERTEX_UV_ARGS(4);
+
+    GET_MATRICES(argOffset);
+
+    if (image)
+        DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV | VertexType_Color, image->TexturePtr, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.SpritePoints
+ * \desc Draws a textured rectangle in 3D space. The texture source should be a sprite.
+ * \param sprite (Integer): Index of the loaded sprite.
+ * \param animation (Integer): Index of the animation entry.
+ * \param frame (Integer): Index of the frame in the animation entry.
+ * \param flipX (Integer): Whether or not to flip the sprite horizontally.
+ * \param flipY (Integer): Whether or not to flip the sprite vertically.
+ * \param x1 (Number): X position of the first vertex.
+ * \param y1 (Number): Y position of the first vertex.
+ * \param z1 (Number): Z position of the first vertex.
+ * \param x2 (Number): X position of the second vertex.
+ * \param y2 (Number): Y position of the second vertex.
+ * \param z2 (Number): Z position of the second vertex.
+ * \param x3 (Number): X position of the third vertex.
+ * \param y3 (Number): Y position of the third vertex.
+ * \param z3 (Number): Z position of the third vertex.
+ * \param x4 (Number): X position of the fourth vertex.
+ * \param y4 (Number): Y position of the fourth vertex.
+ * \param z4 (Number): Z position of the fourth vertex.
+ * \paramOpt color1 (Integer): Color of the first vertex.
+ * \paramOpt color2 (Integer): Color of the second vertex.
+ * \paramOpt color3 (Integer): Color of the third vertex.
+ * \paramOpt color4 (Integer): Color of the fourth vertex.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_SpritePoints(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(16);
+
+    VertexAttribute data[4];
+
+    ISprite* sprite = GET_ARG(0, GetSprite);
+    int animation = GET_ARG(1, GetInteger);
+    int frame = GET_ARG(2, GetInteger);
+    int flipX = GET_ARG(3, GetInteger);
+    int flipY = GET_ARG(4, GetInteger);
+
+    if (Graphics::SpriteRangeCheck(sprite, animation, frame))
+        return NULL_VAL;
+
+    AnimFrame frameStr = sprite->Animations[animation].Frames[frame];
+    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
+
+    VERTEX_ARGS(4, 5);
+    VERTEX_COLOR_ARGS(4);
+    GET_MATRICES(argOffset);
+
+    Graphics::MakeSpritePolygonUVs(data, flipX, flipY, texture, frameStr.X, frameStr.Y, frameStr.Width, frameStr.Height);
+    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV | VertexType_Color, texture, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.TilePoints
+ * \desc Draws a textured rectangle in 3D space.
+ * \param ID (Integer): ID of the tile to draw.
+ * \param flipX (Integer): Whether or not to flip the tile horizontally.
+ * \param flipY (Integer): Whether or not to flip the tile vertically.
+ * \param x1 (Number): X position of the first vertex.
+ * \param y1 (Number): Y position of the first vertex.
+ * \param z1 (Number): Z position of the first vertex.
+ * \param x2 (Number): X position of the second vertex.
+ * \param y2 (Number): Y position of the second vertex.
+ * \param z2 (Number): Z position of the second vertex.
+ * \param x3 (Number): X position of the third vertex.
+ * \param y3 (Number): Y position of the third vertex.
+ * \param z3 (Number): Z position of the third vertex.
+ * \param x4 (Number): X position of the fourth vertex.
+ * \param y4 (Number): Y position of the fourth vertex.
+ * \param z4 (Number): Z position of the fourth vertex.
+ * \paramOpt color1 (Integer): Color of the first vertex.
+ * \paramOpt color2 (Integer): Color of the second vertex.
+ * \paramOpt color3 (Integer): Color of the third vertex.
+ * \paramOpt color4 (Integer): Color of the fourth vertex.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_TilePoints(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(15);
+
+    VertexAttribute data[4];
+    TileSpriteInfo info;
+    ISprite* sprite;
+
+    Uint32 id = GET_ARG(0, GetInteger);
+    int flipX = GET_ARG(1, GetInteger);
+    int flipY = GET_ARG(2, GetInteger);
+    if (id < Scene::TileSpriteInfos.size() && (info = Scene::TileSpriteInfos[id]).Sprite != NULL)
+        sprite = info.Sprite;
+    else
+        return NULL_VAL;
+
+    AnimFrame frameStr = sprite->Animations[info.AnimationIndex].Frames[info.FrameIndex];
+    Texture* texture = sprite->Spritesheets[frameStr.SheetNumber];
+
+    VERTEX_ARGS(4, 3);
+    VERTEX_COLOR_ARGS(4);
+    GET_MATRICES(argOffset);
+
+    Graphics::MakeSpritePolygonUVs(data, flipX, flipY, texture, frameStr.X, frameStr.Y, frameStr.Width, frameStr.Height);
+    DrawPolygon3D(data, 4, VertexType_Position | VertexType_UV | VertexType_Color, texture, matrixModelArr, matrixNormalArr);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.SceneLayer
+ * \desc Draws a scene layer in 3D space.
+ * \param layer (Integer): Index of the layer.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_SceneLayer(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    int layerID = GET_ARG(0, GetInteger);
+
+    GET_MATRICES(1);
+    PREPARE_MATRICES(matrixModelArr, matrixNormalArr);
+
+    SceneLayer* layer = &Scene::Layers[layerID];
+    Graphics::DrawSceneLayer3D(layer, 0, 0, layer->Width, layer->Height, matrixModel, matrixNormal);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.SceneLayerPart
+ * \desc Draws part of a scene layer in 3D space.
+ * \param layer (Integer): Index of the layer.
+ * \param partX (Integer): X coordinate (in tiles) of part of layer to draw.
+ * \param partY (Integer): Y coordinate (in tiles) of part of layer to draw.
+ * \param partW (Integer): Width (in tiles) of part of layer to draw.
+ * \param partH (Integer): Height (in tiles) of part of layer to draw.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \ns Draw3D
+ */
+VMValue Draw3D_SceneLayerPart(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(5);
+    int layerID = GET_ARG(0, GetInteger);
+    int sx = (int)GET_ARG(1, GetDecimal);
+    int sy = (int)GET_ARG(2, GetDecimal);
+    int sw = (int)GET_ARG(3, GetDecimal);
+    int sh = (int)GET_ARG(4, GetDecimal);
+
+    GET_MATRICES(5);
+    PREPARE_MATRICES(matrixModelArr, matrixNormalArr);
+
+    SceneLayer* layer = &Scene::Layers[layerID];
+    if (sx < 0)
+        sx = 0;
+    if (sy < 0)
+        sy = 0;
+    if (sw <= 0 || sh <= 0)
+        return NULL_VAL;
+    if (sw > layer->Width)
+        sw = layer->Width;
+    if (sh > layer->Height)
+        sh = layer->Height;
+    if (sx >= sw || sy >= sh)
+        return NULL_VAL;
+
+    Graphics::DrawSceneLayer3D(layer, sx, sy, sw, sh, matrixModel, matrixNormal);
+    return NULL_VAL;
+}
+/***
+ * Draw3D.VertexBuffer
+ * \desc Draws a vertex buffer.
+ * \param vertexBufferIndex (Integer): The vertex buffer to draw.
+ * \paramOpt matrixModel (Matrix): Matrix for transforming coordinates to world space.
+ * \paramOpt matrixNormal (Matrix): Matrix for transforming normals.
+ * \return
+ * \ns Draw3D
+ */
+VMValue Draw3D_VertexBuffer(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    Uint32 vertexBufferIndex = GET_ARG(0, GetInteger);
+    if (vertexBufferIndex < 0 || vertexBufferIndex >= MAX_VERTEX_BUFFERS)
+        return NULL_VAL;
+
+    GET_MATRICES(1);
+    PREPARE_MATRICES(matrixModelArr, matrixNormalArr);
+
+    Graphics::DrawVertexBuffer(vertexBufferIndex, matrixModel, matrixNormal);
+    return NULL_VAL;
+}
+#undef PREPARE_MATRICES
+/***
+ * Draw3D.RenderScene
+ * \desc Draws everything in the 3D scene.
+ * \param scene3DIndex (Integer): The 3D scene at the index to draw.
+ * \paramOpt drawMode (Integer): The type of drawing to use for the vertices in the 3D scene.
+ * \ns Draw3D
+ */
+VMValue Draw3D_RenderScene(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+    Uint32 scene3DIndex = GET_ARG(0, GetInteger);
+    Uint32 drawMode = GET_ARG_OPT(1, GetInteger, 0);
+    GET_SCENE_3D();
+    Graphics::DrawScene3D(scene3DIndex, drawMode);
+    return NULL_VAL;
+}
+// #endregion
+
 // #region Ease
 /***
  * Ease.InSine
@@ -4885,7 +4876,7 @@ VMValue Draw_CopyScreen(int argCount, VMValue* args, Uint32 threadID) {
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InSine(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InSine(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InSine(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InSine(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutSine
  * \desc Eases the value using the "OutSine" formula.
@@ -4893,7 +4884,7 @@ VMValue Ease_InSine(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOU
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutSine(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutSine(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutSine(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutSine(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutSine
  * \desc Eases the value using the "InOutSine" formula.
@@ -4901,7 +4892,7 @@ VMValue Ease_OutSine(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCO
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutSine(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutSine(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutSine(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutSine(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InQuad
  * \desc Eases the value using the "InQuad" formula.
@@ -4909,7 +4900,7 @@ VMValue Ease_InOutSine(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARG
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InQuad(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InQuad(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InQuad(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InQuad(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutQuad
  * \desc Eases the value using the "OutQuad" formula.
@@ -4917,7 +4908,7 @@ VMValue Ease_InQuad(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOU
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutQuad(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutQuad(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutQuad(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutQuad(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutQuad
  * \desc Eases the value using the "InOutQuad" formula.
@@ -4925,7 +4916,7 @@ VMValue Ease_OutQuad(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCO
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutQuad(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutQuad(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutQuad(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutQuad(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InCubic
  * \desc Eases the value using the "InCubic" formula.
@@ -4933,7 +4924,7 @@ VMValue Ease_InOutQuad(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARG
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InCubic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InCubic(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InCubic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InCubic(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutCubic
  * \desc Eases the value using the "OutCubic" formula.
@@ -4941,7 +4932,7 @@ VMValue Ease_InCubic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCO
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutCubic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutCubic(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutCubic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutCubic(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutCubic
  * \desc Eases the value using the "InOutCubic" formula.
@@ -4949,7 +4940,7 @@ VMValue Ease_OutCubic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGC
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutCubic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutCubic(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutCubic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutCubic(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InQuart
  * \desc Eases the value using the "InQuart" formula.
@@ -4957,7 +4948,7 @@ VMValue Ease_InOutCubic(int argCount, VMValue* args, Uint32 threadID) { CHECK_AR
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InQuart(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InQuart(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InQuart(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InQuart(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutQuart
  * \desc Eases the value using the "OutQuart" formula.
@@ -4965,7 +4956,7 @@ VMValue Ease_InQuart(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCO
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutQuart(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutQuart(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutQuart(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutQuart(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutQuart
  * \desc Eases the value using the "InOutQuart" formula.
@@ -4973,7 +4964,7 @@ VMValue Ease_OutQuart(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGC
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutQuart(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutQuart(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutQuart(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutQuart(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InQuint
  * \desc Eases the value using the "InQuint" formula.
@@ -4981,7 +4972,7 @@ VMValue Ease_InOutQuart(int argCount, VMValue* args, Uint32 threadID) { CHECK_AR
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InQuint(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InQuint(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InQuint(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InQuint(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutQuint
  * \desc Eases the value using the "OutQuint" formula.
@@ -4989,7 +4980,7 @@ VMValue Ease_InQuint(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCO
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutQuint(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutQuint(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutQuint(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutQuint(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutQuint
  * \desc Eases the value using the "InOutQuint" formula.
@@ -4997,7 +4988,7 @@ VMValue Ease_OutQuint(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGC
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutQuint(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutQuint(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutQuint(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutQuint(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InExpo
  * \desc Eases the value using the "InExpo" formula.
@@ -5005,7 +4996,7 @@ VMValue Ease_InOutQuint(int argCount, VMValue* args, Uint32 threadID) { CHECK_AR
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InExpo(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InExpo(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InExpo(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InExpo(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutExpo
  * \desc Eases the value using the "OutExpo" formula.
@@ -5013,7 +5004,7 @@ VMValue Ease_InExpo(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOU
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutExpo(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutExpo(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutExpo(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutExpo(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutExpo
  * \desc Eases the value using the "InOutExpo" formula.
@@ -5021,7 +5012,7 @@ VMValue Ease_OutExpo(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCO
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutExpo(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutExpo(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutExpo(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutExpo(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InCirc
  * \desc Eases the value using the "InCirc" formula.
@@ -5029,7 +5020,7 @@ VMValue Ease_InOutExpo(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARG
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InCirc(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InCirc(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InCirc(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InCirc(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutCirc
  * \desc Eases the value using the "OutCirc" formula.
@@ -5037,7 +5028,7 @@ VMValue Ease_InCirc(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOU
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutCirc(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutCirc(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutCirc(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutCirc(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutCirc
  * \desc Eases the value using the "InOutCirc" formula.
@@ -5045,7 +5036,7 @@ VMValue Ease_OutCirc(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCO
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutCirc(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutCirc(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutCirc(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutCirc(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InBack
  * \desc Eases the value using the "InBack" formula.
@@ -5053,7 +5044,7 @@ VMValue Ease_InOutCirc(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARG
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InBack(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InBack(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InBack(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InBack(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutBack
  * \desc Eases the value using the "OutBack" formula.
@@ -5061,7 +5052,7 @@ VMValue Ease_InBack(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOU
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutBack(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutBack(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutBack(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutBack(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutBack
  * \desc Eases the value using the "InOutBack" formula.
@@ -5069,7 +5060,7 @@ VMValue Ease_OutBack(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCO
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutBack(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutBack(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutBack(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutBack(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InElastic
  * \desc Eases the value using the "InElastic" formula.
@@ -5077,7 +5068,7 @@ VMValue Ease_InOutBack(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARG
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InElastic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InElastic(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InElastic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InElastic(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutElastic
  * \desc Eases the value using the "OutElastic" formula.
@@ -5085,7 +5076,7 @@ VMValue Ease_InElastic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARG
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutElastic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutElastic(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutElastic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutElastic(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutElastic
  * \desc Eases the value using the "InOutElastic" formula.
@@ -5093,7 +5084,7 @@ VMValue Ease_OutElastic(int argCount, VMValue* args, Uint32 threadID) { CHECK_AR
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutElastic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutElastic(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutElastic(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutElastic(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InBounce
  * \desc Eases the value using the "InBounce" formula.
@@ -5101,7 +5092,7 @@ VMValue Ease_InOutElastic(int argCount, VMValue* args, Uint32 threadID) { CHECK_
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InBounce(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InBounce(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InBounce(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InBounce(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.OutBounce
  * \desc Eases the value using the "OutBounce" formula.
@@ -5109,7 +5100,7 @@ VMValue Ease_InBounce(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGC
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_OutBounce(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::OutBounce(GET_ARG(0, GetDecimal))); }
+VMValue Ease_OutBounce(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::OutBounce(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.InOutBounce
  * \desc Eases the value using the "InOutBounce" formula.
@@ -5117,7 +5108,7 @@ VMValue Ease_OutBounce(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARG
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_InOutBounce(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::InOutBounce(GET_ARG(0, GetDecimal))); }
+VMValue Ease_InOutBounce(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::InOutBounce(GET_ARG(0, GetDecimal))); }
 /***
  * Ease.Triangle
  * \desc Eases the value using the "Triangle" formula.
@@ -5125,7 +5116,7 @@ VMValue Ease_InOutBounce(int argCount, VMValue* args, Uint32 threadID) { CHECK_A
  * \return Eased Number value between 0.0 and 1.0.
  * \ns Ease
  */
-VMValue Ease_Triangle(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return NUMBER_VAL(Ease::Triangle(GET_ARG(0, GetDecimal))); }
+VMValue Ease_Triangle(int argCount, VMValue* args, Uint32 threadID) { CHECK_ARGCOUNT(1); return DECIMAL_VAL(Ease::Triangle(GET_ARG(0, GetDecimal))); }
 // #endregion
 
 // #region File
@@ -5202,6 +5193,247 @@ VMValue File_WriteAllText(int argCount, VMValue* args, Uint32 threadID) {
         return INTEGER_VAL(true);
     }
     return INTEGER_VAL(false);
+}
+// #endregion
+
+// #region Geometry
+static vector<FVector2> GetPolygonPoints(ObjArray *array, const char *arrName, int threadID) {
+    vector<FVector2> input;
+
+    for (unsigned i = 0; i < array->Values->size(); i++) {
+        VMValue vtxVal = (*array->Values)[i];
+
+        if (!IS_ARRAY(vtxVal)) {
+            THROW_ERROR("Expected value at index %d of %s to be of type %s instead of %s.", i, arrName, GetObjectTypeString(OBJ_ARRAY), GetValueTypeString(vtxVal));
+            return {};
+        }
+
+        ObjArray* vtx = AS_ARRAY(vtxVal);
+        VMValue xVal = (*vtx->Values)[0];
+        VMValue yVal = (*vtx->Values)[1];
+
+        float x, y;
+
+        // Get X
+        if (IS_DECIMAL(xVal))
+            x = AS_DECIMAL(xVal);
+        else if (IS_INTEGER(xVal))
+            x = (float)(AS_INTEGER(xVal));
+        else {
+            THROW_ERROR("Expected X value (index %d) at vertex index %d of %s to be of type %s instead of %s.", 0, i, arrName, GetTypeString(VAL_DECIMAL), GetValueTypeString(xVal));
+            return {};
+        }
+
+        // Get Y
+        if (IS_DECIMAL(yVal))
+            y = AS_DECIMAL(yVal);
+        else if (IS_INTEGER(yVal))
+            y = (float)(AS_INTEGER(yVal));
+        else {
+            THROW_ERROR("Expected Y value (index %d) at vertex index %d of %s to be of type %s instead of %s.", 1, i, arrName, GetTypeString(VAL_DECIMAL), GetValueTypeString(yVal));
+            return {};
+        }
+
+        FVector2 vec(x, y);
+
+        input.push_back(vec);
+    }
+
+    return input;
+}
+/***
+ * Geometry.Triangulate
+ * \desc Triangulates a 2D polygon.
+ * \param polygon (Array): Array of vertices that compromise the polygon to triangulate.
+ * \paramOpt holes (Array): Array of polygons that compromise the holes to be made in the resulting shape.
+ * \return Returns an Array containing a list of triangles, or <code>null</code> if the polygon could not be triangulated.
+ * \ns Geometry
+ */
+VMValue Geometry_Triangulate(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(1);
+
+    ObjArray* arrPoly = GET_ARG(0, GetArray);
+    ObjArray* arrHoles = GET_ARG_OPT(1, GetArray, nullptr);
+
+    vector<FVector2> points = GetPolygonPoints(arrPoly, "polygon array", threadID);
+    if (!points.size())
+        return NULL_VAL;
+
+    Polygon2D inputPoly(points);
+    vector<Polygon2D> inputHoles;
+
+    if (arrHoles) {
+        for (unsigned i = 0; i < arrHoles->Values->size(); i++) {
+            VMValue value = (*arrHoles->Values)[i];
+            if (!IS_ARRAY(value)) {
+                THROW_ERROR("Expected value at index %d of holes array to be of type %s instead of %s.", i, GetObjectTypeString(OBJ_ARRAY), GetValueTypeString(value));
+                return NULL_VAL;
+            }
+
+            Polygon2D hole(GetPolygonPoints(AS_ARRAY(value), "holes array", threadID));
+            inputHoles.push_back(hole);
+        }
+
+        // Holes must not be touching each other or the bounds of the shape, so these two operations are needed
+        vector<Polygon2D>* unionResult = Geometry::Intersect(GeoBooleanOp_Union, GeoFillRule_EvenOdd, inputHoles, {});
+        inputHoles.clear();
+        for (unsigned i = 0; i < unionResult->size(); i++)
+            inputHoles.push_back((*unionResult)[i]);
+        delete unionResult;
+
+        vector<Polygon2D>* intersectResult = Geometry::Intersect(GeoBooleanOp_Intersection, GeoFillRule_EvenOdd, inputHoles, {inputPoly});
+        inputHoles.clear();
+        for (unsigned i = 0; i < intersectResult->size(); i++)
+            inputHoles.push_back((*intersectResult)[i]);
+        delete intersectResult;
+    }
+
+    vector<Polygon2D>* output = Geometry::Triangulate(inputPoly, inputHoles);
+    if (!output)
+        return NULL_VAL;
+
+    ObjArray* result = NewArray();
+
+    for (unsigned i = 0; i < output->size(); i++) {
+        Polygon2D poly = (*output)[i];
+        ObjArray* triArr = NewArray();
+
+        for (unsigned j = 0; j < 3; j++) {
+            ObjArray* vtx = NewArray();
+            vtx->Values->push_back(DECIMAL_VAL(poly.Points[j].X));
+            vtx->Values->push_back(DECIMAL_VAL(poly.Points[j].Y));
+            triArr->Values->push_back(OBJECT_VAL(vtx));
+        }
+
+        result->Values->push_back(OBJECT_VAL(triArr));
+    }
+
+    delete output;
+
+    return OBJECT_VAL(result);
+}
+/***
+ * Geometry.Intersect
+ * \desc Intersects a 2D polygon.
+ * \param subjects (Array): Array of subject polygons.
+ * \param clips (Array): Array of clip polygons.
+ * \paramOpt booleanOp (Enum): The <linkto ref="GeoBooleanOp_*">boolean operation</linkto>. Default is <linkto ref="GeoBooleanOp_Intersection"></linkto>.
+ * \paramOpt fillRule (Enum): The <linkto ref="GeoFillRule_*">fill rule</linkto>. Default is <linkto ref="GeoFillRule_EvenOdd"></linkto>.
+ * \return Returns an Array containing a list of intersected polygons, or <code>null</code> if the polygon could not be intersected.
+ * \ns Geometry
+ */
+VMValue Geometry_Intersect(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(2);
+
+    ObjArray* subjects = GET_ARG(0, GetArray);
+    ObjArray* clips = GET_ARG(1, GetArray);
+    int booleanOp = GET_ARG_OPT(2, GetInteger, GeoBooleanOp_Intersection);
+    int fillRule = GET_ARG_OPT(3, GetInteger, GeoFillRule_EvenOdd);
+
+    if (booleanOp < GeoBooleanOp_Intersection || booleanOp > GeoBooleanOp_ExclusiveOr) {
+        OUT_OF_RANGE_ERROR("Boolean operation", booleanOp, GeoBooleanOp_Intersection, GeoBooleanOp_ExclusiveOr);
+        return NULL_VAL;
+    }
+
+    if (fillRule < GeoFillRule_EvenOdd || fillRule > GeoFillRule_Negative) {
+        OUT_OF_RANGE_ERROR("Fill rule", fillRule, GeoFillRule_EvenOdd, GeoFillRule_Negative);
+        return NULL_VAL;
+    }
+
+    vector<Polygon2D> inputSubjects;
+    vector<Polygon2D> inputClips;
+
+    // Get subjects
+    for (unsigned i = 0; i < subjects->Values->size(); i++) {
+        VMValue value = (*subjects->Values)[i];
+        if (!IS_ARRAY(value)) {
+            THROW_ERROR("Expected value at index %d of subjects array to be of type %s instead of %s.", i, GetObjectTypeString(OBJ_ARRAY), GetValueTypeString(value));
+            return NULL_VAL;
+        }
+
+        Polygon2D subject(GetPolygonPoints(AS_ARRAY(value), "subject array", threadID));
+        inputSubjects.push_back(subject);
+    }
+
+    // Get clips
+    for (unsigned i = 0; i < clips->Values->size(); i++) {
+        VMValue value = (*clips->Values)[i];
+        if (!IS_ARRAY(value)) {
+            THROW_ERROR("Expected value at index %d of clips array to be of type %s instead of %s.", i, GetObjectTypeString(OBJ_ARRAY), GetValueTypeString(value));
+            return NULL_VAL;
+        }
+
+        Polygon2D clip(GetPolygonPoints(AS_ARRAY(value), "clip array", threadID));
+        inputClips.push_back(clip);
+    }
+
+    vector<Polygon2D>* output = Geometry::Intersect(booleanOp, fillRule, inputSubjects, inputClips);
+    if (!output)
+        return NULL_VAL;
+
+    ObjArray* result = NewArray();
+
+    for (unsigned i = 0; i < output->size(); i++) {
+        Polygon2D& poly = (*output)[i];
+        ObjArray* polyArr = NewArray();
+
+        for (unsigned j = 0; j < poly.Points.size(); j++) {
+            ObjArray* vtx = NewArray();
+            vtx->Values->push_back(DECIMAL_VAL(poly.Points[j].X));
+            vtx->Values->push_back(DECIMAL_VAL(poly.Points[j].Y));
+            polyArr->Values->push_back(OBJECT_VAL(vtx));
+        }
+
+        result->Values->push_back(OBJECT_VAL(polyArr));
+    }
+
+    delete output;
+
+    return OBJECT_VAL(result);
+}
+/***
+ * Geometry.IsPointInsidePolygon
+ * \desc Checks if a point is inside a polygon.
+ * \param polygon (Array): The polygon.
+ * \param pointX (Decimal): The X of the point.
+ * \param pointY (Decimal): The Y of the point.
+ * \return Returns <code>true</code> if the point is inside, or <code>false</code> if the point is outside.
+ * \ns Geometry
+ */
+VMValue Geometry_IsPointInsidePolygon(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(3);
+
+    ObjArray* arr = GET_ARG(0, GetArray);
+    float pointX = GET_ARG(1, GetDecimal);
+    float pointY = GET_ARG(2, GetDecimal);
+
+    Polygon2D polygon(GetPolygonPoints(arr, "polygon array", threadID));
+
+    return INTEGER_VAL(polygon.IsPointInside(pointX, pointY));
+}
+/***
+ * Geometry.IsLineIntersectingPolygon
+ * \desc Checks if a line segment is intersecting a polygon.
+ * \param polygon (Array): The polygon to check.
+ * \param x1 (Decimal): The starting X of the segment.
+ * \param y1 (Decimal): The starting Y of the segment.
+ * \param x2 (Decimal): The ending X of the segment.
+ * \param y2 (Decimal): The ending Y of the segment.
+ * \return Returns <code>true</code> if the line segment is intersecting the polygon, or <code>false</code> if it is not.
+ * \ns Geometry
+ */
+VMValue Geometry_IsLineIntersectingPolygon(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(5);
+
+    ObjArray* arr = GET_ARG(0, GetArray);
+    float x1 = GET_ARG(1, GetDecimal);
+    float y1 = GET_ARG(2, GetDecimal);
+    float x2 = GET_ARG(3, GetDecimal);
+    float y2 = GET_ARG(4, GetDecimal);
+
+    Polygon2D polygon(GetPolygonPoints(arr, "polygon array", threadID));
+
+    return INTEGER_VAL(polygon.IsLineSegmentIntersecting(x1, y1, x2, y2));
 }
 // #endregion
 
@@ -5291,6 +5523,41 @@ VMValue HTTP_GetToFile(int argCount, VMValue* args, Uint32 threadID) {
 }
 // #endregion
 
+// #region Image
+/***
+ * Image.GetWidth
+ * \desc Gets the width of the specified image.
+ * \param image (Integer): The image index to check.
+ * \return Returns an Integer value.
+ * \ns Image
+ */
+VMValue Image_GetWidth(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    Image* image = GET_ARG(0, GetImage);
+    if (image) {
+        Texture* texture = image->TexturePtr;
+        return INTEGER_VAL((int)texture->Width);
+    }
+    return INTEGER_VAL(0);
+}
+/***
+ * Image.GetHeight
+ * \desc Gets the height of the specified image.
+ * \param image (Integer): The image index to check.
+ * \return Returns an Integer value.
+ * \ns Image
+ */
+VMValue Image_GetHeight(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    Image* image = GET_ARG(0, GetImage);
+    if (image) {
+        Texture* texture = image->TexturePtr;
+        return INTEGER_VAL((int)texture->Height);
+    }
+    return INTEGER_VAL(0);
+}
+// #endregion
+
 // #region Input
 /***
  * Input.GetMouseX
@@ -5301,7 +5568,7 @@ VMValue HTTP_GetToFile(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Input_GetMouseX(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
     int value; SDL_GetMouseState(&value, NULL);
-    return NUMBER_VAL((float)value);
+    return DECIMAL_VAL((float)value);
 }
 /***
  * Input.GetMouseY
@@ -5312,7 +5579,7 @@ VMValue Input_GetMouseX(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Input_GetMouseY(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
     int value; SDL_GetMouseState(NULL, &value);
-    return NUMBER_VAL((float)value);
+    return DECIMAL_VAL((float)value);
 }
 /***
  * Input.IsMouseButtonDown
@@ -5402,72 +5669,6 @@ VMValue Input_IsKeyReleased(int argCount, VMValue* args, Uint32 threadID) {
     int key = GET_ARG(0, GetInteger);
     int down = InputManager::IsKeyReleased(key);
     return INTEGER_VAL(down);
-}
-/***
- * Input.GetControllerCount
- * \desc Gets the amount of connected controllers in the device. (Deprecated; use <linkto ref="Controller.GetCount"></linkto> instead.)
- * \return Returns the amount of connected controllers in the device.
- * \ns Input
- */
-VMValue Input_GetControllerCount(int argCount, VMValue* args, Uint32 threadID) {
-    return Controller_GetCount(argCount, args, threadID);
-}
-/***
- * Input.GetControllerAttached
- * \desc Gets whether the controller at the index is connected. (Deprecated; use <linkto ref="Controller.IsConnected"></linkto> instead.)
- * \param controllerIndex (Integer): Index of the controller to check.
- * \return Returns whether the controller at the index is connected.
- * \ns Input
- */
-VMValue Input_GetControllerAttached(int argCount, VMValue* args, Uint32 threadID) {
-    return Controller_IsConnected(argCount, args, threadID);
-}
-/***
- * Input.GetControllerHat
- * \desc Gets the hat value from the controller at the index. (Deprecated; use <linkto ref="Controller.GetButton"></linkto> instead.)
- * \param controllerIndex (Integer): Index of the controller to check.
- * \param hatIndex (Integer): Index of the hat to check.
- * \return Returns the hat value from the controller at the index.
- * \ns Input
- */
-VMValue Input_GetControllerHat(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(2);
-    int controller_index = GET_ARG(0, GetInteger);
-    int index = GET_ARG(1, GetInteger);
-    CHECK_CONTROLLER_INDEX(controller_index);
-    return INTEGER_VAL(InputManager::ControllerGetHat(controller_index, index));
-}
-/***
- * Input.GetControllerAxis
- * \desc Gets the axis value from the controller at the index. (Deprecated; use <linkto ref="Controller.GetAxis"></linkto> instead.)
- * \param controllerIndex (Integer): Index of the controller to check.
- * \param axisIndex (Integer): Index of the axis to check.
- * \return Returns the axis value from the controller at the index.
- * \ns Input
- */
-VMValue Input_GetControllerAxis(int argCount, VMValue* args, Uint32 threadID) {
-    return Controller_GetAxis(argCount, args, threadID);
-}
-/***
- * Input.GetControllerButton
- * \desc Gets the button value from the controller at the index. (Deprecated; use <linkto ref="Controller.GetButton"></linkto> instead.)
- * \param controllerIndex (Integer): Index of the controller to check.
- * \param buttonIndex (Integer): Index of the button to check.
- * \return Returns the button value from the controller at the index.
- * \ns Input
- */
-VMValue Input_GetControllerButton(int argCount, VMValue* args, Uint32 threadID) {
-    return Controller_GetButton(argCount, args, threadID);
-}
-/***
- * Input.GetControllerName
- * \desc Gets the name of the controller at the index. (Deprecated; use <linkto ref="Controller.GetName"></linkto> instead.)
- * \param controllerIndex (Integer): Index of the controller to check.
- * \return Returns the name of the controller at the index.
- * \ns Input
- */
-VMValue Input_GetControllerName(int argCount, VMValue* args, Uint32 threadID) {
-    return Controller_GetName(argCount, args, threadID);
 }
 #undef CHECK_CONTROLLER_INDEX
 /***
@@ -5741,7 +5942,7 @@ VMValue Instance_GetNextInstance(int argCount, VMValue* args, Uint32 threadID) {
  * Instance.GetBySlotID
  * \desc Gets an instance by its slot ID.
  * \param slotID (Integer): The slot ID to search a corresponding instance for.
- * \return Returns the instance corresponding to the specified slot ID, <code>null</code> if the instance could not be found.
+ * \return Returns the instance corresponding to the specified slot ID, or <code>null</code> if no instance was found.
  * \ns Instance
  */
 VMValue Instance_GetBySlotID(int argCount, VMValue* args, Uint32 threadID) {
@@ -5783,13 +5984,12 @@ VMValue Instance_Copy(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_AT_LEAST_ARGCOUNT(2);
     ObjInstance* destInstance   = GET_ARG(0, GetInstance);
     ObjInstance* srcInstance    = GET_ARG(1, GetInstance);
-    bool copyClass              = argCount >= 3 ? !!GET_ARG(2, GetInteger) : true;
-    bool destroySrc             = argCount >= 4 ? !!GET_ARG(3, GetInteger) : false;
+    bool copyClass              = !!GET_ARG_OPT(2, GetInteger, true);
 
     ScriptEntity* destEntity  = (ScriptEntity*)destInstance->EntityPtr;
     ScriptEntity* srcEntity   = (ScriptEntity*)srcInstance->EntityPtr;
     if (destEntity && srcEntity)
-        srcEntity->Copy(destEntity, copyClass, destroySrc);
+        srcEntity->Copy(destEntity, copyClass);
 
     return NULL_VAL;
 }
@@ -5804,31 +6004,17 @@ VMValue Instance_Copy(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Instance_ChangeClass(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
 
-    ObjInstance* instance   = GET_ARG(0, GetInstance);
-    char* objectName        = GET_ARG(1, GetString);
+    ObjInstance* instance  = GET_ARG(0, GetInstance);
+    char* className        = GET_ARG(1, GetString);
 
     ScriptEntity* self = (ScriptEntity*)instance->EntityPtr;
     if (!self)
         return INTEGER_VAL(false);
 
-    if (ScriptManager::ClassExists(objectName)) {
-        if (!ScriptManager::Classes->Exists(objectName))
-            ScriptManager::LoadObjectClass(objectName, true);
+    if (self->ChangeClass(className))
+        return INTEGER_VAL(true);
 
-        ObjClass* klass = AS_CLASS(ScriptManager::Globals->Get(objectName));
-        if (!klass) {
-            return INTEGER_VAL(false);
-        }
-
-        instance->Object.Class = klass;
-    }
-    else {
-        return INTEGER_VAL(false);
-    }
-
-    ObjectList* objectList  = Scene::ObjectLists->Get(objectName);
-    self->List              = objectList;
-    return INTEGER_VAL(true);
+    return INTEGER_VAL(false);
 }
 // #endregion
 
@@ -6606,9 +6792,9 @@ VMValue Math_RadianToInteger(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * RSDK.Math.IntegerToRadian
- * \desc Gets the radian decimal conversion of an integer, based on 256.
+ * \desc Gets the radia Decimal conversion of an integer, based on 256.
  * \param integer (Integer): Integer value to convert.
- * \return A radian decimal value of the converted integer.
+ * \return A radia Decimal value of the converted integer.
  * \ns RSDK.Math
  */
 VMValue Math_IntegerToRadian(int argCount, VMValue* args, Uint32 threadID) {
@@ -7191,18 +7377,22 @@ VMValue Matrix_Rotate256(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Model_GetVertexCount(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     IModel* model = GET_ARG(0, GetModel);
+    if (!model)
+        return INTEGER_VAL(0);
     return INTEGER_VAL((int)model->VertexCount);
 }
 /***
  * Model.GetAnimationCount
  * \desc Returns how many animations exist in the model.
  * \param model (Integer): The model index to check.
- * \return The animation count. Will always return <code>0</code> for vertex-animated models.
+ * \return Returns an Integer value.
  * \ns Model
  */
 VMValue Model_GetAnimationCount(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     IModel* model = GET_ARG(0, GetModel);
+    if (!model)
+        return INTEGER_VAL(0);
     return INTEGER_VAL((int)model->AnimationCount);
 }
 /***
@@ -7219,7 +7409,7 @@ VMValue Model_GetAnimationName(int argCount, VMValue* args, Uint32 threadID) {
     IModel* model = GET_ARG(0, GetModel);
     int animation = GET_ARG(1, GetInteger);
 
-    if (model->AnimationCount == 0)
+    if (!model || model->AnimationCount == 0)
         return NULL_VAL;
 
     CHECK_MODEL_ANIMATION_INDEX(animation);
@@ -7241,20 +7431,24 @@ VMValue Model_GetAnimationName(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Model_GetAnimationIndex(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     IModel* model = GET_ARG(0, GetModel);
+    if (!model)
+        return INTEGER_VAL(-1);
     char* animationName = GET_ARG(1, GetString);
     return INTEGER_VAL(model->GetAnimationIndex(animationName));
 }
 /***
  * Model.GetFrameCount
- * \desc Returns how many frames exist in the model.
+ * \desc Returns how many frames exist in the model. (Deprecated; use <linkto ref="Model.GetAnimationLength"></linkto> instead.)
  * \param model (Integer): The model index to check.
- * \return The frame count. Will always return <code>0</code> for skeletal-animated models.
+ * \return Returns an Integer value.
  * \ns Model
  */
 VMValue Model_GetFrameCount(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     IModel* model = GET_ARG(0, GetModel);
-    return INTEGER_VAL((int)model->FrameCount);
+    if (!model)
+        return INTEGER_VAL(0);
+    return INTEGER_VAL((int)model->Meshes[0]->FrameCount);
 }
 /***
  * Model.GetAnimationLength
@@ -7268,6 +7462,8 @@ VMValue Model_GetAnimationLength(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     IModel* model = GET_ARG(0, GetModel);
     int animation = GET_ARG(1, GetInteger);
+    if (!model)
+        return INTEGER_VAL(0);
     CHECK_MODEL_ANIMATION_INDEX(animation);
     return INTEGER_VAL((int)model->Animations[animation]->Length);
 }
@@ -7281,6 +7477,8 @@ VMValue Model_GetAnimationLength(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Model_HasMaterials(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     IModel* model = GET_ARG(0, GetModel);
+    if (!model)
+        return INTEGER_VAL(0);
     return INTEGER_VAL((int)model->HasMaterials());
 }
 /***
@@ -7293,6 +7491,8 @@ VMValue Model_HasMaterials(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Model_HasBones(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     IModel* model = GET_ARG(0, GetModel);
+    if (!model)
+        return INTEGER_VAL(0);
     return INTEGER_VAL((int)model->HasBones());
 }
 /***
@@ -7305,6 +7505,8 @@ VMValue Model_HasBones(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Model_CreateArmature(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     IModel* model = GET_ARG(0, GetModel);
+    if (!model)
+        return INTEGER_VAL(-1);
     return INTEGER_VAL(model->NewArmature());
 }
 /***
@@ -7321,6 +7523,9 @@ VMValue Model_PoseArmature(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_AT_LEAST_ARGCOUNT(2);
     IModel* model = GET_ARG(0, GetModel);
     int armature = GET_ARG(1, GetInteger);
+
+    if (!model)
+        return NULL_VAL;
 
     CHECK_ARMATURE_INDEX(armature);
 
@@ -7352,6 +7557,8 @@ VMValue Model_ResetArmature(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     IModel* model = GET_ARG(0, GetModel);
     int armature = GET_ARG(1, GetInteger);
+    if (!model)
+        return NULL_VAL;
     CHECK_ARMATURE_INDEX(armature);
     model->ArmatureList[armature]->Reset();
     return NULL_VAL;
@@ -7368,6 +7575,8 @@ VMValue Model_DeleteArmature(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     IModel* model = GET_ARG(0, GetModel);
     int armature = GET_ARG(1, GetInteger);
+    if (!model)
+        return NULL_VAL;
     CHECK_ARMATURE_INDEX(armature);
     model->DeleteArmature((size_t)armature);
     return NULL_VAL;
@@ -7397,8 +7606,8 @@ VMValue Music_Play(int argCount, VMValue* args, Uint32 threadID) {
     float fadeInAfterFinished = GET_ARG_OPT(4, GetDecimal, 0.0f);
     if (fadeInAfterFinished < 0.f)
         fadeInAfterFinished = 0.f;
-
-    AudioManager::PushMusicAt(audio, 0.0, false, 0, panning, speed, volume, fadeInAfterFinished);
+    if (audio)
+        AudioManager::PushMusicAt(audio, 0.0, false, 0, panning, speed, volume, fadeInAfterFinished);
     return NULL_VAL;
 }
 /***
@@ -7422,8 +7631,8 @@ VMValue Music_PlayAtTime(int argCount, VMValue* args, Uint32 threadID) {
     float fadeInAfterFinished = GET_ARG_OPT(5, GetDecimal, 0.0f);
     if (fadeInAfterFinished < 0.f)
         fadeInAfterFinished = 0.f;
-
-    AudioManager::PushMusicAt(audio, start_point, false, 0, panning, speed, volume, fadeInAfterFinished);
+    if (audio)
+        AudioManager::PushMusicAt(audio, start_point, false, 0, panning, speed, volume, fadeInAfterFinished);
     return NULL_VAL;
 }
 /***
@@ -7435,7 +7644,8 @@ VMValue Music_PlayAtTime(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Music_Stop(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     ISound* audio = GET_ARG(0, GetMusic);
-    AudioManager::RemoveMusic(audio);
+    if (audio)
+        AudioManager::RemoveMusic(audio);
     return NULL_VAL;
 }
 /***
@@ -7513,8 +7723,8 @@ VMValue Music_Loop(int argCount, VMValue* args, Uint32 threadID) {
     float fadeInAfterFinished = GET_ARG_OPT(6, GetDecimal, 0.0f);
     if (fadeInAfterFinished < 0.f)
         fadeInAfterFinished = 0.f;
-
-    AudioManager::PushMusic(audio, true, loop_point, panning, speed, volume, fadeInAfterFinished);
+    if (audio)
+        AudioManager::PushMusic(audio, true, loop_point, panning, speed, volume, fadeInAfterFinished);
     return NULL_VAL;
 }
 /***
@@ -7542,31 +7752,36 @@ VMValue Music_LoopAtTime(int argCount, VMValue* args, Uint32 threadID) {
     float fadeInAfterFinished = GET_ARG_OPT(7, GetDecimal, 0.0f);
     if (fadeInAfterFinished < 0.f)
         fadeInAfterFinished = 0.f;
-
-    AudioManager::PushMusicAt(audio, start_point, true, loop_point, panning, speed, volume, fadeInAfterFinished);
+    if (audio)
+        AudioManager::PushMusicAt(audio, start_point, true, loop_point, panning, speed, volume, fadeInAfterFinished);
     return NULL_VAL;
 }
 /***
  * Music.IsPlaying
  * \desc Checks to see if the specified music is currently playing.
  * \param music (Integer): The music index to play.
- * \return Returns whether or not the music is playing.
+ * \return Returns a Boolean value.
  * \ns Music
  */
 VMValue Music_IsPlaying(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     ISound* audio = GET_ARG(0, GetMusic);
+    if (!audio)
+        return INTEGER_VAL(0);
     return INTEGER_VAL(AudioManager::IsPlayingMusic(audio));
 }
 /***
  * Music.GetPosition
  * \desc Gets the position of the current track playing.
  * \param music (Integer): The music index to get the current position (in seconds) of.
+ * \return Returns a Decimal value.
  * \ns Music
  */
 VMValue Music_GetPosition(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     ISound* audio = GET_ARG(0, GetMusic);
+    if (!audio)
+        return DECIMAL_VAL(0.0);
     return DECIMAL_VAL((float)AudioManager::GetMusicPosition(audio));
 }
 /***
@@ -7593,8 +7808,8 @@ VMValue Music_Alter(int argCount, VMValue* args, Uint32 threadID) {
  * Number.ToString
  * \desc Converts a Number to a String.
  * \param n (Number): Number value.
- * \paramOpt base (Integer): radix
- * \return
+ * \paramOpt base (Integer): The numerical base, or radix.
+ * \return Returns a String value.
  * \ns Number
  */
 VMValue Number_ToString(int argCount, VMValue* args, Uint32 threadID) {
@@ -7654,9 +7869,9 @@ VMValue Number_AsInteger(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * Number.AsDecimal
- * \desc Converts a Integer to an Decimal.
+ * \desc Converts a Integer to a Decimal.
  * \param n (Number): Number value.
- * \return Returns an Decimal value.
+ * \return Returns a Decimal value.
  * \ns Number
  */
 VMValue Number_AsDecimal(int argCount, VMValue* args, Uint32 threadID) {
@@ -7907,9 +8122,13 @@ VMValue Palette_LoadFromImage(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     int palIndex = GET_ARG(0, GetInteger);
     Image* image = GET_ARG(1, GetImage);
-    Texture* texture = image->TexturePtr;
 
     CHECK_PALETTE_INDEX(palIndex);
+
+    if (!image)
+        return NULL_VAL;
+
+    Texture* texture = image->TexturePtr;
 
     size_t x = 0;
 
@@ -7933,6 +8152,7 @@ VMValue Palette_LoadFromImage(int argCount, VMValue* args, Uint32 threadID) {
  * \desc Gets a color from the specified palette.
  * \param paletteIndex (Integer): Index of palette.
  * \param colorIndex (Integer): Index of color.
+ * \return Returns an Integer value.
  * \ns Palette
  */
 VMValue Palette_GetColor(int argCount, VMValue* args, Uint32 threadID) {
@@ -7957,12 +8177,53 @@ VMValue Palette_SetColor(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(3);
     int palIndex = GET_ARG(0, GetInteger);
     int colorIndex = GET_ARG(1, GetInteger);
+    Uint32 hex = (Uint32)GET_ARG(2, GetInteger);
     CHECK_PALETTE_INDEX(palIndex);
     CHECK_COLOR_INDEX(colorIndex);
-    Uint32 hex = (Uint32)GET_ARG(2, GetInteger);
     Uint32* color = &Graphics::PaletteColors[palIndex][colorIndex];
     *color = (hex & 0xFFFFFFU) | 0xFF000000U;
     Graphics::ConvertFromARGBtoNative(color, 1);
+    Graphics::PaletteUpdated = true;
+    return NULL_VAL;
+}
+/***
+ * Palette.GetColorTransparent
+ * \desc Gets if the color on the specified palette is transparent.
+ * \param paletteIndex (Integer): Index of palette.
+ * \param colorIndex (Integer): Index of color.
+ * \return Returns a Boolean value.
+ * \ns Palette
+ */
+VMValue Palette_GetColorTransparent(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int palIndex = GET_ARG(0, GetInteger);
+    int colorIndex = GET_ARG(1, GetInteger);
+    CHECK_PALETTE_INDEX(palIndex);
+    CHECK_COLOR_INDEX(colorIndex);
+    if (Graphics::PaletteColors[palIndex][colorIndex] & 0xFF000000U)
+        return INTEGER_VAL(false);
+    return INTEGER_VAL(true);
+}
+/***
+ * Palette.SetColorTransparent
+ * \desc Sets a color on the specified palette transparent.
+ * \param paletteIndex (Integer): Index of palette.
+ * \param colorIndex (Integer): Index of color.
+ * \param isTransparent (Boolean): Whether to make the color transparent or not.
+ * \ns Palette
+ */
+VMValue Palette_SetColorTransparent(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(3);
+    int palIndex = GET_ARG(0, GetInteger);
+    int colorIndex = GET_ARG(1, GetInteger);
+    bool isTransparent = !!GET_ARG(2, GetInteger);
+    CHECK_PALETTE_INDEX(palIndex);
+    CHECK_COLOR_INDEX(colorIndex);
+    Uint32* color = &Graphics::PaletteColors[palIndex][colorIndex];
+    if (isTransparent)
+        *color &= ~0xFF000000U;
+    else
+        *color |= 0xFF000000U;
     Graphics::PaletteUpdated = true;
     return NULL_VAL;
 }
@@ -8097,6 +8358,18 @@ VMValue Palette_CopyColors(int argCount, VMValue* args, Uint32 threadID) {
     return NULL_VAL;
 }
 /***
+ * Palette.UsePaletteIndexLines
+ * \desc Enables or disables the global palette index table.
+ * \param usePaletteIndexLines (Boolean): Whether or not to use the global palette index table.
+ * \ns Palette
+ */
+VMValue Palette_UsePaletteIndexLines(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int usePaletteIndexLines = GET_ARG(0, GetInteger);
+    Graphics::UsePaletteIndexLines = usePaletteIndexLines;
+    return NULL_VAL;
+}
+/***
  * Palette.SetPaletteIndexLines
  * \desc Sets the palette to be used for drawing on certain Y-positions on the screen (between the start and end lines).
  * \param paletteIndex (Integer): Index of palette.
@@ -8127,26 +8400,6 @@ VMValue Palette_SetPaletteIndexLines(int argCount, VMValue* args, Uint32 threadI
 // #endregion
 
 // #region Resources
-// return true if we found it in the list
-bool    GetResourceListSpace(vector<ResourceType*>* list, ResourceType* resource, size_t* index, bool* foundEmpty) {
-    *foundEmpty = false;
-    *index = list->size();
-    for (size_t i = 0, listSz = list->size(); i < listSz; i++) {
-        if (!(*list)[i]) {
-            if (!(*foundEmpty)) {
-                *foundEmpty = true;
-                *index = i;
-            }
-            continue;
-        }
-        if ((*list)[i]->FilenameHash == resource->FilenameHash) {
-            *index = i;
-            delete resource;
-            return true;
-        }
-    }
-    return false;
-}
 /***
  * Resources.LoadSprite
  * \desc Loads a Sprite resource, returning its Sprite index.
@@ -8159,19 +8412,22 @@ VMValue Resources_LoadSprite(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     char*  filename = GET_ARG(0, GetString);
 
-    ResourceType* resource = new (nothrow) ResourceType();
+    ResourceType* resource = new (std::nothrow) ResourceType();
     resource->FilenameHash = CRC32::EncryptString(filename);
     resource->UnloadPolicy = GET_ARG(1, GetInteger);
 
     size_t index = 0;
-    bool emptySlot = false;
     vector<ResourceType*>* list = &Scene::SpriteList;
-    if (GetResourceListSpace(list, resource, &index, &emptySlot))
+    if (Scene::GetResource(list, resource, index))
         return INTEGER_VAL((int)index);
-    else if (emptySlot) (*list)[index] = resource; else list->push_back(resource);
 
-    // FIXME: This needs to return -1 if LoadAnimation fails.
-    resource->AsSprite = new (nothrow) ISprite(filename);
+    resource->AsSprite = new (std::nothrow) ISprite(filename);
+    if (resource->AsSprite->LoadFailed) {
+        delete resource->AsSprite;
+        delete resource;
+        (*list)[index] = NULL;
+        return INTEGER_VAL(-1);
+    }
     return INTEGER_VAL((int)index);
 }
 /***
@@ -8186,18 +8442,16 @@ VMValue Resources_LoadImage(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     char*  filename = GET_ARG(0, GetString);
 
-    ResourceType* resource = new (nothrow) ResourceType();
+    ResourceType* resource = new (std::nothrow) ResourceType();
     resource->FilenameHash = CRC32::EncryptString(filename);
     resource->UnloadPolicy = GET_ARG(1, GetInteger);
 
     size_t index = 0;
-    bool emptySlot = false;
     vector<ResourceType*>* list = &Scene::ImageList;
-    if (GetResourceListSpace(list, resource, &index, &emptySlot))
+    if (Scene::GetResource(list, resource, index))
         return INTEGER_VAL((int)index);
-    else if (emptySlot) (*list)[index] = resource; else list->push_back(resource);
 
-    resource->AsImage = new (nothrow) Image(filename);
+    resource->AsImage = new (std::nothrow) Image(filename);
     if (!resource->AsImage->TexturePtr) {
         delete resource->AsImage;
         delete resource;
@@ -8220,20 +8474,19 @@ VMValue Resources_LoadFont(int argCount, VMValue* args, Uint32 threadID) {
     char*  filename = GET_ARG(0, GetString);
     int    pixel_sz = (int)GET_ARG(1, GetDecimal);
 
-    ResourceType* resource = new (nothrow) ResourceType();
+    ResourceType* resource = new (std::nothrow) ResourceType();
     resource->FilenameHash = CRC32::EncryptString(filename);
     resource->FilenameHash = CRC32::EncryptData(&pixel_sz, sizeof(int), resource->FilenameHash);
     resource->UnloadPolicy = GET_ARG(2, GetInteger);
 
     size_t index = 0;
-    bool emptySlot = false;
     vector<ResourceType*>* list = &Scene::SpriteList;
-    if (GetResourceListSpace(list, resource, &index, &emptySlot))
+    if (Scene::GetResource(list, resource, index))
         return INTEGER_VAL((int)index);
-    else if (emptySlot) (*list)[index] = resource; else list->push_back(resource);
 
     ResourceStream* stream = ResourceStream::New(filename);
     if (!stream) {
+        delete resource;
         (*list)[index] = NULL;
         return INTEGER_VAL(-1);
     }
@@ -8254,25 +8507,24 @@ VMValue Resources_LoadModel(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     char*  filename = GET_ARG(0, GetString);
 
-    ResourceType* resource = new (nothrow) ResourceType();
+    ResourceType* resource = new (std::nothrow) ResourceType();
     resource->FilenameHash = CRC32::EncryptString(filename);
     resource->UnloadPolicy = GET_ARG(1, GetInteger);
 
     size_t index = 0;
-    bool emptySlot = false;
     vector<ResourceType*>* list = &Scene::ModelList;
-    if (GetResourceListSpace(list, resource, &index, &emptySlot))
+    if (Scene::GetResource(list, resource, index))
         return INTEGER_VAL((int)index);
-    else if (emptySlot) (*list)[index] = resource; else list->push_back(resource);
 
     ResourceStream* stream = ResourceStream::New(filename);
     if (!stream) {
         Log::Print(Log::LOG_ERROR, "Could not read resource \"%s\"!", filename);
+        delete resource;
         (*list)[index] = NULL;
         return INTEGER_VAL(-1);
     }
 
-    resource->AsModel = new (nothrow) IModel();
+    resource->AsModel = new (std::nothrow) IModel();
     if (!resource->AsModel->Load(stream, filename)) {
         delete resource->AsModel;
         delete resource;
@@ -8296,18 +8548,22 @@ VMValue Resources_LoadMusic(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     char*  filename = GET_ARG(0, GetString);
 
-    ResourceType* resource = new (nothrow) ResourceType();
+    ResourceType* resource = new (std::nothrow) ResourceType();
     resource->FilenameHash = CRC32::EncryptString(filename);
     resource->UnloadPolicy = GET_ARG(1, GetInteger);
 
     size_t index = 0;
-    bool emptySlot = false;
     vector<ResourceType*>* list = &Scene::MusicList;
-    if (GetResourceListSpace(list, resource, &index, &emptySlot))
+    if (Scene::GetResource(list, resource, index))
         return INTEGER_VAL((int)index);
-    else if (emptySlot) (*list)[index] = resource; else list->push_back(resource);
 
-    resource->AsMusic = new (nothrow) ISound(filename);
+    resource->AsMusic = new (std::nothrow) ISound(filename);
+    if (resource->AsMusic->LoadFailed) {
+        delete resource->AsMusic;
+        delete resource;
+        (*list)[index] = NULL;
+        return INTEGER_VAL(-1);
+    }
     return INTEGER_VAL((int)index);
 }
 /***
@@ -8322,18 +8578,22 @@ VMValue Resources_LoadSound(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     char*  filename = GET_ARG(0, GetString);
 
-    ResourceType* resource = new (nothrow) ResourceType();
+    ResourceType* resource = new (std::nothrow) ResourceType();
     resource->FilenameHash = CRC32::EncryptString(filename);
     resource->UnloadPolicy = GET_ARG(1, GetInteger);
 
     size_t index = 0;
-    bool emptySlot = false;
     vector<ResourceType*>* list = &Scene::SoundList;
-    if (GetResourceListSpace(list, resource, &index, &emptySlot))
+    if (Scene::GetResource(list, resource, index))
         return INTEGER_VAL((int)index);
-    else if (emptySlot) (*list)[index] = resource; else list->push_back(resource);
 
-    resource->AsSound = new (nothrow) ISound(filename);
+    resource->AsSound = new (std::nothrow) ISound(filename);
+    if (resource->AsSound->LoadFailed) {
+        delete resource->AsSound;
+        delete resource;
+        (*list)[index] = NULL;
+        return INTEGER_VAL(-1);
+    }
     return INTEGER_VAL((int)index);
 }
 /***
@@ -8347,19 +8607,18 @@ VMValue Resources_LoadSound(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Resources_LoadVideo(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     char*  filename = GET_ARG(0, GetString);
+    int unloadPolicy = GET_ARG(1, GetInteger);
 
-    ResourceType* resource = new (nothrow) ResourceType();
+#ifdef USING_FFMPEG
+    ResourceType* resource = new (std::nothrow) ResourceType();
     resource->FilenameHash = CRC32::EncryptString(filename);
-    resource->UnloadPolicy = GET_ARG(1, GetInteger);
+    resource->UnloadPolicy = unloadPolicy;
 
     size_t index = 0;
-    bool emptySlot = false;
     vector<ResourceType*>* list = &Scene::MediaList;
-    if (GetResourceListSpace(list, resource, &index, &emptySlot))
+    if (Scene::GetResource(list, resource, index))
         return INTEGER_VAL((int)index);
-    else if (emptySlot) (*list)[index] = resource; else list->push_back(resource);
 
-    #ifdef USING_FFMPEG
     Texture* VideoTexture = NULL;
     MediaSource* Source = NULL;
     MediaPlayer* Player = NULL;
@@ -8417,15 +8676,16 @@ VMValue Resources_LoadVideo(int argCount, VMValue* args, Uint32 threadID) {
         Log::Print(Log::LOG_INFO, "    Channels:    %d", playerInfo.Audio.Output.Channels);
     }
 
-    MediaBag* newMediaBag = new (nothrow) MediaBag;
+    MediaBag* newMediaBag = new (std::nothrow) MediaBag;
     newMediaBag->Source = Source;
     newMediaBag->Player = Player;
     newMediaBag->VideoTexture = VideoTexture;
 
     resource->AsMedia = newMediaBag;
     return INTEGER_VAL((int)index);
-    #endif
+#else
     return INTEGER_VAL(-1);
+#endif
 }
 /***
  * Resources.FileExists
@@ -8768,30 +9028,20 @@ VMValue Scene_LoadNoPersistency(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * Scene.LoadPosition
- * \desc Loads the scene located in the scene list's position slot, if a scene sist is loaded.
+ * \desc Loads the scene located in the scene list's position slot, if a scene list is loaded.
  * \paramOpt persistency (Boolean): Whether or not the scene should load with persistency.
  * \ns Scene
  */
 VMValue Scene_LoadPosition(int argCount, VMValue* args, Uint32 threadID) {
-    if (Scene::ListData.size()) {
-        SceneListEntry scene = Scene::ListData[Scene::ListPos];
-        if (!strcmp(scene.fileType, "bin")) {
-            snprintf(Scene::NextScene, sizeof(Scene::NextScene), "Stages/%s/Scene%s.%s", scene.folder, scene.id, scene.fileType);
-        }
-        else {
-            if (scene.folder[0] == '\0')
-                snprintf(Scene::NextScene, sizeof(Scene::NextScene), "Scenes/%s.%s", scene.id, scene.fileType);
-            else
-                snprintf(Scene::NextScene, sizeof(Scene::NextScene), "Scenes/%s/%s.%s", scene.folder, scene.id, scene.fileType);
-        }
-        if (argCount != 0) {
-            CHECK_ARGCOUNT(1);
-            Scene::NoPersistency = !!GET_ARG(1, GetInteger);
-        }
-        else {
-            Scene::NoPersistency = true;
-        }
-    }
+    if (!SceneInfo::IsEntryValid(Scene::CurrentSceneInList))
+        return NULL_VAL;
+
+    std::string path = SceneInfo::GetFilename(Scene::CurrentSceneInList);
+
+    StringUtils::Copy(Scene::NextScene, path.c_str(), sizeof(Scene::NextScene));
+
+    Scene::NoPersistency = !!GET_ARG_OPT(1, GetInteger, false);
+
     return NULL_VAL;
 }
 /***
@@ -8917,6 +9167,18 @@ VMValue Scene_GetLayerOpacity(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     int index = GET_ARG(0, GetInteger);
     return DECIMAL_VAL(Scene::Layers[index].Opacity);
+}
+/***
+ * Scene.GetLayerUsePaletteIndexLines
+ * \desc Gets whether the layer is using the global palette index table.
+ * \param layerIndex (Integer): Index of layer.
+ * \return Returns a Boolean value.
+ * \ns Scene
+ */
+VMValue Scene_GetLayerUsePaletteIndexLines(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int index = GET_ARG(0, GetInteger);
+    return INTEGER_VAL(Scene::Layers[index].UsePaletteIndexLines);
 }
 /***
  * Scene.GetLayerProperty
@@ -9092,15 +9354,45 @@ VMValue Scene_GetLayerOffsetY(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * Scene.GetLayerDrawGroup
- * \desc Sets the draw group of the specified layer.
+ * \desc Gets the draw group of the specified layer.
  * \param layerIndex (Integer): Index of layer.
- * \param drawGroup (Integer): Number from 0 to 15. (0 = Back, 15 = Front)
+ * \return Returns an Integer value.
  * \ns Scene
  */
 VMValue Scene_GetLayerDrawGroup(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
 
     return INTEGER_VAL(Scene::Layers[GET_ARG(0, GetInteger)].DrawGroup);
+}
+/***
+ * Scene.GetLayerHorizontalRepeat
+ * \desc Gets whether or not the layer repeats horizontally.
+ * \param layerIndex (Integer): Index of layer.
+ * \return Returns a Boolean value.
+ * \ns Scene
+ */
+VMValue Scene_GetLayerHorizontalRepeat(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+
+    if (Scene::Layers[GET_ARG(0, GetInteger)].Flags & SceneLayer::FLAGS_REPEAT_X)
+        INTEGER_VAL(true);
+
+    return INTEGER_VAL(false);
+}
+/***
+ * Scene.GetLayerVerticalRepeat
+ * \desc Gets whether or not the layer repeats vertically.
+ * \param layerIndex (Integer): Index of layer.
+ * \return Returns a Boolean value.
+ * \ns Scene
+ */
+VMValue Scene_GetLayerVerticalRepeat(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+
+    if (Scene::Layers[GET_ARG(0, GetInteger)].Flags & SceneLayer::FLAGS_REPEAT_Y)
+        INTEGER_VAL(true);
+
+    return INTEGER_VAL(false);
 }
 /***
  * Scene.GetTilesetCount
@@ -9172,7 +9464,19 @@ VMValue Scene_GetTilesetFirstTileID(int argCount, VMValue* args, Uint32 threadID
     CHECK_TILESET_INDEX
     return INTEGER_VAL((int)Scene::Tilesets[index].StartTile);
 }
-#undef CHECK_TILESET_INDEX
+/***
+ * Scene.GetTilesetPaletteIndex
+ * \desc Gets the palette index for the specified tileset.
+ * \param tilesetID (Integer): The tileset index.
+ * \return Returns an Integer value.
+ * \ns Scene
+ */
+VMValue Scene_GetTilesetPaletteIndex(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int index = GET_ARG(0, GetInteger);
+    CHECK_TILESET_INDEX
+    return INTEGER_VAL((int)Scene::Tilesets[index].PaletteID);
+}
 /***
  * Scene.GetTileWidth
  * \desc Gets the width of tiles.
@@ -9192,16 +9496,6 @@ VMValue Scene_GetTileWidth(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Scene_GetTileHeight(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
     return INTEGER_VAL(Scene::TileHeight);
-}
-/***
- * Scene.GetTileSize
- * \desc Gets the size of tiles. (Deprecated; use <linkto ref="Scene.GetTileWidth"></linkto> and <linkto ref="Scene.GetTileHeight"></linkto> instead.)
- * \return Returns the size of tiles.
- * \ns Scene
- */
-VMValue Scene_GetTileSize(int argCount, VMValue* args, Uint32 threadID) {
-    CHECK_ARGCOUNT(0);
-    return INTEGER_VAL(Scene::TileWidth);
 }
 /***
  * Scene.GetTileID
@@ -9286,13 +9580,13 @@ VMValue Scene_GetDrawGroupEntityDepthSorting(int argCount, VMValue* args, Uint32
 }
 /***
  * Scene.GetListPos
- * \desc Gets the current list position of the scene.
+ * \desc Gets the current list position of the scene. (Deprecated)
  * \return Returns an Integer value.
  * \ns Scene
  */
 VMValue Scene_GetListPos(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
-    return INTEGER_VAL(Scene::ListPos);
+    return INTEGER_VAL(Scene::CurrentSceneInList);
 }
 /***
  * Scene.GetCurrentFolder
@@ -9346,23 +9640,23 @@ VMValue Scene_GetActiveCategory(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * Scene.GetCategoryCount
- * \desc Gets the amount of categories in the scene list.
+ * \desc Gets the amount of categories in the scene list. (Deprecated; use <linkto ref="SceneList.GetCategoryCount"></linkto> instead.)
  * \return Returns an Integer value.
  * \ns Scene
  */
 VMValue Scene_GetCategoryCount(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
-    return INTEGER_VAL(Scene::CategoryCount);
+    return INTEGER_VAL((int)SceneInfo::Categories.size());
 }
 /***
  * Scene.GetStageCount
- * \desc Gets the amount of stages in the scene list.
+ * \desc Gets the amount of stages in the scene list. (Deprecated; use <linkto ref="SceneList.GetSceneCount"></linkto> instead.)
  * \return Returns an Integer value.
  * \ns Scene
  */
 VMValue Scene_GetStageCount(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
-    return INTEGER_VAL(Scene::StageCount);
+    return INTEGER_VAL((int)SceneInfo::Entries.size());
 }
 /***
  * Scene.GetDebugMode
@@ -9568,50 +9862,41 @@ VMValue Scene_GetTileAnimSequenceFrame(int argCount, VMValue* args, Uint32 threa
 }
 /***
  * Scene.CheckValidScene
- * \desc Checks whether the scene list's position is within the list's size, if a scene list is loaded.
+ * \desc Checks whether the scene list's position is within the list's size, if a scene list is loaded. (Deprecated)
  * \return Returns a Boolean value.
  * \ns Scene
  */
 VMValue Scene_CheckValidScene(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(0);
-    if (Scene::ListData.size()) {
-        if (Scene::ActiveCategory >= Scene::CategoryCount)
-            return INTEGER_VAL(0);
-
-        SceneListInfo list = Scene::ListCategory[Scene::ActiveCategory];
-        return INTEGER_VAL((int)(!!(Scene::ListPos >= list.sceneOffsetStart && Scene::ListPos <= list.sceneOffsetEnd)));
-    }
-    else {
-        return INTEGER_VAL(0);
-    } 
+    if (SceneInfo::IsEntryValidInCategory(Scene::ActiveCategory, Scene::CurrentSceneInList))
+        return INTEGER_VAL(true);
+    return INTEGER_VAL(false);
 }
 /***
  * Scene.CheckSceneFolder
- * \desc Checks whether the current scene's folder matches the string to check, if a scene list is loaded.
+ * \desc Checks whether the current scene's folder matches the string to check, if a scene list is loaded. (Deprecated)
  * \param folder (String): Folder name to compare.
  * \return Returns a Boolean value.
  * \ns Scene
  */
 VMValue Scene_CheckSceneFolder(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
-    if (Scene::ListData.size())
-        return INTEGER_VAL((int)!!(strcmp(Scene::ListData[Scene::ListPos].folder, GET_ARG(0, GetString)) == 0));
-    else
-        return INTEGER_VAL(0);
+    if (SceneInfo::IsEntryValid(Scene::CurrentSceneInList))
+        return INTEGER_VAL(false);
+    return INTEGER_VAL((int)!!(strcmp(SceneInfo::Entries[Scene::CurrentSceneInList].Folder, GET_ARG(0, GetString)) == 0));
 }
 /***
  * Scene.CheckSceneID
- * \desc Checks whether the current scene's ID matches the string to check, if a scene list is loaded.
+ * \desc Checks whether the current scene's ID matches the string to check, if a scene list is loaded. (Deprecated)
  * \param id (String): ID to compare.
  * \return Returns a Boolean value.
  * \ns Scene
  */
 VMValue Scene_CheckSceneID(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
-    if (Scene::ListData.size())
-        return INTEGER_VAL((int)!!(strcmp(Scene::ListData[Scene::ListPos].id, GET_ARG(0, GetString)) == 0));
-    else
-        return INTEGER_VAL(0);
+    if (SceneInfo::IsEntryValid(Scene::CurrentSceneInList))
+        return INTEGER_VAL(false);
+    return INTEGER_VAL((int)!!(strcmp(SceneInfo::Entries[Scene::CurrentSceneInList].ID, GET_ARG(0, GetString)) == 0));
 }
 /***
  * Scene.IsPaused
@@ -9624,17 +9909,17 @@ VMValue Scene_IsPaused(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * Scene.SetListPos
- * \desc Sets the current list position of the scene.
+ * \desc Sets the current list position of the scene. (Deprecated)
  * \ns Scene
  */
 VMValue Scene_SetListPos(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
-    Scene::ListPos = GET_ARG(0, GetInteger);
+    Scene::CurrentSceneInList = GET_ARG(0, GetInteger);
     return NULL_VAL;
 }
 /***
  * Scene.SetActiveCategory
- * \desc Sets the current category number of the scene.
+ * \desc Sets the current category number of the scene. (Deprecated)
  * \ns Scene
  */
 VMValue Scene_SetActiveCategory(int argCount, VMValue* args, Uint32 threadID) {
@@ -9654,14 +9939,14 @@ VMValue Scene_SetDebugMode(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * Scene.SetScene
- * \desc Sets the scene if the category and scene names exist within the scene list.
+ * \desc Sets the scene if the category and scene names exist within the scene list. (Deprecated)
  * \param category (String): Category name.
- * \param scene (String): Scene name. If the scene name is not found but the category name is, the 
+ * \param scene (String): Scene name. If the scene name is not found but the category name is, the first scene in the category is used.
  * \ns Scene
  */
 VMValue Scene_SetScene(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
-    Scene::SetScene(GET_ARG(0, GetString), GET_ARG(1, GetString));
+    Scene::SetCurrent(GET_ARG(0, GetString), GET_ARG(1, GetString));
     return NULL_VAL;
 }
 /***
@@ -9709,8 +9994,6 @@ VMValue Scene_SetTile(int argCount, VMValue* args, Uint32 threadID) {
 
     *tile |= collA;
     *tile |= collB;
-
-    // Scene::UpdateTileBatch(layer, x / 8, y / 8);
 
     Scene::AnyLayerTileChange = true;
 
@@ -9915,6 +10198,23 @@ VMValue Scene_SetTileAnimSequenceFrame(int argCount, VMValue* args, Uint32 threa
     return NULL_VAL;
 }
 /***
+ * Scene.SetTilesetPaletteIndex
+ * \desc Sets the palette index of the specified tileset.
+ * \param tilesetID (Integer): The tileset index.
+ * \param paletteIndex (Integer): The palette index.
+ * \ns Scene
+ */
+VMValue Scene_SetTilesetPaletteIndex(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int index = GET_ARG(0, GetInteger);
+    int palIndex = GET_ARG(1, GetInteger);
+    CHECK_TILESET_INDEX
+    CHECK_PALETTE_INDEX(palIndex);
+    Scene::Tilesets[index].PaletteID = (unsigned)palIndex;
+    return NULL_VAL;
+}
+#undef CHECK_TILESET_INDEX
+/***
  * Scene.SetLayerVisible
  * \desc Sets the visibility of the specified layer.
  * \param layerIndex (Integer): Index of layer.
@@ -10046,7 +10346,45 @@ VMValue Scene_SetLayerDrawBehavior(int argCount, VMValue* args, Uint32 threadID)
 VMValue Scene_SetLayerRepeat(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     int index = GET_ARG(0, GetInteger);
-    Scene::Layers[index].Repeat = !!GET_ARG(1, GetInteger);
+    bool doesRepeat = !!GET_ARG(1, GetInteger);
+    if (doesRepeat)
+        Scene::Layers[index].Flags |= SceneLayer::FLAGS_REPEAT_X | SceneLayer::FLAGS_REPEAT_Y;
+    else
+        Scene::Layers[index].Flags &= ~(SceneLayer::FLAGS_REPEAT_X | SceneLayer::FLAGS_REPEAT_Y);
+    return NULL_VAL;
+}
+/***
+ * Scene.SetLayerHorizontalRepeat
+ * \desc Sets whether or not the specified layer repeats horizontally.
+ * \param layerIndex (Integer): Index of layer.
+ * \param doesRepeat (Boolean): Whether or not the layer repeats horizontally.
+ * \ns Scene
+ */
+VMValue Scene_SetLayerHorizontalRepeat(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int index = GET_ARG(0, GetInteger);
+    bool doesRepeat = !!GET_ARG(1, GetInteger);
+    if (doesRepeat)
+        Scene::Layers[index].Flags |= SceneLayer::FLAGS_REPEAT_X;
+    else
+        Scene::Layers[index].Flags &= ~SceneLayer::FLAGS_REPEAT_X;
+    return NULL_VAL;
+}
+/***
+ * Scene.SetLayerVerticalRepeat
+ * \desc Sets whether or not the specified layer repeats vertically.
+ * \param layerIndex (Integer): Index of layer.
+ * \param doesRepeat (Boolean): Whether or not the layer repeats vertically.
+ * \ns Scene
+ */
+VMValue Scene_SetLayerVerticalRepeat(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int index = GET_ARG(0, GetInteger);
+    bool doesRepeat = !!GET_ARG(1, GetInteger);
+    if (doesRepeat)
+        Scene::Layers[index].Flags |= SceneLayer::FLAGS_REPEAT_Y;
+    else
+        Scene::Layers[index].Flags &= ~SceneLayer::FLAGS_REPEAT_Y;
     return NULL_VAL;
 }
 /***
@@ -10115,6 +10453,20 @@ VMValue Scene_SetLayerOpacity(int argCount, VMValue* args, Uint32 threadID) {
     else if (opacity > 1.0)
         THROW_ERROR("Opacity cannot be higher than 1.0.");
     Scene::Layers[index].Opacity = opacity;
+    return NULL_VAL;
+}
+/***
+ * Scene.SetLayerUsePaletteIndexLines
+ * \desc Enables or disables the use of the global palette index table for the specified layer.
+ * \param layerIndex (Integer): Index of layer.
+ * \param usePaletteIndexLines (Boolean): Whether the layer is using the global palette index table.
+ * \ns Scene
+ */
+VMValue Scene_SetLayerUsePaletteIndexLines(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    int index = GET_ARG(0, GetInteger);
+    int usePaletteIndexLines = !!GET_ARG(1, GetInteger);
+    Scene::Layers[index].UsePaletteIndexLines = usePaletteIndexLines;
     return NULL_VAL;
 }
 /***
@@ -10452,6 +10804,275 @@ VMValue Scene_SetTileViewRender(int argCount, VMValue* args, Uint32 threadID) {
         Scene::TileViewRenderFlag &= ~viewRenderFlag;
 
     return NULL_VAL;
+}
+// #endregion
+
+// #region SceneList
+/***
+ * SceneList.Get
+ * \desc Gets the scene path for the specified category and entry.
+ * \param category (String): The category.
+ * \param entry (String): The entry.
+ * \return Returns a String value.
+ * \ns SceneList
+ */
+VMValue SceneList_Get(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+
+    int categoryID = -1;
+    int entryID = -1;
+
+    if (IS_INTEGER(args[0]))
+        categoryID = GET_ARG(0, GetInteger);
+    else {
+        categoryID = SceneInfo::GetCategoryID(GET_ARG(0, GetString));
+        if (categoryID < 0)
+            return NULL_VAL;
+    }
+
+    if (IS_INTEGER(args[1]))
+        entryID = GET_ARG(1, GetInteger);
+    else {
+        entryID = SceneInfo::GetEntryPosInCategory(categoryID, GET_ARG(1, GetString));
+        if (entryID < 0)
+            return NULL_VAL;
+    }
+
+    int actualEntryID = SceneInfo::GetEntryID(categoryID, entryID);
+    if (actualEntryID < 0)
+        return NULL_VAL;
+    return OBJECT_VAL(CopyString(SceneInfo::GetFilename(entryID).c_str()));
+}
+/***
+ * SceneList.GetEntryID
+ * \desc Gets the entry ID for the specified category and entry name.
+ * \param categoryName (String): The category name.
+ * \param entryName (String): The entry name.
+ * \return Returns the entry ID, or <code>-1</code> if not found.
+ * \ns SceneList
+ */
+VMValue SceneList_GetEntryID(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+    char* categoryName = GET_ARG(0, GetString);
+    char* entryName = GET_ARG(1, GetString);
+    int entryID = SceneInfo::GetEntryID(categoryName, entryName);
+    if (entryID < 0)
+        return INTEGER_VAL(-1);
+    return INTEGER_VAL((int)SceneInfo::Entries[entryID].CategoryPos);
+}
+/***
+ * SceneList.GetCategoryID
+ * \desc Gets the category ID for the specified category name.
+ * \param categoryName (String): The category name.
+ * \return Returns the category ID, or <code>-1</code> if not found.
+ * \ns SceneList
+ */
+VMValue SceneList_GetCategoryID(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    char* categoryName = GET_ARG(0, GetString);
+    int categoryID = SceneInfo::GetCategoryID(categoryName);
+    return INTEGER_VAL(categoryID);
+}
+/***
+ * SceneList.GetEntryName
+ * \desc Gets the entry name for the specified category and entry.
+ * \param category (String): The category.
+ * \param entryID (Integer): The entry ID.
+ * \return Returns the entry name.
+ * \ns SceneList
+ */
+VMValue SceneList_GetEntryName(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+
+    int categoryID = -1;
+    if (IS_INTEGER(args[0]))
+        categoryID = GET_ARG(0, GetInteger);
+    else {
+        categoryID = SceneInfo::GetCategoryID(GET_ARG(0, GetString));
+        if (categoryID < 0)
+            return NULL_VAL;
+    }
+
+    int actualEntryID = SceneInfo::GetEntryID(categoryID, GET_ARG(1, GetInteger));
+    return OBJECT_VAL(CopyString(SceneInfo::Entries[actualEntryID].Name));
+}
+/***
+ * SceneList.GetCategoryName
+ * \desc Gets the category name for the specified category ID.
+ * \param categoryID (Integer): The category ID.
+ * \return Returns the category name, or <code>-1</code> if not valid.
+ * \ns SceneList
+ */
+VMValue SceneList_GetCategoryName(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(1);
+    int categoryID = GET_ARG(0, GetInteger);
+    if (!SceneInfo::IsCategoryValid(categoryID))
+        return NULL_VAL;
+    return OBJECT_VAL(CopyString(SceneInfo::Categories[categoryID].Name));
+}
+/***
+ * SceneList.GetEntryProperty
+ * \desc Gets a property for an entry.
+ * \param category (String): The category.
+ * \param entry (String): The entry.
+ * \param property (String): The property.
+ * \return Returns a String value, or <code>null</code> if the entry has no such property.
+ * \ns SceneList
+ */
+VMValue SceneList_GetEntryProperty(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(3);
+
+    int categoryID = -1;
+    int entryID = -1;
+
+    if (IS_INTEGER(args[0]))
+        categoryID = GET_ARG(0, GetInteger);
+    else {
+        categoryID = SceneInfo::GetCategoryID(GET_ARG(0, GetString));
+        if (categoryID < 0)
+            return NULL_VAL;
+    }
+
+    if (IS_INTEGER(args[1]))
+        entryID = GET_ARG(1, GetInteger);
+    else {
+        entryID = SceneInfo::GetEntryPosInCategory(categoryID, GET_ARG(1, GetString));
+        if (entryID < 0)
+            return NULL_VAL;
+    }
+
+    char* propertyName = GET_ARG(2, GetString);
+
+    int actualEntryID = SceneInfo::GetEntryID(categoryID, entryID);
+    if (actualEntryID < 0)
+        return NULL_VAL;
+
+    char* property = SceneInfo::GetEntryProperty(actualEntryID, propertyName);
+    if (property == nullptr)
+        return NULL_VAL;
+
+    return OBJECT_VAL(CopyString(property));
+}
+/***
+ * SceneList.GetCategoryProperty
+ * \desc Gets a property for a category.
+ * \param category (String): The category.
+ * \param property (String): The property.
+ * \return Returns a String value, or <code>null</code> if the category has no such property.
+ * \ns SceneList
+ */
+VMValue SceneList_GetCategoryProperty(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+
+    int categoryID = -1;
+
+    if (IS_INTEGER(args[0]))
+        categoryID = GET_ARG(0, GetInteger);
+    else {
+        categoryID = SceneInfo::GetCategoryID(GET_ARG(0, GetString));
+        if (categoryID < 0)
+            return NULL_VAL;
+    }
+
+    char* propertyName = GET_ARG(1, GetString);
+
+    char* property = SceneInfo::GetCategoryProperty(categoryID, propertyName);
+    if (property == nullptr)
+        return NULL_VAL;
+
+    return OBJECT_VAL(CopyString(property));
+}
+/***
+ * SceneList.HasEntryProperty
+ * \desc Checks if a given property exists in the entry.
+ * \param category (String): The category.
+ * \param entry (String): The entry.
+ * \param property (String): The property.
+ * \return Returns <code>true</code> if the property exists, <code>false</code> if not.
+ * \ns SceneList
+ */
+VMValue SceneList_HasEntryProperty(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(3);
+
+    int categoryID = -1;
+    int entryID = -1;
+
+    if (IS_INTEGER(args[0]))
+        categoryID = GET_ARG(0, GetInteger);
+    else {
+        categoryID = SceneInfo::GetCategoryID(GET_ARG(0, GetString));
+        if (categoryID < 0)
+            return INTEGER_VAL(false);
+    }
+
+    if (IS_INTEGER(args[1]))
+        entryID = GET_ARG(1, GetInteger);
+    else {
+        entryID = SceneInfo::GetEntryPosInCategory(categoryID, GET_ARG(1, GetString));
+        if (entryID < 0)
+            return INTEGER_VAL(false);
+    }
+
+    int actualEntryID = SceneInfo::GetEntryID(categoryID, entryID);
+    if (actualEntryID < 0)
+        return INTEGER_VAL(false);
+
+    return INTEGER_VAL(!!SceneInfo::HasEntryProperty(actualEntryID, GET_ARG(2, GetString)));
+}
+/***
+ * SceneList.HasCategoryProperty
+ * \desc Checks if a given property exists in the category.
+ * \param category (String): The category.
+ * \param property (String): The property.
+ * \return Returns <code>true</code> if the property exists, <code>false</code> if not.
+ * \ns SceneList
+ */
+VMValue SceneList_HasCategoryProperty(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(2);
+
+    int categoryID = -1;
+
+    if (IS_INTEGER(args[0]))
+        categoryID = GET_ARG(0, GetInteger);
+    else {
+        categoryID = SceneInfo::GetCategoryID(GET_ARG(0, GetString));
+        if (categoryID < 0)
+            return INTEGER_VAL(false);
+    }
+
+    return INTEGER_VAL(!!SceneInfo::HasCategoryProperty(categoryID, GET_ARG(1, GetString)));
+}
+/***
+ * SceneList.GetCategoryCount
+ * \desc Gets the amount of categories in the scene list.
+ * \return Returns an Integer value.
+ * \ns SceneList
+ */
+VMValue SceneList_GetCategoryCount(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_ARGCOUNT(0);
+    return INTEGER_VAL((int)SceneInfo::Categories.size());
+}
+/***
+ * SceneList.GetSceneCount
+ * \desc Gets the amount of scenes in a category.
+ * \paramOpt categoryName (String): The category name.
+ * \return Returns the number of scenes in the category. If <code>categoryName</code> is omitted, this returns the total amount of scenes in the entire list.
+ * \ns SceneList
+ */
+VMValue SceneList_GetSceneCount(int argCount, VMValue* args, Uint32 threadID) {
+    CHECK_AT_LEAST_ARGCOUNT(0);
+    if (argCount >= 1) {
+        int categoryID = -1;
+        if (IS_INTEGER(args[0]))
+            categoryID = GET_ARG(0, GetInteger);
+        else
+            categoryID = SceneInfo::GetCategoryID(GET_ARG(0, GetString));
+        if (!SceneInfo::IsCategoryValid(categoryID))
+            return INTEGER_VAL(0);
+        return INTEGER_VAL((int)SceneInfo::Categories[categoryID].Count);
+    }
+    else
+        return INTEGER_VAL((int)SceneInfo::Entries.size());
 }
 // #endregion
 
@@ -11402,7 +12023,7 @@ VMValue SocketClient_WriteString(int argCount, VMValue* args, Uint32 threadID) {
  * \paramOpt panning (Decimal): Control the panning of the audio. -1.0 makes it sound in left ear only, 1.0 makes it sound in right ear, and closer to 0.0 centers it. (0.0 is the default.)
  * \paramOpt speed (Decimal): Control the speed of the audio. > 1.0 makes it faster, < 1.0 is slower, 1.0 is normal speed. (1.0 is the default.)
  * \paramOpt volume (Decimal): Controls the volume of the audio. 0.0 is muted, 1.0 is normal volume. (1.0 is the default.)
- * \return Returns the channel index where the sound began to play.
+ * \return Returns the channel index where the sound began to play, or <code>-1</code> if no channel was available.
  * \ns Sound
  */
 VMValue Sound_Play(int argCount, VMValue* args, Uint32 threadID) {
@@ -11411,8 +12032,11 @@ VMValue Sound_Play(int argCount, VMValue* args, Uint32 threadID) {
     float panning = GET_ARG_OPT(1, GetDecimal, 0.0f);
     float speed = GET_ARG_OPT(2, GetDecimal, 1.0f);
     float volume = GET_ARG_OPT(3, GetDecimal, 1.0f);
-    AudioManager::AudioStop(audio);
-    int channel = AudioManager::PlaySound(audio, false, 0, panning, speed, volume, nullptr);
+    int channel = -1;
+    if (audio) {
+        AudioManager::AudioStop(audio);
+        channel = AudioManager::PlaySound(audio, false, 0, panning, speed, volume, nullptr);
+    }
     return INTEGER_VAL(channel);
 }
 /***
@@ -11423,7 +12047,7 @@ VMValue Sound_Play(int argCount, VMValue* args, Uint32 threadID) {
  * \paramOpt panning (Decimal): Control the panning of the audio. -1.0 makes it sound in left ear only, 1.0 makes it sound in right ear, and closer to 0.0 centers it. (0.0 is the default.)
  * \paramOpt speed (Decimal): Control the speed of the audio. > 1.0 makes it faster, < 1.0 is slower, 1.0 is normal speed. (1.0 is the default.)
  * \paramOpt volume (Decimal): Controls the volume of the audio. 0.0 is muted, 1.0 is normal volume. (1.0 is the default.)
- * \return Returns the channel index where the sound began to play.
+ * \return Returns the channel index where the sound began to play, or <code>-1</code> if no channel was available.
  * \ns Sound
  */
 VMValue Sound_Loop(int argCount, VMValue* args, Uint32 threadID) {
@@ -11433,49 +12057,50 @@ VMValue Sound_Loop(int argCount, VMValue* args, Uint32 threadID) {
     float panning = GET_ARG_OPT(2, GetDecimal, 0.0f);
     float speed = GET_ARG_OPT(3, GetDecimal, 1.0f);
     float volume = GET_ARG_OPT(4, GetDecimal, 1.0f);
-    AudioManager::AudioStop(audio);
-    int channel = AudioManager::PlaySound(audio, true, loopPoint, panning, speed, volume, nullptr);
+    int channel = -1;
+    if (audio) {
+        AudioManager::AudioStop(audio);
+        channel = AudioManager::PlaySound(audio, true, loopPoint, panning, speed, volume, nullptr);
+    }
     return INTEGER_VAL(channel);
 }
 /***
  * Sound.Stop
  * \desc Stops an actively playing sound.
  * \param sound (Integer): The sound index to stop.
- * \return
  * \ns Sound
  */
 VMValue Sound_Stop(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
-
     ISound* audio = GET_ARG(0, GetSound);
-
-    AudioManager::AudioStop(audio);
+    if (audio)
+        AudioManager::AudioStop(audio);
     return NULL_VAL;
 }
 /***
  * Sound.Pause
  * \desc Pauses an actively playing sound.
  * \param sound (Integer): The sound index to pause.
- * \return
  * \ns Sound
  */
 VMValue Sound_Pause(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     ISound* audio = GET_ARG(0, GetSound);
-    AudioManager::AudioPause(audio);
+    if (audio)
+        AudioManager::AudioPause(audio);
     return NULL_VAL;
 }
 /***
  * Sound.Resume
  * \desc Unpauses a paused sound.
  * \param sound (Integer): The sound index to resume.
- * \return
  * \ns Sound
  */
 VMValue Sound_Resume(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     ISound* audio = GET_ARG(0, GetSound);
-    AudioManager::AudioUnpause(audio);
+    if (audio)
+        AudioManager::AudioUnpause(audio);
     return NULL_VAL;
 }
 /***
@@ -11512,11 +12137,14 @@ VMValue Sound_ResumeAll(int argCount, VMValue* args, Uint32 threadID) {
  * Sound.IsPlaying
  * \param sound (Integer): The sound index.
  * \desc Checks whether a sound is currently playing or not.
+ * \return Returns a Boolean value.
  * \ns Sound
  */
 VMValue Sound_IsPlaying(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     ISound* audio = GET_ARG(0, GetSound);
+    if (!audio)
+        return INTEGER_VAL(0);
     return INTEGER_VAL(AudioManager::AudioIsPlaying(audio));
 }
 /***
@@ -11526,7 +12154,7 @@ VMValue Sound_IsPlaying(int argCount, VMValue* args, Uint32 threadID) {
  * \paramOpt panning (Decimal): Control the panning of the audio. -1.0 makes it sound in left ear only, 1.0 makes it sound in right ear, and closer to 0.0 centers it. (0.0 is the default.)
  * \paramOpt speed (Decimal): Control the speed of the audio. > 1.0 makes it faster, < 1.0 is slower, 1.0 is normal speed. (1.0 is the default.)
  * \paramOpt volume (Decimal): Controls the volume of the audio. 0.0 is muted, 1.0 is normal volume. (1.0 is the default.)
- * \return Returns the channel index where the sound began to play.
+ * \return Returns the channel index where the sound began to play, or <code>-1</code> if no channel was available.
  * \ns Sound
  */
 VMValue Sound_PlayMultiple(int argCount, VMValue* args, Uint32 threadID) {
@@ -11535,7 +12163,10 @@ VMValue Sound_PlayMultiple(int argCount, VMValue* args, Uint32 threadID) {
     float panning = GET_ARG_OPT(1, GetDecimal, 0.0f);
     float speed = GET_ARG_OPT(2, GetDecimal, 1.0f);
     float volume = GET_ARG_OPT(3, GetDecimal, 1.0f);
-    int channel = AudioManager::PlaySound(audio, false, 0, panning, speed, volume, nullptr);
+    int channel = -1;
+    if (audio) {
+        channel = AudioManager::PlaySound(audio, false, 0, panning, speed, volume, nullptr);
+    }
     return INTEGER_VAL(channel);
 }
 /***
@@ -11546,7 +12177,7 @@ VMValue Sound_PlayMultiple(int argCount, VMValue* args, Uint32 threadID) {
  * \paramOpt panning (Decimal): Control the panning of the audio. -1.0 makes it sound in left ear only, 1.0 makes it sound in right ear, and closer to 0.0 centers it. (0.0 is the default.)
  * \paramOpt speed (Decimal): Control the speed of the audio. > 1.0 makes it faster, < 1.0 is slower, 1.0 is normal speed. (1.0 is the default.)
  * \paramOpt volume (Decimal): Controls the volume of the audio. 0.0 is muted, 1.0 is normal volume. (1.0 is the default.)
- * \return Returns the channel index where the sound began to play.
+ * \return Returns the channel index where the sound began to play, or <code>-1</code> if no channel was available.
  * \ns Sound
  */
 VMValue Sound_LoopMultiple(int argCount, VMValue* args, Uint32 threadID) {
@@ -11556,7 +12187,10 @@ VMValue Sound_LoopMultiple(int argCount, VMValue* args, Uint32 threadID) {
     float panning = GET_ARG_OPT(2, GetDecimal, 0.0f);
     float speed = GET_ARG_OPT(3, GetDecimal, 1.0f);
     float volume = GET_ARG_OPT(4, GetDecimal, 1.0f);
-    int channel = AudioManager::PlaySound(audio, true, loopPoint, panning, speed, volume, nullptr);
+    int channel = -1;
+    if (audio) {
+        channel = AudioManager::PlaySound(audio, true, loopPoint, panning, speed, volume, nullptr);
+    }
     return INTEGER_VAL(channel);
 }
 /***
@@ -11581,7 +12215,8 @@ VMValue Sound_PlayAtChannel(int argCount, VMValue* args, Uint32 threadID) {
         THROW_ERROR("Invalid channel index %d.", channel);
         return NULL_VAL;
     }
-    AudioManager::SetSound(channel % AudioManager::SoundArrayLength, audio, false, 0, panning, speed, volume, nullptr);
+    if (audio)
+        AudioManager::SetSound(channel % AudioManager::SoundArrayLength, audio, false, 0, panning, speed, volume, nullptr);
     return NULL_VAL;
 }
 /***
@@ -11608,7 +12243,8 @@ VMValue Sound_LoopAtChannel(int argCount, VMValue* args, Uint32 threadID) {
         THROW_ERROR("Invalid channel index %d.", channel);
         return NULL_VAL;
     }
-    AudioManager::SetSound(channel % AudioManager::SoundArrayLength, audio, true, loopPoint, panning, speed, volume, nullptr);
+    if (audio)
+        AudioManager::SetSound(channel % AudioManager::SoundArrayLength, audio, true, loopPoint, panning, speed, volume, nullptr);
     return NULL_VAL;
 }
 /***
@@ -11734,6 +12370,8 @@ VMValue Sound_IsChannelFree(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Sprite_GetAnimationCount(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     ISprite* sprite = GET_ARG(0, GetSprite);
+    if (!sprite)
+        return INTEGER_VAL(0);
     return INTEGER_VAL((int)sprite->Animations.size());
 }
 /***
@@ -11748,6 +12386,8 @@ VMValue Sprite_GetAnimationName(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     ISprite* sprite = GET_ARG(0, GetSprite);
     int index = GET_ARG(1, GetInteger);
+    if (!sprite)
+        return NULL_VAL;
     CHECK_ANIMATION_INDEX(index);
     return OBJECT_VAL(CopyString(sprite->Animations[index].Name));
 }
@@ -11763,6 +12403,8 @@ VMValue Sprite_GetAnimationIndexByName(int argCount, VMValue* args, Uint32 threa
     CHECK_ARGCOUNT(2);
     ISprite* sprite = GET_ARG(0, GetSprite);
     char* name = GET_ARG(1, GetString);
+    if (!sprite)
+        return INTEGER_VAL(-1);
     for (size_t i = 0; i < sprite->Animations.size(); i++) {
         if (strcmp(name, sprite->Animations[i].Name) == 0)
             return INTEGER_VAL((int)i);
@@ -11781,6 +12423,8 @@ VMValue Sprite_GetFrameLoopIndex(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     ISprite* sprite = GET_ARG(0, GetSprite);
     int animation = GET_ARG(1, GetInteger);
+    if (!sprite)
+        return INTEGER_VAL(0);
     CHECK_ANIMATION_INDEX(animation);
     return INTEGER_VAL(sprite->Animations[animation].FrameToLoop);
 }
@@ -11796,6 +12440,8 @@ VMValue Sprite_GetFrameCount(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     ISprite* sprite = GET_ARG(0, GetSprite);
     int animation = GET_ARG(1, GetInteger);
+    if (!sprite)
+        return INTEGER_VAL(0);
     CHECK_ANIMATION_INDEX(animation);
     return INTEGER_VAL((int)sprite->Animations[animation].Frames.size());
 }
@@ -11813,6 +12459,8 @@ VMValue Sprite_GetFrameDuration(int argCount, VMValue* args, Uint32 threadID) {
     ISprite* sprite = GET_ARG(0, GetSprite);
     int animation = GET_ARG(1, GetInteger);
     int frame = GET_ARG(2, GetInteger);
+    if (!sprite)
+        return INTEGER_VAL(0);
     CHECK_ANIMFRAME_INDEX(animation, frame);
     return INTEGER_VAL(sprite->Animations[animation].Frames[frame].Duration);
 }
@@ -11828,6 +12476,8 @@ VMValue Sprite_GetFrameSpeed(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     ISprite* sprite = GET_ARG(0, GetSprite);
     int animation = GET_ARG(1, GetInteger);
+    if (!sprite)
+        return INTEGER_VAL(0);
     CHECK_ANIMATION_INDEX(animation);
     return INTEGER_VAL(sprite->Animations[animation].AnimationSpeed);
 }
@@ -11845,6 +12495,8 @@ VMValue Sprite_GetFrameWidth(int argCount, VMValue* args, Uint32 threadID) {
     ISprite* sprite = GET_ARG(0, GetSprite);
     int animation = GET_ARG(1, GetInteger);
     int frame = GET_ARG(2, GetInteger);
+    if (!sprite)
+        return INTEGER_VAL(0);
     CHECK_ANIMFRAME_INDEX(animation, frame);
     return INTEGER_VAL(sprite->Animations[animation].Frames[frame].Width);
 }
@@ -11862,6 +12514,8 @@ VMValue Sprite_GetFrameHeight(int argCount, VMValue* args, Uint32 threadID) {
     ISprite* sprite = GET_ARG(0, GetSprite);
     int animation = GET_ARG(1, GetInteger);
     int frame = GET_ARG(2, GetInteger);
+    if (!sprite)
+        return INTEGER_VAL(0);
     CHECK_ANIMFRAME_INDEX(animation, frame);
     return INTEGER_VAL(sprite->Animations[animation].Frames[frame].Height);
 }
@@ -11879,6 +12533,8 @@ VMValue Sprite_GetFrameID(int argCount, VMValue* args, Uint32 threadID) {
     ISprite* sprite = GET_ARG(0, GetSprite);
     int animation = GET_ARG(1, GetInteger);
     int frame = GET_ARG(2, GetInteger);
+    if (!sprite)
+        return INTEGER_VAL(0);
     CHECK_ANIMFRAME_INDEX(animation, frame);
     return INTEGER_VAL(sprite->Animations[animation].Frames[frame].Advance);
 }
@@ -11896,6 +12552,8 @@ VMValue Sprite_GetFrameOffsetX(int argCount, VMValue* args, Uint32 threadID) {
     ISprite* sprite = GET_ARG(0, GetSprite);
     int animation = GET_ARG(1, GetInteger);
     int frame = GET_ARG(2, GetInteger);
+    if (!sprite)
+        return INTEGER_VAL(0);
     CHECK_ANIMFRAME_INDEX(animation, frame);
     return INTEGER_VAL(sprite->Animations[animation].Frames[frame].OffsetX);
 }
@@ -11913,6 +12571,8 @@ VMValue Sprite_GetFrameOffsetY(int argCount, VMValue* args, Uint32 threadID) {
     ISprite* sprite = GET_ARG(0, GetSprite);
     int animation = GET_ARG(1, GetInteger);
     int frame = GET_ARG(2, GetInteger);
+    if (!sprite)
+        return INTEGER_VAL(0);
     CHECK_ANIMFRAME_INDEX(animation, frame);
     return INTEGER_VAL(sprite->Animations[animation].Frames[frame].OffsetY);
 }
@@ -11966,6 +12626,8 @@ VMValue Sprite_MakePalettized(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(2);
     ISprite* sprite = GET_ARG(0, GetSprite);
     int palIndex = GET_ARG(1, GetInteger);
+    if (!sprite)
+        return NULL_VAL;
     CHECK_PALETTE_INDEX(palIndex);
     sprite->ConvertToPalette(palIndex);
     return NULL_VAL;
@@ -11979,7 +12641,8 @@ VMValue Sprite_MakePalettized(int argCount, VMValue* args, Uint32 threadID) {
 VMValue Sprite_MakeNonPalettized(int argCount, VMValue* args, Uint32 threadID) {
     CHECK_ARGCOUNT(1);
     ISprite* sprite = GET_ARG(0, GetSprite);
-    sprite->ConvertToRGBA();
+    if (sprite)
+        sprite->ConvertToRGBA();
     return NULL_VAL;
 }
 #undef CHECK_ANIMATION_INDEX
@@ -12759,9 +13422,9 @@ VMValue String_ParseInteger(int argCount, VMValue* args, Uint32 threadID) {
 }
 /***
  * String.ParseDecimal
- * \desc Convert a String value to an Decimal value if possible.
+ * \desc Convert a String value to a Decimal value if possible.
  * \param string (String): The string to parse.
- * \return Returns the value as an Decimal.
+ * \return Returns the value as a Decimal.
  * \ns String
  */
 VMValue String_ParseDecimal(int argCount, VMValue* args, Uint32 threadID) {
@@ -14447,8 +15110,8 @@ static VMValue XML_FillMap(XMLNode* parent) {
     size_t attrNameSize = 0;
 
     for (size_t i = 0; i < numAttr; i++) {
-        char *key = attributes->KeyVector[i];
-        char *value = XMLParser::TokenToString(attributes->ValueMap.Get(key));
+        char* key = attributes->KeyVector[i];
+        char* value = XMLParser::TokenToString(attributes->ValueMap.Get(key));
 
         size_t length = strlen(key) + 2;
         if (length > attrNameSize) {
@@ -14465,6 +15128,8 @@ static VMValue XML_FillMap(XMLNode* parent) {
         keyHash = map->Keys->HashFunction(attrName, attrNameSize - 1);
         map->Keys->Put(keyHash, StringUtils::Duplicate(attrName));
         map->Values->Put(keyHash, OBJECT_VAL(CopyString(value)));
+
+        Memory::Free(value);
     }
 
     free(attrName);
@@ -14557,7 +15222,8 @@ PUBLIC STATIC void StandardLibrary::Link() {
 
     #define INIT_NAMESPACE(nsName) \
         ObjNamespace* ns_##nsName = InitNamespace(#nsName); \
-        ScriptManager::Constants->Put(ns_##nsName->Hash, OBJECT_VAL(ns_##nsName))
+        ScriptManager::Constants->Put(ns_##nsName->Hash, OBJECT_VAL(ns_##nsName)); \
+        ScriptManager::AllNamespaces.push_back(ns_##nsName)
     #define INIT_NAMESPACED_CLASS(nsName, className) \
         klass = InitClass(#className); \
         ns_##nsName->Fields->Put(klass->Hash, OBJECT_VAL(klass))
@@ -14700,6 +15366,8 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Array, Clear);
     DEF_NATIVE(Array, Shift);
     DEF_NATIVE(Array, SetAll);
+    DEF_NATIVE(Array, Reverse);
+    DEF_NATIVE(Array, Sort);
     // #endregion
 
     // #region Controller
@@ -14712,7 +15380,9 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Controller, HasShareButton);
     DEF_NATIVE(Controller, HasMicrophoneButton);
     DEF_NATIVE(Controller, HasPaddles);
-    DEF_NATIVE(Controller, GetButton);
+    DEF_NATIVE(Controller, IsButtonHeld);
+    DEF_NATIVE(Controller, IsButtonPressed);
+    DEF_NATIVE(Controller, GetButton); // deprecated
     DEF_NATIVE(Controller, GetAxis);
     DEF_NATIVE(Controller, GetType);
     DEF_NATIVE(Controller, GetName);
@@ -14723,8 +15393,8 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Controller, Rumble);
     DEF_NATIVE(Controller, StopRumble);
     DEF_NATIVE(Controller, SetRumblePaused);
-    DEF_NATIVE(Controller, SetLargeMotorFrequency);
-    DEF_NATIVE(Controller, SetSmallMotorFrequency);
+    DEF_NATIVE(Controller, SetLargeMotorFrequency); // deprecated
+    DEF_NATIVE(Controller, SetSmallMotorFrequency); // deprecated
     /***
     * \constant NUM_CONTROLLER_BUTTONS
     * \type Integer
@@ -15064,40 +15734,6 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Draw, ViewPart);
     DEF_NATIVE(Draw, ViewSized);
     DEF_NATIVE(Draw, ViewPartSized);
-    DEF_NATIVE(Draw, BindVertexBuffer);
-    DEF_NATIVE(Draw, UnbindVertexBuffer);
-    DEF_NATIVE(Draw, BindScene3D);
-    DEF_NATIVE(Draw, InitArrayBuffer); // deprecated
-    DEF_NATIVE(Draw, BindArrayBuffer); // deprecated
-    DEF_NATIVE(Draw, SetArrayBufferDrawMode); // deprecated
-    DEF_NATIVE(Draw, SetProjectionMatrix); // deprecated
-    DEF_NATIVE(Draw, SetViewMatrix); // deprecated
-    DEF_NATIVE(Draw, SetAmbientLighting); // deprecated
-    DEF_NATIVE(Draw, SetDiffuseLighting); // deprecated
-    DEF_NATIVE(Draw, SetSpecularLighting); // deprecated
-    DEF_NATIVE(Draw, SetFogDensity); // deprecated
-    DEF_NATIVE(Draw, SetFogColor); // deprecated
-    DEF_NATIVE(Draw, SetClipPolygons); // deprecated
-    DEF_NATIVE(Draw, SetPointSize); // deprecated
-    DEF_NATIVE(Draw, Model);
-    DEF_NATIVE(Draw, ModelSkinned);
-    DEF_NATIVE(Draw, ModelSimple);
-    DEF_NATIVE(Draw, Triangle3D);
-    DEF_NATIVE(Draw, Quad3D);
-    DEF_NATIVE(Draw, Sprite3D);
-    DEF_NATIVE(Draw, SpritePart3D);
-    DEF_NATIVE(Draw, Image3D);
-    DEF_NATIVE(Draw, ImagePart3D);
-    DEF_NATIVE(Draw, Tile3D);
-    DEF_NATIVE(Draw, TriangleTextured);
-    DEF_NATIVE(Draw, QuadTextured);
-    DEF_NATIVE(Draw, SpritePoints);
-    DEF_NATIVE(Draw, TilePoints);
-    DEF_NATIVE(Draw, SceneLayer3D);
-    DEF_NATIVE(Draw, SceneLayerPart3D);
-    DEF_NATIVE(Draw, VertexBuffer);
-    DEF_NATIVE(Draw, RenderArrayBuffer); // deprecated
-    DEF_NATIVE(Draw, RenderScene3D);
     DEF_NATIVE(Draw, Video);
     DEF_NATIVE(Draw, VideoPart);
     DEF_NATIVE(Draw, VideoSized);
@@ -15143,7 +15779,10 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Draw, Ellipse);
     DEF_NATIVE(Draw, Triangle);
     DEF_NATIVE(Draw, TriangleBlend);
+    DEF_NATIVE(Draw, Quad);
     DEF_NATIVE(Draw, QuadBlend);
+    DEF_NATIVE(Draw, TriangleTextured);
+    DEF_NATIVE(Draw, QuadTextured);
     DEF_NATIVE(Draw, Rectangle);
     DEF_NATIVE(Draw, CircleStroke);
     DEF_NATIVE(Draw, EllipseStroke);
@@ -15460,6 +16099,31 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_ENUM(BlendFactor_INV_DST_ALPHA);
     // #endregion
 
+    // #region Draw3D
+    INIT_CLASS(Draw3D);
+    DEF_NATIVE(Draw3D, BindVertexBuffer);
+    DEF_NATIVE(Draw3D, UnbindVertexBuffer);
+    DEF_NATIVE(Draw3D, BindScene);
+    DEF_NATIVE(Draw3D, Model);
+    DEF_NATIVE(Draw3D, ModelSkinned);
+    DEF_NATIVE(Draw3D, ModelSimple);
+    DEF_NATIVE(Draw3D, Triangle);
+    DEF_NATIVE(Draw3D, Quad);
+    DEF_NATIVE(Draw3D, Sprite);
+    DEF_NATIVE(Draw3D, SpritePart);
+    DEF_NATIVE(Draw3D, Image);
+    DEF_NATIVE(Draw3D, ImagePart);
+    DEF_NATIVE(Draw3D, Tile);
+    DEF_NATIVE(Draw3D, TriangleTextured);
+    DEF_NATIVE(Draw3D, QuadTextured);
+    DEF_NATIVE(Draw3D, SpritePoints);
+    DEF_NATIVE(Draw3D, TilePoints);
+    DEF_NATIVE(Draw3D, SceneLayer);
+    DEF_NATIVE(Draw3D, SceneLayerPart);
+    DEF_NATIVE(Draw3D, VertexBuffer);
+    DEF_NATIVE(Draw3D, RenderScene);
+    // #endregion
+
     // #region Tile Collision States
     /***
     * \enum TILECOLLISION_NONE
@@ -15596,86 +16260,86 @@ PUBLIC STATIC void StandardLibrary::Link() {
 
     // #region Hitbox Sides
     /***
-    * \enum LEFT
+    * \enum HitboxSide_LEFT
     * \desc Left side, slot 0 of a hitbox array.
     */
-    DEF_ENUM(LEFT);
+    DEF_ENUM(HitboxSide_LEFT);
     /***
-    * \enum TOP
+    * \enum HitboxSide_TOP
     * \desc Top side, slot 1 of a hitbox array.
     */
-    DEF_ENUM(TOP);
+    DEF_ENUM(HitboxSide_TOP);
     /***
-    * \enum RIGHT
+    * \enum HitboxSide_RIGHT
     * \desc Right side, slot 2 of a hitbox array.
     */
-    DEF_ENUM(RIGHT);
+    DEF_ENUM(HitboxSide_RIGHT);
     /***
-    * \enum BOTTOM
+    * \enum HitboxSide_BOTTOM
     * \desc Bottom side, slot 3 of a hitbox array.
     */
-    DEF_ENUM(BOTTOM);
+    DEF_ENUM(HitboxSide_BOTTOM);
     // #endregion
 
     // #region Weekdays
     /***
-    * \enum SUNDAY
-    * \desc The first day of the week (value 0).
+    * \enum Weekday_SUNDAY
+    * \desc The first day of the week.
     */
-    DEF_ENUM(SUNDAY);
+    DEF_CONST_INT("Weekday_SUNDAY", (int)Weekday::SUNDAY);
     /***
-    * \enum MONDAY
-    * \desc The second day of the week (value 1).
+    * \enum Weekday_MONDAY
+    * \desc The second day of the week.
     */
-    DEF_ENUM(MONDAY);
+    DEF_CONST_INT("Weekday_MONDAY", (int)Weekday::MONDAY);
     /***
-    * \enum TUESDAY
-    * \desc The third day of the week (value 2).
+    * \enum Weekday_TUESDAY
+    * \desc The third day of the week.
     */
-    DEF_ENUM(TUESDAY);
+    DEF_CONST_INT("Weekday_TUESDAY", (int)Weekday::TUESDAY);
     /***
-    * \enum WEDNESDAY
-    * \desc The fourth day of the week (value 3).
+    * \enum Weekday_WEDNESDAY
+    * \desc The fourth day of the week.
     */
-    DEF_ENUM(WEDNESDAY);
+    DEF_CONST_INT("Weekday_WEDNESDAY", (int)Weekday::WEDNESDAY);
     /***
-    * \enum THURSDAY
-    * \desc The fifth day of the week (value 4).
+    * \enum Weekday_THURSDAY
+    * \desc The fifth day of the week.
     */
-    DEF_ENUM(THURSDAY);
+    DEF_CONST_INT("Weekday_THURSDAY", (int)Weekday::THURSDAY);
     /***
-    * \enum FRIDAY
-    * \desc The sixth day of the week (value 5).
+    * \enum Weekday_FRIDAY
+    * \desc The sixth day of the week.
     */
-    DEF_ENUM(FRIDAY);
+    DEF_CONST_INT("Weekday_FRIDAY", (int)Weekday::FRIDAY);
     /***
-    * \enum SATURDAY
-    * \desc The seventh day of the week (value 6).
+    * \enum Weekday_SATURDAY
+    * \desc The seventh day of the week.
     */
-    DEF_ENUM(SATURDAY);
+    DEF_CONST_INT("Weekday_SATURDAY", (int)Weekday::SATURDAY);
     // #endregion
 
     // #region TimesOfDay
     /***
-    * \enum MORNING
-    * \desc The early hours of the day (5AM to 11AM, 0500 to 1100).
+    * \enum TimeOfDay_MORNING
+    * \desc The early hours of the day (5AM to 11AM, or 05:00 to 11:00).
     */
-    DEF_ENUM(MORNING);
+    DEF_CONST_INT("TimeOfDay_MORNING", (int)TimeOfDay::MORNING);
     /***
-    * \enum MIDDAY
-    * \desc The middle hours of the day (12PM to 4PM, 1200 to 1600).
+    * \enum TimeOfDay_MIDDAY
+    * \desc The middle hours of the day (12PM to 4PM, or 12:00 to 16:00).
     */
-    DEF_ENUM(MIDDAY);
+    DEF_CONST_INT("TimeOfDay_MIDDAY", (int)TimeOfDay::MIDDAY);
     /***
-    * \enum EVENING
-    * \desc The later hours of the day (5PM to 8PM, 1700 to 2000).
+    * \enum TimeOfDay_EVENING
+    * \desc The later hours of the day (5PM to 8PM, or 17:00 to 20:00).
     */
-    DEF_ENUM(EVENING);
+    DEF_CONST_INT("TimeOfDay_EVENING", (int)TimeOfDay::EVENING);
     /***
-    * \enum NIGHT
-    * \desc The very late and very early hours of the day (9PM to 4AM, 2100 to 400).
+    * \enum TimeOfDay_NIGHT
+    * \desc The very late and very early hours of the day (9PM to 4AM, or 21:00 to 4:00).
     */
-    DEF_ENUM(NIGHT);
+    DEF_CONST_INT("TimeOfDay_NIGHT", (int)TimeOfDay::NIGHT);
     // #endregion
 
     // #region Ease
@@ -15720,10 +16384,66 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(File, WriteAllText);
     // #endregion
 
+    // #region Geometry
+    INIT_CLASS(Geometry);
+    DEF_NATIVE(Geometry, Triangulate);
+    DEF_NATIVE(Geometry, Intersect);
+    DEF_NATIVE(Geometry, IsPointInsidePolygon);
+    DEF_NATIVE(Geometry, IsLineIntersectingPolygon);
+
+    /***
+    * \enum GeoBooleanOp_Intersection
+    * \desc AND operation.
+    */
+    DEF_ENUM(GeoBooleanOp_Intersection);
+    /***
+    * \enum GeoBooleanOp_Union
+    * \desc OR operation.
+    */
+    DEF_ENUM(GeoBooleanOp_Union);
+    /***
+    * \enum GeoBooleanOp_Difference
+    * \desc NOT operation.
+    */
+    DEF_ENUM(GeoBooleanOp_Difference);
+    /***
+    * \enum GeoBooleanOp_ExclusiveOr
+    * \desc XOR operation.
+    */
+    DEF_ENUM(GeoBooleanOp_ExclusiveOr);
+
+    /***
+    * \enum GeoFillRule_EvenOdd
+    * \desc Only odd numbered subregions are filled.
+    */
+    DEF_ENUM(GeoFillRule_EvenOdd);
+    /***
+    * \enum GeoFillRule_NonZero
+    * \desc Only non-zero subregions are filled.
+    */
+    DEF_ENUM(GeoFillRule_NonZero);
+    /***
+    * \enum GeoFillRule_Positive
+    * \desc Only subregions that have winding counts greater than zero (> 0) are filled.
+    */
+    DEF_ENUM(GeoFillRule_Positive);
+    /***
+    * \enum GeoFillRule_Negative
+    * \desc Only subregions that have winding counts lesser than zero (< 0) are filled.
+    */
+    DEF_ENUM(GeoFillRule_Negative);
+    // #endregion
+
     // #region HTTP
     INIT_CLASS(HTTP);
     DEF_NATIVE(HTTP, GetString);
     DEF_NATIVE(HTTP, GetToFile);
+    // #endregion
+
+    // #region Image
+    INIT_CLASS(Image);
+    DEF_NATIVE(Image, GetWidth);
+    DEF_NATIVE(Image, GetHeight);
     // #endregion
 
     // #region Input
@@ -15736,12 +16456,6 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Input, IsKeyDown);
     DEF_NATIVE(Input, IsKeyPressed);
     DEF_NATIVE(Input, IsKeyReleased);
-    DEF_NATIVE(Input, GetControllerCount); // deprecated
-    DEF_NATIVE(Input, GetControllerAttached); // deprecated
-    DEF_NATIVE(Input, GetControllerHat); // deprecated
-    DEF_NATIVE(Input, GetControllerAxis); // deprecated
-    DEF_NATIVE(Input, GetControllerButton); // deprecated
-    DEF_NATIVE(Input, GetControllerName); // deprecated
     DEF_NATIVE(Input, GetKeyName);
     DEF_NATIVE(Input, GetButtonName);
     DEF_NATIVE(Input, GetAxisName);
@@ -15918,10 +16632,13 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Palette, LoadFromImage);
     DEF_NATIVE(Palette, GetColor);
     DEF_NATIVE(Palette, SetColor);
+    DEF_NATIVE(Palette, GetColorTransparent);
+    DEF_NATIVE(Palette, SetColorTransparent);
     DEF_NATIVE(Palette, MixPalettes);
     DEF_NATIVE(Palette, RotateColorsLeft);
     DEF_NATIVE(Palette, RotateColorsRight);
     DEF_NATIVE(Palette, CopyColors);
+    DEF_NATIVE(Palette, UsePaletteIndexLines);
     DEF_NATIVE(Palette, SetPaletteIndexLines);
     // #endregion
 
@@ -15971,6 +16688,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, GetLayerIndex);
     DEF_NATIVE(Scene, GetLayerVisible);
     DEF_NATIVE(Scene, GetLayerOpacity);
+    DEF_NATIVE(Scene, GetLayerUsePaletteIndexLines);
     DEF_NATIVE(Scene, GetLayerProperty);
     DEF_NATIVE(Scene, GetLayerExists);
     DEF_NATIVE(Scene, GetLayerDeformSplitLine);
@@ -15985,9 +16703,10 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, GetLayerOffsetX);
     DEF_NATIVE(Scene, GetLayerOffsetY);
     DEF_NATIVE(Scene, GetLayerDrawGroup);
+    DEF_NATIVE(Scene, GetLayerHorizontalRepeat);
+    DEF_NATIVE(Scene, GetLayerVerticalRepeat);
     DEF_NATIVE(Scene, GetTileWidth);
     DEF_NATIVE(Scene, GetTileHeight);
-    DEF_NATIVE(Scene, GetTileSize); // deprecated
     DEF_NATIVE(Scene, GetTileID);
     DEF_NATIVE(Scene, GetTileFlipX);
     DEF_NATIVE(Scene, GetTileFlipY);
@@ -15996,16 +16715,17 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, GetTilesetName);
     DEF_NATIVE(Scene, GetTilesetTileCount);
     DEF_NATIVE(Scene, GetTilesetFirstTileID);
+    DEF_NATIVE(Scene, GetTilesetPaletteIndex);
     DEF_NATIVE(Scene, GetDrawGroupCount);
     DEF_NATIVE(Scene, GetDrawGroupEntityDepthSorting);
-    DEF_NATIVE(Scene, GetListPos);
+    DEF_NATIVE(Scene, GetListPos); // deprecated
     DEF_NATIVE(Scene, GetCurrentFolder);
     DEF_NATIVE(Scene, GetCurrentID);
     DEF_NATIVE(Scene, GetCurrentSpriteFolder);
     DEF_NATIVE(Scene, GetCurrentCategory);
     DEF_NATIVE(Scene, GetActiveCategory);
-    DEF_NATIVE(Scene, GetCategoryCount);
-    DEF_NATIVE(Scene, GetStageCount);
+    DEF_NATIVE(Scene, GetCategoryCount); // deprecated
+    DEF_NATIVE(Scene, GetStageCount); // deprecated
     DEF_NATIVE(Scene, GetDebugMode);
     DEF_NATIVE(Scene, GetFirstInstance);
     DEF_NATIVE(Scene, GetLastInstance);
@@ -16018,14 +16738,14 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, GetTileAnimSequencePaused);
     DEF_NATIVE(Scene, GetTileAnimSequenceSpeed);
     DEF_NATIVE(Scene, GetTileAnimSequenceFrame);
-    DEF_NATIVE(Scene, CheckValidScene);
-    DEF_NATIVE(Scene, CheckSceneFolder);
-    DEF_NATIVE(Scene, CheckSceneID);
+    DEF_NATIVE(Scene, CheckValidScene); // deprecated
+    DEF_NATIVE(Scene, CheckSceneFolder); // deprecated
+    DEF_NATIVE(Scene, CheckSceneID); // deprecated
     DEF_NATIVE(Scene, IsPaused);
-    DEF_NATIVE(Scene, SetListPos);
-    DEF_NATIVE(Scene, SetActiveCategory);
+    DEF_NATIVE(Scene, SetListPos); // deprecated
+    DEF_NATIVE(Scene, SetActiveCategory); // deprecated
     DEF_NATIVE(Scene, SetDebugMode);
-    DEF_NATIVE(Scene, SetScene);
+    DEF_NATIVE(Scene, SetScene); // deprecated
     DEF_NATIVE(Scene, SetTile);
     DEF_NATIVE(Scene, SetTileCollisionSides);
     DEF_NATIVE(Scene, SetPaused);
@@ -16035,6 +16755,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, SetTileAnimSequencePaused);
     DEF_NATIVE(Scene, SetTileAnimSequenceSpeed);
     DEF_NATIVE(Scene, SetTileAnimSequenceFrame);
+    DEF_NATIVE(Scene, SetTilesetPaletteIndex);
     DEF_NATIVE(Scene, SetLayerVisible);
     DEF_NATIVE(Scene, SetLayerCollidable);
     DEF_NATIVE(Scene, SetLayerInternalSize);
@@ -16044,10 +16765,13 @@ PUBLIC STATIC void StandardLibrary::Link() {
     DEF_NATIVE(Scene, SetLayerDrawGroup);
     DEF_NATIVE(Scene, SetLayerDrawBehavior);
     DEF_NATIVE(Scene, SetLayerRepeat);
+    DEF_NATIVE(Scene, SetLayerHorizontalRepeat);
+    DEF_NATIVE(Scene, SetLayerVerticalRepeat);
     DEF_NATIVE(Scene, SetDrawGroupCount);
     DEF_NATIVE(Scene, SetDrawGroupEntityDepthSorting);
     DEF_NATIVE(Scene, SetLayerBlend);
     DEF_NATIVE(Scene, SetLayerOpacity);
+    DEF_NATIVE(Scene, SetLayerUsePaletteIndexLines);
     DEF_NATIVE(Scene, SetLayerScroll);
     DEF_NATIVE(Scene, SetLayerSetParallaxLinesBegin);
     DEF_NATIVE(Scene, SetLayerSetParallaxLines);
@@ -16081,6 +16805,21 @@ PUBLIC STATIC void StandardLibrary::Link() {
     // #endregion
 
     // #region Scene
+    INIT_CLASS(SceneList);
+    DEF_NATIVE(SceneList, Get);
+    DEF_NATIVE(SceneList, GetEntryID);
+    DEF_NATIVE(SceneList, GetCategoryID);
+    DEF_NATIVE(SceneList, GetEntryName);
+    DEF_NATIVE(SceneList, GetCategoryName);
+    DEF_NATIVE(SceneList, GetEntryProperty);
+    DEF_NATIVE(SceneList, GetCategoryProperty);
+    DEF_NATIVE(SceneList, HasEntryProperty);
+    DEF_NATIVE(SceneList, HasCategoryProperty);
+    DEF_NATIVE(SceneList, GetCategoryCount);
+    DEF_NATIVE(SceneList, GetSceneCount);
+    // #endregion
+
+    // #region Scene3D
     INIT_CLASS(Scene3D);
     DEF_NATIVE(Scene3D, Create);
     DEF_NATIVE(Scene3D, Delete);
@@ -16524,7 +17263,7 @@ PUBLIC STATIC void StandardLibrary::Link() {
     * \type Integer
     * \desc The position of the current scene in the scene list.
     */
-    DEF_LINK_INT("Scene_ListPos", &Scene::ListPos);
+    DEF_LINK_INT("Scene_ListPos", &Scene::CurrentSceneInList);
     /***
     * \global Scene_ActiveCategory
     * \type Integer

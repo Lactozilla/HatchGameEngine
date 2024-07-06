@@ -66,23 +66,24 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(SolutionDir)..\meta\win\include;$(SolutionDir)..\include;$(SolutionDir)..\source;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)..\meta\win\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)..\meta\win\lib\msvc\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(SolutionDir)..\meta\win\include;$(SolutionDir)..\include;$(SolutionDir)..\source;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)..\meta\win\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)..\meta\win\lib\msvc\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(SolutionDir)..\meta\win\include;$(SolutionDir)..\include;$(SolutionDir)..\source;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)..\meta\win\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)..\meta\win\lib\msvc\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>$(SolutionDir)..\meta\win\include;$(SolutionDir)..\include;$(SolutionDir)..\source;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)..\meta\win\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)..\meta\win\lib\msvc\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>WIN32;TARGET_NAME="$(ProjectName)";GLEW_STATIC;USING_OPENGL;USING_FREETYPE;_DEBUG;_WINDOWS;DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -104,6 +105,7 @@ CD ..</Command>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>WIN32;TARGET_NAME="$(ProjectName)";GLEW_STATIC;USING_OPENGL;USING_FREETYPE;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -126,7 +128,9 @@ CD ..</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ClCompile />
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
     <PreBuildEvent>
       <Command>CD "..\tools"
 "makeheaders.exe" ../source
@@ -137,6 +141,9 @@ CD ..</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
     <PreBuildEvent>
       <Command>CD "..\tools"
 "makeheaders.exe" ../source
@@ -153,6 +160,7 @@ CD ..</Command>
     <ClCompile Include="..\source\engine\bytecode\TypeImpl\ArrayImpl.cpp" />
     <ClCompile Include="..\source\engine\bytecode\TypeImpl\FunctionImpl.cpp" />
     <ClCompile Include="..\source\engine\bytecode\TypeImpl\MapImpl.cpp" />
+    <ClCompile Include="..\source\engine\bytecode\TypeImpl\StringImpl.cpp" />
     <ClCompile Include="..\source\engine\bytecode\Bytecode.cpp" />
     <ClCompile Include="..\source\engine\bytecode\Compiler.cpp" />
     <ClCompile Include="..\source\engine\bytecode\GarbageCollector.cpp" />
@@ -195,6 +203,7 @@ CD ..</Command>
     <ClCompile Include="..\source\engine\io\Stream.cpp" />
     <ClCompile Include="..\source\engine\Main.cpp" />
     <ClCompile Include="..\source\engine\math\Ease.cpp" />
+    <ClCompile Include="..\source\engine\math\Geometry.cpp" />
     <ClCompile Include="..\source\engine\math\Math.cpp" />
     <ClCompile Include="..\source\engine\math\Matrix4x4.cpp" />
     <ClCompile Include="..\source\engine\math\Vector.cpp" />
@@ -236,7 +245,10 @@ CD ..</Command>
     <ClCompile Include="..\source\engine\resourcetypes\IModel.cpp" />
     <ClCompile Include="..\source\engine\resourcetypes\ISound.cpp" />
     <ClCompile Include="..\source\engine\resourcetypes\ISprite.cpp" />
+    <ClCompile Include="..\source\engine\resourcetypes\modelformats\HatchModel.cpp" />
     <ClCompile Include="..\source\engine\resourcetypes\modelformats\Importer.cpp" />
+    <ClCompile Include="..\source\engine\resourcetypes\modelformats\MD3Model.cpp" />
+    <ClCompile Include="..\source\engine\resourcetypes\modelformats\RSDKModel.cpp" />
     <ClCompile Include="..\source\engine\resourcetypes\ResourceManager.cpp" />
     <ClCompile Include="..\source\Engine\ResourceTypes\SceneFormats\HatchSceneReader.cpp" />
     <ClCompile Include="..\source\engine\resourcetypes\sceneformats\RSDKSceneReader.cpp" />
@@ -245,6 +257,7 @@ CD ..</Command>
     <ClCompile Include="..\source\engine\resourcetypes\soundformats\SoundFormat.cpp" />
     <ClCompile Include="..\source\engine\resourcetypes\soundformats\WAV.cpp" />
     <ClCompile Include="..\source\engine\Scene.cpp" />
+    <ClCompile Include="..\source\engine\scene\SceneInfo.cpp" />
     <ClCompile Include="..\source\engine\scene\SceneLayer.cpp" />
     <ClCompile Include="..\source\engine\scene\ScrollingIndex.cpp" />
     <ClCompile Include="..\source\engine\scene\ScrollingInfo.cpp" />
@@ -263,6 +276,14 @@ CD ..</Command>
     <ClCompile Include="..\source\Libraries\miniz.c" />
     <ClCompile Include="..\source\Libraries\stb_vorbis.c" />
     <ClCompile Include="..\source\Libraries\spng.c" />
+    <ClCompile Include="..\source\Libraries\poly2tri\common\shapes.cpp" />
+    <ClCompile Include="..\source\Libraries\poly2tri\sweep\advancing_front.cpp" />
+    <ClCompile Include="..\source\Libraries\poly2tri\sweep\cdt.cpp" />
+    <ClCompile Include="..\source\Libraries\poly2tri\sweep\sweep_context.cpp" />
+    <ClCompile Include="..\source\Libraries\poly2tri\sweep\sweep.cpp" />
+    <ClCompile Include="..\source\Libraries\clipper2\clipper.engine.cpp" />
+    <ClCompile Include="..\source\Libraries\clipper2\clipper.offset.cpp" />
+    <ClCompile Include="..\source\Libraries\clipper2\clipper.rectclip.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\engine\audio\AudioChannel.h" />

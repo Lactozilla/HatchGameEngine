@@ -1,7 +1,8 @@
 #ifndef XMLNODE_H
 #define XMLNODE_H
 
-#include <map>
+#include <Engine/Includes/Token.h>
+#include <Engine/Diagnostics/Memory.h>
 
 class XMLAttributes {
 public:
@@ -21,8 +22,7 @@ public:
     }
     void  Dispose() {
         for (size_t i = 0; i < KeyVector.size(); i++)
-            free(KeyVector[i]);
-
+            Memory::Free(KeyVector[i]);
         KeyVector.clear();
     }
     ~XMLAttributes() {

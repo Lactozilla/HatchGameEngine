@@ -36,6 +36,10 @@ Uint32 Hash_OnSceneLoad = 0;
 Uint32 Hash_OnSceneRestart = 0;
 Uint32 Hash_GameStart = 0;
 Uint32 Hash_Dispose = 0;
+Uint32 Hash_HitboxLeft = 0;
+Uint32 Hash_HitboxTop = 0;
+Uint32 Hash_HitboxRight = 0;
+Uint32 Hash_HitboxBottom = 0;
 
 PUBLIC void ScriptEntity::Link(ObjInstance* instance) {
     Instance = instance;
@@ -56,9 +60,16 @@ PUBLIC void ScriptEntity::Link(ObjInstance* instance) {
         Hash_OnSceneRestart = Murmur::EncryptString("OnSceneRestart");
         Hash_GameStart = Murmur::EncryptString("GameStart");
         Hash_Dispose = Murmur::EncryptString("Dispose");
+        Hash_HitboxLeft = Murmur::EncryptString("HitboxLeft");
+        Hash_HitboxTop = Murmur::EncryptString("HitboxTop");
+        Hash_HitboxRight = Murmur::EncryptString("HitboxRight");
+        Hash_HitboxBottom = Murmur::EncryptString("HitboxBottom");
 
         SavedHashes = true;
     }
+
+    instance->PropertyGet = VM_Getter;
+    instance->PropertySet = VM_Setter;
 
     LinkFields();
 }
@@ -441,7 +452,7 @@ PUBLIC void ScriptEntity::LinkFields() {
     * \ns Instance
     * \desc The width of the hitbox.
     */
-    LINK_DEC(HitboxW);
+    Instance->Fields->Put("HitboxW", DECIMAL_LINK_VAL(&Hitbox.Width));
     /***
     * \field HitboxH
     * \type Decimal
@@ -449,7 +460,7 @@ PUBLIC void ScriptEntity::LinkFields() {
     * \ns Instance
     * \desc The height of the hitbox.
     */
-    LINK_DEC(HitboxH);
+    Instance->Fields->Put("HitboxH", DECIMAL_LINK_VAL(&Hitbox.Height));
     /***
     * \field HitboxOffX
     * \type Decimal
@@ -457,7 +468,7 @@ PUBLIC void ScriptEntity::LinkFields() {
     * \ns Instance
     * \desc The horizontal offset of the hitbox.
     */
-    LINK_DEC(HitboxOffX);
+    Instance->Fields->Put("HitboxOffX", DECIMAL_LINK_VAL(&Hitbox.OffsetX));
     /***
     * \field HitboxOffY
     * \type Decimal
@@ -465,7 +476,41 @@ PUBLIC void ScriptEntity::LinkFields() {
     * \ns Instance
     * \desc The vertical offset of the hitbox.
     */
-    LINK_DEC(HitboxOffY);
+    Instance->Fields->Put("HitboxOffY", DECIMAL_LINK_VAL(&Hitbox.OffsetY));
+
+    /***
+    * \field HitboxLeft
+    * \type Decimal
+    * \default 0.0
+    * \ns Instance
+    * \desc The left extent of the hitbox.
+    */
+    // See ScriptEntity::VM_Getter and ScriptEntity::VM_Setter
+    /***
+    * \field HitboxTop
+    * \type Decimal
+    * \default 0.0
+    * \ns Instance
+    * \desc The top extent of the hitbox.
+    */
+    // See ScriptEntity::VM_Getter and ScriptEntity::VM_Setter
+    /***
+    * \field HitboxRight
+    * \type Decimal
+    * \default 0.0
+    * \ns Instance
+    * \desc The right extent of the hitbox.
+    */
+    // See ScriptEntity::VM_Getter and ScriptEntity::VM_Setter
+    /***
+    * \field HitboxBottom
+    * \type Decimal
+    * \default 0.0
+    * \ns Instance
+    * \desc The bottom extent of the hitbox.
+    */
+    // See ScriptEntity::VM_Getter and ScriptEntity::VM_Setter
+
     /***
     * \field FlipFlag
     * \type Integer
@@ -721,14 +766,14 @@ PUBLIC bool ScriptEntity::RunCreateFunction(VMValue flag) {
 
     VMValue* stackTop = thread->StackTop;
 
-    if (func->Arity == 1) {
-        thread->Push(OBJECT_VAL(Instance));
-        thread->Push(flag);
-        thread->RunEntityFunction(func, 1);
+    thread->Push(OBJECT_VAL(Instance));
+
+    if (func->Arity == 0) {
+        thread->RunEntityFunction(func, 0);
     }
     else {
-        thread->Push(OBJECT_VAL(Instance));
-        thread->RunEntityFunction(func, 0);
+        thread->Push(flag);
+        thread->RunEntityFunction(func, 1);
     }
 
     thread->StackTop = stackTop;
@@ -752,11 +797,39 @@ PUBLIC bool ScriptEntity::RunInitializer() {
     return true;
 }
 
-PUBLIC void ScriptEntity::Copy(ScriptEntity* other, bool copyClass, bool destroySrc) {
+PUBLIC bool ScriptEntity::ChangeClass(const char* className) {
+    if (!ScriptManager::ClassExists(className))
+        return false;
+
+    if (!ScriptManager::Classes->Exists(className) && !ScriptManager::LoadObjectClass(className, true))
+        return false;
+
+    ObjClass* newClass = ScriptManager::GetObjectClass(className);
+    if (!newClass)
+        return false;
+
+    ObjectList* objectList = Scene::GetObjectList(className);
+    if (!objectList)
+        return false;
+
+    // Remove from the old list
+    List->Remove(this);
+
+    // Add to the new list
+    List = objectList;
+    List->Add(this);
+
+    // Change the script-side class proper
+    Instance->Object.Class = newClass;
+
+    return true;
+}
+
+PUBLIC void ScriptEntity::Copy(ScriptEntity* other, bool copyClass) {
     CopyFields(other);
 
     if (copyClass)
-        other->Instance->Object.Class = Instance->Object.Class;
+        other->ChangeClass(List->ObjectName);
 
     // Copy properties
     HashMap<VMValue>* srcProperties = Properties;
@@ -767,11 +840,7 @@ PUBLIC void ScriptEntity::Copy(ScriptEntity* other, bool copyClass, bool destroy
     srcProperties->WithAll([destProperties](Uint32 key, VMValue value) -> void {
         destProperties->Put(key, value);
     });
-
-    if (destroySrc)
-        other->Active = false;
 }
-
 
 PUBLIC void ScriptEntity::CopyFields(ScriptEntity* other) {
     Entity::CopyFields(other);
@@ -849,10 +918,7 @@ PUBLIC void ScriptEntity::Initialize() {
     AnimationFrameDuration = 0;
     AnimationLoopIndex = 0;
 
-    HitboxW = 0.0f;
-    HitboxH = 0.0f;
-    HitboxOffX = 0.0f;
-    HitboxOffY = 0.0f;
+    Hitbox.Clear();
     FlipFlag = 0;
 
     VelocityX = 0.0f;
@@ -962,25 +1028,75 @@ PUBLIC void ScriptEntity::Dispose() {
 // Events/methods called from VM
 #define GET_ARG(argIndex, argFunction) (StandardLibrary::argFunction(args, argIndex, threadID))
 #define GET_ARG_OPT(argIndex, argFunction, argDefault) (argIndex < argCount ? GET_ARG(argIndex, StandardLibrary::argFunction) : argDefault)
-#define GET_ENTITY(argIndex) (GetEntity(args, argIndex, threadID))
-ScriptEntity* GetEntity(VMValue* args, int index, Uint32 threadID) {
+#define GET_ENTITY(argIndex) (GetScriptEntity(args, argIndex, threadID))
+ScriptEntity* GetScriptEntity(Obj* object) {
+    ObjInstance* entity = (ObjInstance*)object;
+    if (!entity->EntityPtr)
+        return nullptr;
+    return (ScriptEntity*)entity->EntityPtr;
+}
+ScriptEntity* GetScriptEntity(VMValue* args, int index, Uint32 threadID) {
     ObjInstance* entity = GET_ARG(index, GetInstance);
     if (!entity->EntityPtr)
         return nullptr;
     return (ScriptEntity*)entity->EntityPtr;
 }
 bool TestEntityCollision(ScriptEntity* other, ScriptEntity* self) {
-    if (!other->Active || other->Removed) return false;
-    // if (!other->Instance) return false;
-    if (other->HitboxW == 0.0f ||
-        other->HitboxH == 0.0f) return false;
+    if (!other->Active || other->Removed)
+        return false;
 
-    if (other->X + other->HitboxW / 2.0f >= self->X - self->HitboxW / 2.0f &&
-        other->Y + other->HitboxH / 2.0f >= self->Y - self->HitboxH / 2.0f &&
-        other->X - other->HitboxW / 2.0f  < self->X + self->HitboxW / 2.0f &&
-        other->Y - other->HitboxH / 2.0f  < self->Y + self->HitboxH / 2.0f) {
+    return self->CollideWithObject(other);
+}
+PUBLIC STATIC bool ScriptEntity::VM_Getter(Obj* object, Uint32 hash, VMValue* result, Uint32 threadID) {
+    Entity* self = GetScriptEntity(object);
+
+    if (hash == Hash_HitboxLeft) {
+        if (result)
+            *result = DECIMAL_VAL(self->Hitbox.GetLeft());
         return true;
     }
+    else if (hash == Hash_HitboxTop) {
+        if (result)
+            *result = DECIMAL_VAL(self->Hitbox.GetTop());
+        return true;
+    }
+    else if (hash == Hash_HitboxRight) {
+        if (result)
+            *result = DECIMAL_VAL(self->Hitbox.GetRight());
+        return true;
+    }
+    else if (hash == Hash_HitboxBottom) {
+        if (result)
+            *result = DECIMAL_VAL(self->Hitbox.GetBottom());
+        return true;
+    }
+
+    return false;
+}
+PUBLIC STATIC bool ScriptEntity::VM_Setter(Obj* object, Uint32 hash, VMValue value, Uint32 threadID) {
+    Entity* self = GetScriptEntity(object);
+
+    if (hash == Hash_HitboxLeft) {
+        if (ScriptManager::DoDecimalConversion(value, threadID))
+            self->Hitbox.SetLeft(AS_DECIMAL(value));
+        return true;
+    }
+    else if (hash == Hash_HitboxTop) {
+        if (ScriptManager::DoDecimalConversion(value, threadID))
+            self->Hitbox.SetTop(AS_DECIMAL(value));
+        return true;
+    }
+    else if (hash == Hash_HitboxRight) {
+        if (ScriptManager::DoDecimalConversion(value, threadID))
+            self->Hitbox.SetRight(AS_DECIMAL(value));
+        return true;
+    }
+    else if (hash == Hash_HitboxBottom) {
+        if (ScriptManager::DoDecimalConversion(value, threadID))
+            self->Hitbox.SetBottom(AS_DECIMAL(value));
+        return true;
+    }
+
     return false;
 }
 /***
@@ -999,12 +1115,12 @@ PUBLIC STATIC VMValue ScriptEntity::VM_SetAnimation(int argCount, VMValue* args,
     if (!self)
         return NULL_VAL;
 
-    if (self->Sprite < 0) {
-        ScriptManager::Threads[threadID].ThrowRuntimeError(false, "this.Sprite is not set!", animation);
+    ISprite* sprite = Scene::GetSpriteResource(self->Sprite);
+    if (!sprite) {
+        ScriptManager::Threads[threadID].ThrowRuntimeError(false, "Sprite is not set!", animation);
         return NULL_VAL;
     }
 
-    ISprite* sprite = Scene::SpriteList[self->Sprite]->AsSprite;
     if (!(animation >= 0 && (size_t)animation < sprite->Animations.size())) {
         ScriptManager::Threads[threadID].ThrowRuntimeError(false, "Animation %d is not in bounds of sprite.", animation);
         return NULL_VAL;
@@ -1034,12 +1150,12 @@ PUBLIC STATIC VMValue ScriptEntity::VM_ResetAnimation(int argCount, VMValue* arg
         return NULL_VAL;
 
     int spriteIns = self->Sprite;
-    if (!(spriteIns > -1 && (size_t)spriteIns < Scene::SpriteList.size())) {
+    ISprite* sprite = Scene::GetSpriteResource(spriteIns);
+    if (!sprite) {
         ScriptManager::Threads[threadID].ThrowRuntimeError(false, "Sprite %d does not exist!", spriteIns);
         return NULL_VAL;
     }
 
-    ISprite* sprite = Scene::SpriteList[self->Sprite]->AsSprite;
     if (!(animation >= 0 && (Uint32)animation < sprite->Animations.size())) {
         ScriptManager::Threads[threadID].ThrowRuntimeError(false, "Animation %d is not in bounds of sprite.", animation);
         return NULL_VAL;
@@ -1064,6 +1180,33 @@ PUBLIC STATIC VMValue ScriptEntity::VM_Animate(int argCount, VMValue* args, Uint
         self->Animate();
     return NULL_VAL;
 }
+
+/***
+ * \method GetIDWithinClass
+ * \desc Gets the ordered ID of the entity amongst other entities of the same type.
+ * \return Returns an Integer value.
+ * \ns Instance
+ */
+PUBLIC STATIC VMValue ScriptEntity::VM_GetIDWithinClass(int argCount, VMValue* args, Uint32 threadID) {
+    StandardLibrary::CheckArgCount(argCount, 1);
+    Entity* self = GET_ENTITY(0);
+    if (!self || !self->List)
+        return NULL_VAL;
+
+    Entity* other = self->List->EntityFirst;
+    int num = 0;
+
+    while (other) {
+        if (self == other)
+            break;
+
+        num++;
+        other = other->NextEntityInList;
+    }
+
+    return INTEGER_VAL(num);
+}
+
 /***
  * \method AddToRegistry
  * \desc Adds the entity to a registry.
@@ -1118,7 +1261,6 @@ PUBLIC STATIC VMValue ScriptEntity::VM_RemoveFromRegistry(int argCount, VMValue*
 /***
  * \method ApplyMotion
  * \desc Applies gravity and velocities to the entity.
- * \return
  * \ns Instance
  */
 PUBLIC STATIC VMValue ScriptEntity::VM_ApplyMotion(int argCount, VMValue* args, Uint32 threadID) {
@@ -1188,8 +1330,8 @@ PUBLIC STATIC VMValue ScriptEntity::VM_CollidedWithObject(int argCount, VMValue*
             return NULL_VAL;
     }
 
-    if (self->HitboxW == 0.0f ||
-        self->HitboxH == 0.0f) return NULL_VAL;
+    if (self->Hitbox.Width == 0.0f || self->Hitbox.Height == 0.0f)
+        return NULL_VAL;
 
     ScriptEntity* other = NULL;
     ObjectList* objectList = Scene::ObjectLists->Get(object);
@@ -1220,7 +1362,7 @@ PUBLIC STATIC VMValue ScriptEntity::VM_GetHitboxFromSprite(int argCount, VMValue
     int frame       = GET_ARG(3, GetInteger);
     int hitbox      = GET_ARG(4, GetInteger);
 
-    if (!self)
+    if (!self || !sprite)
         return NULL_VAL;
 
     if (!(animation > -1 && (size_t)animation < sprite->Animations.size())) {
@@ -1236,23 +1378,16 @@ PUBLIC STATIC VMValue ScriptEntity::VM_GetHitboxFromSprite(int argCount, VMValue
 
     if (!(hitbox > -1 && hitbox < frameO.BoxCount)) {
         // ScriptManager::Threads[threadID].ThrowRuntimeError(false, "Hitbox %d is not in bounds of frame %d.", hitbox, frame);
-        self->HitboxW = 0;
-        self->HitboxH = 0;
-        self->HitboxOffX = 0;
-        self->HitboxOffY = 0;
-        return NULL_VAL;
+        self->Hitbox.Clear();
     }
-
-    CollisionBox box = frameO.Boxes[hitbox];
-    self->HitboxW = box.Right - box.Left;
-    self->HitboxH = box.Bottom - box.Top;
-    self->HitboxOffX = box.Left + self->HitboxW * 0.5f;
-    self->HitboxOffY = box.Top + self->HitboxH * 0.5f;
+    else {
+        self->Hitbox.Set(frameO.Boxes[hitbox]);
+    }
 
     return NULL_VAL;
 }
 /***
- * \method GetHitboxFromSprite
+ * \method ReturnHitboxFromSprite
  * \desc Gets the hitbox in the specified sprite's animation, frame and hitbox ID.
  * \param sprite (Sprite): The sprite.
  * \param animation (Integer): The animation index.
@@ -1269,7 +1404,7 @@ PUBLIC STATIC VMValue ScriptEntity::VM_ReturnHitboxFromSprite(int argCount, VMVa
     int frame               = GET_ARG(3, GetInteger);
     int hitbox              = GET_ARG(4, GetInteger);
 
-    if (!self)
+    if (!self || !sprite)
         return NULL_VAL;
 
     if (!(animation > -1 && (size_t)animation < sprite->Animations.size())) {

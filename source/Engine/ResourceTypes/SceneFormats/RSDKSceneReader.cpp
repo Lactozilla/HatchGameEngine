@@ -252,12 +252,9 @@ PRIVATE STATIC SceneLayer RSDKSceneReader::ReadLayer(Stream* r) {
     if (layer.Name[0] == 'F' && layer.Name[1] == 'G')
         layer.Flags |= SceneLayer::FLAGS_COLLIDEABLE;
 
-    if (strcmp(layer.Name, "Move") == 0) {
-        layer.Flags |= SceneLayer::FLAGS_NO_REPEAT_X | SceneLayer::FLAGS_NO_REPEAT_Y;
-        // layer.Flags |= SceneLayer::FLAGS_NO_REPEAT_X | SceneLayer::FLAGS_NO_REPEAT_Y;
+    if (strcmp(layer.Name, "Move") != 0) {
+        layer.Flags |= SceneLayer::FLAGS_REPEAT_X | SceneLayer::FLAGS_REPEAT_Y;
     }
-
-    // layer.Flags |= SceneLayer::FLAGS_NO_REPEAT_X | SceneLayer::FLAGS_NO_REPEAT_Y;
 
     layer.DrawGroup = DrawGroup & 0xF;
     if (DrawGroup & 0x10)
@@ -558,16 +555,16 @@ PUBLIC STATIC bool RSDKSceneReader::Read(Stream* r, const char* parentFolder) {
     // Load Tileset and copy palette
     LoadTileset(parentFolder);
 
-    char stageConfigFilename[256];
+    const char* gameConfigFilename = "Game/GameConfig.bin";
     // Load GameConfig palettes
-    sprintf(stageConfigFilename, "Game/GameConfig.bin");
-    if (ResourceManager::ResourceExists(stageConfigFilename))
-        GameConfig_GetColors(stageConfigFilename);
+    if (ResourceManager::ResourceExists(gameConfigFilename))
+        GameConfig_GetColors(gameConfigFilename);
     else
-        Log::Print(Log::LOG_WARN, "No GameConfig at '%s'!", stageConfigFilename);
+        Log::Print(Log::LOG_WARN, "No GameConfig at '%s'!", gameConfigFilename);
 
     // Load StageConfig palettes
-    sprintf(stageConfigFilename, "%sStageConfig.bin", parentFolder);
+    char stageConfigFilename[4096];
+    snprintf(stageConfigFilename, sizeof stageConfigFilename, "%sStageConfig.bin", parentFolder);
     if (ResourceManager::ResourceExists(stageConfigFilename))
         StageConfig_GetColors(stageConfigFilename);
     else
@@ -619,6 +616,7 @@ PRIVATE STATIC void RSDKSceneReader::LoadTileset(const char* parentFolder) {
         info.Sprite = tileSprite;
         info.AnimationIndex = 0;
         info.FrameIndex = i;
+        info.TilesetID = Scene::Tilesets.size();
         Scene::TileSpriteInfos.push_back(info);
     }
 
